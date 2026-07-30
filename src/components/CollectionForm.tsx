@@ -1,13 +1,15 @@
-import { useState, type FormEvent, type ReactNode } from "react"
+import { useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
+import { ImportWordsPanel } from "@/components/ImportWordsPanel"
 import { LANG_CODES, LANGS, langLabel } from "@/lib/languages"
 import {
   emptyDraftWord,
   pairsFromDraft,
   type DraftWord,
+  type WordPair,
 } from "@/lib/collection-form"
 import type { LangCode } from "@/types"
-import { Info, Plus, Trash2 } from "lucide-react"
+import { Info, Plus, Trash2, Upload } from "lucide-react"
 
 const selectClassName =
   "h-10 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
@@ -62,16 +64,40 @@ interface CollectionFormProps {
     translationLang: LangCode
     words: Array<{ word: string; translation: string }>
   }) => void
-  footerNote?: ReactNode
 }
 
-export function CollectionForm({ initial, submitLabel, onSubmit, footerNote }: CollectionFormProps) {
+function appendImportedWords(existing: DraftWord[], pairs: WordPair[]): DraftWord[] {
+  const filled = existing.filter((w) => w.word.trim() || w.translation.trim())
+  const seen = new Set(
+    filled.map((w) => `${w.word.trim().toLowerCase()}::${w.translation.trim().toLowerCase()}`),
+  )
+  const imported: DraftWord[] = []
+  for (const pair of pairs) {
+    const word = pair.word.trim()
+    const translation = pair.translation.trim()
+    if (!word || !translation) continue
+    const key = `${word.toLowerCase()}::${translation.toLowerCase()}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    imported.push({
+      key: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${imported.length}`,
+      word,
+      translation,
+    })
+  }
+  const base = filled.length > 0 ? filled : []
+  const next = [...base, ...imported]
+  return next.length > 0 ? next : [emptyDraftWord()]
+}
+
+export function CollectionForm({ initial, submitLabel, onSubmit }: CollectionFormProps) {
   const [name, setName] = useState(initial.name)
   const [description, setDescription] = useState(initial.description)
   const [wordLang, setWordLang] = useState<LangCode>(initial.wordLang)
   const [translationLang, setTranslationLang] = useState<LangCode>(initial.translationLang)
   const [words, setWords] = useState<DraftWord[]>(initial.words)
   const [error, setError] = useState<string | null>(null)
+  const [showImport, setShowImport] = useState(false)
 
   const sameLanguage = wordLang === translationLang
 
@@ -184,7 +210,25 @@ export function CollectionForm({ initial, submitLabel, onSubmit, footerNote }: C
           <Plus className="h-4 w-4" />
           Add row
         </Button>
-        {footerNote}
+
+        {showImport ? (
+          <ImportWordsPanel
+            wordLang={wordLang}
+            translationLang={translationLang}
+            onClose={() => setShowImport(false)}
+            onImport={(pairs) => {
+              setWords((prev) => appendImportedWords(prev, pairs))
+              setShowImport(false)
+              setError(null)
+            }}
+          />
+        ) : (
+          <Button type="button" variant="outline" onClick={() => setShowImport(true)}>
+            <Upload className="h-4 w-4" />
+            Import
+          </Button>
+        )}
+
         <Button type="submit" size="lg">
           {submitLabel}
         </Button>

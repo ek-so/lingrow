@@ -3,8 +3,9 @@ import { useCollections } from "@/lib/collections-context"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { SettingsMenu } from "@/components/SettingsMenu"
+import { OverflowMenu } from "@/components/OverflowMenu"
 import { pairLabel } from "@/lib/languages"
-import { Layers, Pencil, Plus, Trash2, Upload } from "lucide-react"
+import { Layers, Plus } from "lucide-react"
 
 export default function Home() {
   const navigate = useNavigate()
@@ -33,32 +34,20 @@ export default function Home() {
                 Create lists, flip cards, and study with pronunciation.
               </p>
             </div>
-            <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-              <Button variant="outline" onClick={() => navigate("/import")}>
-                <Upload className="h-4 w-4" />
-                Import
-              </Button>
-              <Button onClick={() => navigate("/new")}>
-                <Plus className="h-4 w-4" />
-                New list
-              </Button>
-            </div>
+            <Button onClick={() => navigate("/new")} className="shrink-0">
+              <Plus className="h-4 w-4" />
+              New list
+            </Button>
           </div>
         </header>
 
         {collections.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border px-6 py-14 text-center">
             <p className="text-muted-foreground">No lists yet.</p>
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-              <Button onClick={() => navigate("/new")}>
-                <Plus className="h-4 w-4" />
-                Create your first list
-              </Button>
-              <Button variant="outline" onClick={() => navigate("/import")}>
-                <Upload className="h-4 w-4" />
-                Import
-              </Button>
-            </div>
+            <Button className="mt-4" onClick={() => navigate("/new")}>
+              <Plus className="h-4 w-4" />
+              Create your first list
+            </Button>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
@@ -72,26 +61,20 @@ export default function Home() {
                         <CardDescription className="mt-1">{c.description}</CardDescription>
                       ) : null}
                     </Link>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Edit ${c.name}`}
-                        onClick={() => navigate(`/edit/${c.id}`)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Delete ${c.name}`}
-                        onClick={() => onDelete(c.id, c.name)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
+                    <OverflowMenu
+                      label={`Actions for ${c.name}`}
+                      items={[
+                        {
+                          label: "Edit",
+                          onSelect: () => navigate(`/edit/${c.id}`),
+                        },
+                        {
+                          label: "Delete",
+                          destructive: true,
+                          onSelect: () => onDelete(c.id, c.name),
+                        },
+                      ]}
+                    />
                   </div>
                 </CardHeader>
                 <CardContent>

@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { useCollections } from "@/lib/collections-context"
 import { CollectionForm } from "@/components/CollectionForm"
 import { emptyDraftWord } from "@/lib/collection-form"
-import { ArrowLeft, Upload } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 
 export default function NewList() {
   const navigate = useNavigate()
@@ -18,7 +18,7 @@ export default function NewList() {
 
         <h1 className="mt-6 text-2xl font-semibold tracking-tight">New list</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Choose languages, then add word pairs for your cards.
+          Choose languages, then add word pairs — or import from a file or bullet list.
         </p>
 
         <div className="mt-8">
@@ -31,15 +31,6 @@ export default function NewList() {
               words: [emptyDraftWord(), emptyDraftWord(), emptyDraftWord()],
             }}
             submitLabel="Save list"
-            footerNote={
-              <Link
-                to="/import"
-                className="inline-flex items-center justify-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm font-medium hover:bg-secondary"
-              >
-                <Upload className="h-4 w-4" />
-                Import from file or text
-              </Link>
-            }
             onSubmit={(values) => {
               const created = addCollection(values)
               navigate(`/study/${created.id}`)

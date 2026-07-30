@@ -1,0 +1,216 @@
+import { useRef, useState, type ChangeEvent } from "react"
+import { Button } from "@/components/ui/button"
+import { langLabel } from "@/lib/languages"
+import { isSpreadsheetFile, parseBulletText, parseSpreadsheetFile } from "@/lib/parse-import"
+import type { WordPair } from "@/lib/collection-form"
+import type { LangCode } from "@/types"
+import { FileSpreadsheet, List, Upload, X } from "lucide-react"
+
+type ImportMode = "file" | "text"
+
+interface ImportWordsPanelProps {
+  wordLang: LangCode
+  translationLang: LangCode
+  onImport: (pairs: WordPair[]) => void
+  onClose: () => void
+}
+
+export function ImportWordsPanel({
+  wordLang,
+  translationLang,
+  onImport,
+  onClose,
+}: ImportWordsPanelProps) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [mode, setMode] = useState<ImportMode>("file")
+  const [text, setText] = useState("")
+  const [pairs, setPairs] = useState<WordPair[]>([])
+  const [fileLabel, setFileLabel] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function onFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (!file) return
+    if (!isSpreadsheetFile(file)) {
+      setError("Use an Excel (.xlsx / .xls) or CSV file with two columns.")
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const parsed = await parseSpreadsheetFile(file)
+      setPairs(parsed)
+      setFileLabel(file.name)
+      if (parsed.length === 0) {
+        setError("No word pairs found. Expect two columns: word and translation.")
+      }
+    } catch {
+      setError("Could not read that file. Try exporting as .xlsx or .csv.")
+      setPairs([])
+      setFileLabel(null)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function onParseText() {
+    const parsed = parseBulletText(text)
+    setPairs(parsed)
+    setFileLabel(null)
+    if (parsed.length === 0) {
+      setError("No pairs found. Use lines like “- apple — der Apfel” or “word - translation”.")
+    } else {
+      setError(null)
+    }
+  }
+
+  function onAdd() {
+    if (pairs.length === 0) {
+      setError("Import or paste at least one word pair first.")
+      return
+    }
+    onImport(pairs)
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-medium">Import words</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Imported pairs are added to the rows below. Existing rows stay.
+          </p>
+        </div>
+        <button
+          type="button"
+          aria-label="Close import"
+          onClick={onClose}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => setMode("file")}
+          className={`inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
+            mode === "file"
+              ? "border-primary bg-accent text-accent-foreground"
+              : "border-border hover:bg-secondary"
+          }`}
+        >
+          <FileSpreadsheet className="h-4 w-4" />
+          Excel / CSV
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("text")}
+          className={`inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
+            mode === "text"
+              ? "border-primary bg-accent text-accent-foreground"
+              : "border-border hover:bg-secondary"
+          }`}
+        >
+          <List className="h-4 w-4" />
+          Bullet text
+        </button>
+      </div>
+
+      <div className="mt-4">
+        {mode === "file" ? (
+          <div className="rounded-lg border border-dashed border-border p-4">
+            <p className="text-xs text-muted-foreground">
+              Two columns: {langLabel(wordLang)} then {langLabel(translationLang)}. Header optional.
+            </p>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+              className="hidden"
+              onChange={(e) => void onFileChange(e)}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              disabled={busy}
+              onClick={() => fileRef.current?.click()}
+            >
+              <Upload className="h-4 w-4" />
+              {busy ? "Reading…" : "Choose file"}
+            </Button>
+            {fileLabel ? <p className="mt-2 text-xs text-muted-foreground">{fileLabel}</p> : null}
+          </div>
+        ) : (
+          <div>
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              rows={7}
+              placeholder={"- the apple — der Apfel\n- to run — laufen\n- fast - schnell"}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              One pair per line. Bullets optional. Separators: —, –, -, :, =, or tab.
+            </p>
+            <Button type="button" variant="outline" size="sm" className="mt-3" onClick={onParseText}>
+              Parse text
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {pairs.length > 0 ? (
+        <div className="mt-4">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-medium">Preview · {pairs.length} pairs</span>
+            <button
+              type="button"
+              className="text-xs text-muted-foreground underline hover:text-foreground"
+              onClick={() => {
+                setPairs([])
+                setFileLabel(null)
+              }}
+            >
+              Clear
+            </button>
+          </div>
+          <div className="mt-2 max-h-40 overflow-auto rounded-lg border border-border">
+            <table className="w-full text-left text-sm">
+              <thead className="sticky top-0 bg-secondary text-xs text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-medium">{langLabel(wordLang)}</th>
+                  <th className="px-3 py-2 font-medium">{langLabel(translationLang)}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pairs.slice(0, 30).map((p, i) => (
+                  <tr key={`${p.word}-${i}`} className="border-t border-border">
+                    <td className="px-3 py-2">{p.word}</td>
+                    <td className="px-3 py-2">{p.translation}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {pairs.length > 30 ? (
+              <p className="border-t border-border px-3 py-2 text-xs text-muted-foreground">
+                Showing first 30 of {pairs.length}.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
+
+      <Button type="button" className="mt-4 w-full" disabled={pairs.length === 0} onClick={onAdd}>
+        Add {pairs.length > 0 ? `${pairs.length} ` : ""}to list
+      </Button>
+    </div>
+  )
+}
