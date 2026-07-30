@@ -7,23 +7,37 @@ import {
   saveCollections,
   saveSettings,
 } from "@/lib/storage"
+import type { WordPair } from "@/lib/collection-form"
+
+interface CollectionFields {
+  name: string
+  description?: string
+  wordLang: LangCode
+  translationLang: LangCode
+  words: WordPair[]
+}
 
 interface CollectionsContextValue {
   collections: Collection[]
   settings: AppSettings
   getCollection: (id: string) => Collection | undefined
-  addCollection: (input: {
-    name: string
-    description?: string
-    wordLang: LangCode
-    translationLang: LangCode
-    words: Array<Pick<Word, "word" | "translation">>
-  }) => Collection
+  addCollection: (input: CollectionFields) => Collection
+  updateCollection: (id: string, input: CollectionFields) => Collection | undefined
   deleteCollection: (id: string) => void
   setPronounceFirst: (value: PronounceFirst) => void
 }
 
 const CollectionsContext = createContext<CollectionsContextValue | null>(null)
+
+function normalizeWords(words: WordPair[]): Word[] {
+  return words
+    .map((w) => ({
+      id: newId("w"),
+      word: w.word.trim(),
+      translation: w.translation.trim(),
+    }))
+    .filter((w) => w.word && w.translation)
+}
 
 export function CollectionsProvider({ children }: { children: ReactNode }) {
   const [collections, setCollections] = useState<Collection[]>(() => loadCollections())
@@ -33,26 +47,14 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
     return collections.find((c) => c.id === id)
   }
 
-  function addCollection(input: {
-    name: string
-    description?: string
-    wordLang: LangCode
-    translationLang: LangCode
-    words: Array<Pick<Word, "word" | "translation">>
-  }) {
+  function addCollection(input: CollectionFields) {
     const collection: Collection = {
       id: newId("list"),
       name: input.name.trim(),
       description: (input.description ?? "").trim(),
       wordLang: input.wordLang,
       translationLang: input.translationLang,
-      words: input.words
-        .map((w) => ({
-          id: newId("w"),
-          word: w.word.trim(),
-          translation: w.translation.trim(),
-        }))
-        .filter((w) => w.word && w.translation),
+      words: normalizeWords(input.words),
     }
     setCollections((prev) => {
       const next = [collection, ...prev]
@@ -60,6 +62,27 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
       return next
     })
     return collection
+  }
+
+  function updateCollection(id: string, input: CollectionFields) {
+    let updated: Collection | undefined
+    setCollections((prev) => {
+      const next = prev.map((c) => {
+        if (c.id !== id) return c
+        updated = {
+          ...c,
+          name: input.name.trim(),
+          description: (input.description ?? "").trim(),
+          wordLang: input.wordLang,
+          translationLang: input.translationLang,
+          words: normalizeWords(input.words),
+        }
+        return updated
+      })
+      saveCollections(next)
+      return next
+    })
+    return updated
   }
 
   function deleteCollection(id: string) {
@@ -85,6 +108,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
         settings,
         getCollection,
         addCollection,
+        updateCollection,
         deleteCollection,
         setPronounceFirst,
       }}
