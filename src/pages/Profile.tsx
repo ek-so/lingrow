@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
@@ -19,18 +20,30 @@ export default function Profile() {
   const {
     status,
     user,
-    configured,
+    clientId,
+    setClientId,
+    clientIdLockedByEnv,
     error,
     syncing,
     spreadsheetUrl,
+    signingIn,
     signIn,
     signOut,
   } = useAuth()
   const { settings, setPronounceFirst, syncStatus, syncError, refreshFromCloud } =
     useCollections()
+  const [draftId, setDraftId] = useState(clientId)
+
+  useEffect(() => {
+    setDraftId(clientId)
+  }, [clientId])
 
   function onPronounceChange(value: PronounceFirst) {
     setPronounceFirst(value)
+  }
+
+  function saveClientId() {
+    setClientId(draftId)
   }
 
   const signedIn = status === "signed_in" && user
@@ -106,11 +119,39 @@ export default function Profile() {
 
             {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
             {syncError ? <p className="mt-3 text-sm text-destructive">{syncError}</p> : null}
-            {!configured ? (
-              <p className="mt-3 text-sm text-muted-foreground">
-                Set <code className="rounded bg-secondary px-1 py-0.5 text-xs">VITE_GOOGLE_CLIENT_ID</code>{" "}
-                in the environment to enable Google sign-in.
-              </p>
+
+            {!clientIdLockedByEnv ? (
+              <div className="mt-4">
+                <label htmlFor="profile-google-client-id" className="text-sm font-medium">
+                  Google OAuth client ID
+                </label>
+                <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    id="profile-google-client-id"
+                    type="text"
+                    value={draftId}
+                    onChange={(e) => setDraftId(e.target.value)}
+                    placeholder="123….apps.googleusercontent.com"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={saveClientId}
+                    disabled={draftId.trim() === clientId}
+                  >
+                    Save
+                  </Button>
+                </div>
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  In Google Cloud Console: create an OAuth <strong>Web</strong> client, enable
+                  Sheets + Drive APIs, and add this site (and localhost) under Authorized JavaScript
+                  origins.
+                </p>
+              </div>
             ) : null}
 
             <div className="mt-4 flex flex-wrap gap-2">
@@ -147,13 +188,16 @@ export default function Profile() {
               ) : (
                 <Button
                   type="button"
-                  disabled={!configured || status === "loading"}
+                  disabled={signingIn}
                   onClick={() => {
+                    if (!clientIdLockedByEnv && draftId.trim() !== clientId) {
+                      setClientId(draftId)
+                    }
                     void signIn().catch(() => undefined)
                   }}
                 >
                   <LogIn className="h-4 w-4" />
-                  {status === "loading" ? "Connecting…" : "Sign in with Google"}
+                  {signingIn ? "Connecting…" : "Sign in with Google"}
                 </Button>
               )}
             </div>
