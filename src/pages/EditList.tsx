@@ -1,0 +1,57 @@
+import { Link, useNavigate, useParams } from "react-router-dom"
+import { useCollections } from "@/lib/collections-context"
+import { CollectionForm } from "@/components/CollectionForm"
+import { draftFromWords } from "@/lib/collection-form"
+import { ArrowLeft } from "lucide-react"
+
+export default function EditList() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const { getCollection, updateCollection } = useCollections()
+  const collection = id ? getCollection(id) : undefined
+
+  if (!collection) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <p className="text-muted-foreground">Collection not found.</p>
+          <Link to="/" className="text-primary underline mt-2 inline-block">
+            Back home
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto max-w-2xl px-5 py-6">
+        <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4" />
+          Collections
+        </Link>
+
+        <h1 className="mt-6 text-2xl font-semibold tracking-tight">Edit list</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Update languages, name, or word pairs.</p>
+
+        <div className="mt-8">
+          <CollectionForm
+            key={collection.id}
+            initial={{
+              name: collection.name,
+              description: collection.description,
+              wordLang: collection.wordLang,
+              translationLang: collection.translationLang,
+              words: draftFromWords(collection.words),
+            }}
+            submitLabel="Save changes"
+            onSubmit={(values) => {
+              updateCollection(collection.id, values)
+              navigate(`/study/${collection.id}`)
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
