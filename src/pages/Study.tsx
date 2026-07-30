@@ -4,8 +4,9 @@ import { useCollections } from "@/lib/collections-context"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { FlipCard } from "@/components/FlipCard"
+import { LANGS, langLabel, pairLabel } from "@/lib/languages"
 import { ArrowLeft, Pause, Play, SkipBack, SkipForward } from "lucide-react"
-import type { PronounceFirst } from "@/types"
+import type { Collection, PronounceFirst, Word } from "@/types"
 
 type SpeakPhase = "first" | "second" | "pause"
 
@@ -41,7 +42,6 @@ export default function Study() {
     }
   }, [])
 
-  // Keep the visible face in sync with what’s being spoken during autoplay.
   useEffect(() => {
     if (!playing) return
     setFlipped(phase === "second" || phase === "pause")
@@ -50,31 +50,45 @@ export default function Study() {
   function speak(text: string, lang: string, onEnd: () => void) {
     const utter = new SpeechSynthesisUtterance(text)
     utter.lang = lang
-    const voice = voicesRef.current.find((v) => v.lang.toLowerCase().startsWith(lang.toLowerCase()))
+    const prefix = lang.toLowerCase().slice(0, 2)
+    const voice =
+      voicesRef.current.find((v) => v.lang.toLowerCase().startsWith(lang.toLowerCase())) ??
+      voicesRef.current.find((v) => v.lang.toLowerCase().startsWith(prefix))
     if (voice) utter.voice = voice
     utter.rate = 0.95
     utter.onend = onEnd
     window.speechSynthesis.speak(utter)
   }
 
-  function sidesForWord(word: { de: string; en: string }) {
+  function sidesForWord(collection: Collection, word: Word) {
+    const wordSide = {
+      text: word.word,
+      lang: LANGS[collection.wordLang].speech,
+      hint: `${langLabel(collection.wordLang)} · Word`,
+    }
+    const translationSide = {
+      text: word.translation,
+      lang: LANGS[collection.translationLang].speech,
+      hint: `${langLabel(collection.translationLang)} · Translation`,
+    }
+
     if (pronounceFirst === "translation") {
       return {
-        first: { text: word.en, lang: "en-US", label: "English" },
-        second: { text: word.de, lang: "de-DE", label: "German" },
-        frontText: word.en,
-        backText: word.de,
-        frontHint: "Translation",
-        backHint: "Word",
+        first: translationSide,
+        second: wordSide,
+        frontText: translationSide.text,
+        backText: wordSide.text,
+        frontHint: translationSide.hint,
+        backHint: wordSide.hint,
       }
     }
     return {
-      first: { text: word.de, lang: "de-DE", label: "German" },
-      second: { text: word.en, lang: "en-US", label: "English" },
-      frontText: word.de,
-      backText: word.en,
-      frontHint: "Word",
-      backHint: "Translation",
+      first: wordSide,
+      second: translationSide,
+      frontText: wordSide.text,
+      backText: translationSide.text,
+      frontHint: wordSide.hint,
+      backHint: translationSide.hint,
     }
   }
 
@@ -82,7 +96,7 @@ export default function Study() {
     if (!playing || !collection) return
     const word = collection.words[index]
     if (!word) return
-    const sides = sidesForWord(word)
+    const sides = sidesForWord(collection, word)
 
     if (phase === "first") {
       speak(sides.first.text, sides.first.lang, () => {
@@ -134,7 +148,7 @@ export default function Study() {
   }
 
   const word = collection.words[index]
-  const sides = sidesForWord(word)
+  const sides = sidesForWord(collection, word)
   const progressPct = ((index + (phase === "pause" ? 1 : 0)) / collection.words.length) * 100
 
   function stopSpeech() {
@@ -171,7 +185,7 @@ export default function Study() {
             Collections
           </Link>
           <span className="text-sm text-muted-foreground">
-            {index + 1} / {collection.words.length}
+            {pairLabel(collection.wordLang, collection.translationLang)} · {index + 1} / {collection.words.length}
           </span>
         </div>
 
@@ -223,8 +237,11 @@ export default function Study() {
         </div>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Pronouncing {pronounceFirst === "word" ? "word → translation" : "translation → word"}. Change this on the
-          home screen. Keep the screen on while studying.
+          Pronouncing{" "}
+          {pronounceFirst === "word"
+            ? `${langLabel(collection.wordLang)} → ${langLabel(collection.translationLang)}`
+            : `${langLabel(collection.translationLang)} → ${langLabel(collection.wordLang)}`}
+          . Change order on the home screen. Keep the screen on while studying.
         </p>
       </div>
     </div>

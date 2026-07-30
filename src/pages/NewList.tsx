@@ -2,20 +2,59 @@ import { useState, type FormEvent } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useCollections } from "@/lib/collections-context"
 import { Button } from "@/components/ui/button"
+import { LANG_CODES, LANGS, langLabel, otherLangs } from "@/lib/languages"
+import type { LangCode } from "@/types"
 import { ArrowLeft, Plus, Trash2 } from "lucide-react"
 
 interface DraftWord {
   key: string
-  de: string
-  en: string
+  word: string
+  translation: string
 }
 
 function emptyWord(): DraftWord {
   return {
     key: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    de: "",
-    en: "",
+    word: "",
+    translation: "",
   }
+}
+
+function LangPicker({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string
+  value: LangCode
+  options: LangCode[]
+  onChange: (code: LangCode) => void
+}) {
+  return (
+    <div>
+      <p className="text-sm font-medium">{label}</p>
+      <div
+        className={`mt-2 grid gap-2 ${options.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}
+      >
+        {options.map((code) => (
+          <button
+            key={code}
+            type="button"
+            onClick={() => onChange(code)}
+            className={`rounded-lg border px-2 py-2.5 text-center text-sm transition-colors ${
+              value === code
+                ? "border-primary bg-accent text-accent-foreground"
+                : "border-border hover:bg-secondary"
+            }`}
+          >
+            <span className="font-medium">{LANGS[code].short}</span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">{LANGS[code].name}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 export default function NewList() {
@@ -23,10 +62,21 @@ export default function NewList() {
   const { addCollection } = useCollections()
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
+  const [wordLang, setWordLang] = useState<LangCode>("de")
+  const [translationLang, setTranslationLang] = useState<LangCode>("en")
   const [words, setWords] = useState<DraftWord[]>([emptyWord(), emptyWord(), emptyWord()])
   const [error, setError] = useState<string | null>(null)
 
-  function updateWord(key: string, field: "de" | "en", value: string) {
+  const translationOptions = otherLangs(wordLang)
+
+  function onWordLangChange(code: LangCode) {
+    setWordLang(code)
+    if (code === translationLang) {
+      setTranslationLang(otherLangs(code)[0])
+    }
+  }
+
+  function updateWord(key: string, field: "word" | "translation", value: string) {
     setWords((prev) => prev.map((w) => (w.key === key ? { ...w, [field]: value } : w)))
   }
 
@@ -37,19 +87,25 @@ export default function NewList() {
   function onSubmit(e: FormEvent) {
     e.preventDefault()
     const trimmedName = name.trim()
-    const validWords = words.filter((w) => w.de.trim() && w.en.trim())
+    const validWords = words.filter((w) => w.word.trim() && w.translation.trim())
     if (!trimmedName) {
       setError("Give your list a name.")
       return
     }
+    if (wordLang === translationLang) {
+      setError("Pick two different languages.")
+      return
+    }
     if (validWords.length === 0) {
-      setError("Add at least one word with both German and English.")
+      setError(`Add at least one pair with both ${langLabel(wordLang)} and ${langLabel(translationLang)}.`)
       return
     }
     const created = addCollection({
       name: trimmedName,
       description,
-      words: validWords.map((w) => ({ de: w.de, en: w.en })),
+      wordLang,
+      translationLang,
+      words: validWords.map((w) => ({ word: w.word, translation: w.translation })),
     })
     navigate(`/study/${created.id}`)
   }
@@ -63,7 +119,9 @@ export default function NewList() {
         </Link>
 
         <h1 className="mt-6 text-2xl font-semibold tracking-tight">New list</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Add German words and their English translations.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Choose the word language and what it translates into, then add pairs.
+        </p>
 
         <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-6">
           <label className="flex flex-col gap-1.5">
@@ -86,6 +144,21 @@ export default function NewList() {
             />
           </label>
 
+          <section className="rounded-xl border border-border bg-card p-4 flex flex-col gap-4">
+            <LangPicker
+              label="Word language"
+              value={wordLang}
+              options={LANG_CODES}
+              onChange={onWordLangChange}
+            />
+            <LangPicker
+              label="Translates into"
+              value={translationLang}
+              options={translationOptions}
+              onChange={setTranslationLang}
+            />
+          </section>
+
           <div>
             <div className="mb-3 flex items-center justify-between">
               <span className="text-sm font-medium">Words</span>
@@ -98,17 +171,17 @@ export default function NewList() {
               {words.map((w, i) => (
                 <div key={w.key} className="grid grid-cols-[1fr_1fr_auto] gap-2">
                   <input
-                    value={w.de}
-                    onChange={(e) => updateWord(w.key, "de", e.target.value)}
-                    placeholder={i === 0 ? "German" : undefined}
-                    aria-label="German"
+                    value={w.word}
+                    onChange={(e) => updateWord(w.key, "word", e.target.value)}
+                    placeholder={i === 0 ? langLabel(wordLang) : undefined}
+                    aria-label={langLabel(wordLang)}
                     className="h-10 rounded-md border border-input bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
                   />
                   <input
-                    value={w.en}
-                    onChange={(e) => updateWord(w.key, "en", e.target.value)}
-                    placeholder={i === 0 ? "English" : undefined}
-                    aria-label="English"
+                    value={w.translation}
+                    onChange={(e) => updateWord(w.key, "translation", e.target.value)}
+                    placeholder={i === 0 ? langLabel(translationLang) : undefined}
+                    aria-label={langLabel(translationLang)}
                     className="h-10 rounded-md border border-input bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
                   />
                   <Button

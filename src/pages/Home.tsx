@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { useCollections } from "@/lib/collections-context"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { pairLabel } from "@/lib/languages"
 import { BookOpen, Layers, Plus, Trash2 } from "lucide-react"
 import type { PronounceFirst } from "@/types"
 
@@ -43,7 +44,7 @@ export default function Home() {
         <section className="mb-8 rounded-xl border border-border bg-card p-4">
           <h2 className="text-sm font-medium">Pronounce first</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Choose what the voice says first when you hit Play.
+            Global study order. Each list still chooses its own language pair.
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
@@ -56,7 +57,7 @@ export default function Home() {
               }`}
             >
               <span className="font-medium">Word</span>
-              <span className="mt-0.5 block text-xs text-muted-foreground">German → English</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">Word → translation</span>
             </button>
             <button
               type="button"
@@ -68,7 +69,7 @@ export default function Home() {
               }`}
             >
               <span className="font-medium">Translation</span>
-              <span className="mt-0.5 block text-xs text-muted-foreground">English → German</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">Translation → word</span>
             </button>
           </div>
         </section>
@@ -109,10 +110,11 @@ export default function Home() {
                 </CardHeader>
                 <CardContent>
                   <Link to={`/study/${c.id}`} className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    <span className="rounded-full bg-accent px-2.5 py-1 text-accent-foreground font-medium">
+                      {pairLabel(c.wordLang, c.translationLang)}
+                    </span>
                     {c.level && (
-                      <span className="rounded-full bg-accent px-2.5 py-1 text-accent-foreground font-medium">
-                        {c.level}
-                      </span>
+                      <span className="rounded-full bg-secondary px-2.5 py-1 font-medium">{c.level}</span>
                     )}
                     {c.theme && <span className="rounded-full bg-secondary px-2.5 py-1">{c.theme}</span>}
                     <span className="rounded-full bg-secondary px-2.5 py-1">{c.words.length} words</span>
