@@ -1,15 +1,16 @@
 import { Link, useNavigate } from "react-router-dom"
 import { useCollections } from "@/lib/collections-context"
+import { useAuth } from "@/lib/auth-context"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { SettingsMenu } from "@/components/SettingsMenu"
 import { OverflowMenu } from "@/components/OverflowMenu"
 import { pairLabel } from "@/lib/languages"
-import { Layers, Plus } from "lucide-react"
+import { Layers, Plus, UserRound } from "lucide-react"
 
 export default function Home() {
   const navigate = useNavigate()
   const { collections, deleteCollection } = useCollections()
+  const { user, status } = useAuth()
 
   function onDelete(id: string, name: string) {
     if (!window.confirm(`Delete “${name}”? This can’t be undone.`)) return
@@ -25,7 +26,23 @@ export default function Home() {
               <Layers className="h-5 w-5" />
               <span className="text-sm font-medium tracking-wide uppercase">Lingrow</span>
             </div>
-            <SettingsMenu />
+            <button
+              type="button"
+              aria-label="Profile"
+              onClick={() => navigate("/profile")}
+              className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              {user?.picture && status === "signed_in" ? (
+                <img
+                  src={user.picture}
+                  alt=""
+                  className="h-8 w-8 rounded-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <UserRound className="h-5 w-5" />
+              )}
+            </button>
           </div>
           <div className="mt-2 flex items-start justify-between gap-3">
             <div>

@@ -1,32 +1,15 @@
-# React + TypeScript + Vite
+# Lingrow
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Flashcard-style vocabulary collections with pronunciation practice.
 
-Currently, two official plugins are available:
+## Google sync
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Sign in with Google to store collections in a **Lingrow Collections** spreadsheet in your Drive (Sheets). Settings are stored per Google user. Without sign-in, data stays in browser local storage.
 
-## React Compiler
+1. Create an OAuth **Web** client ID in Google Cloud Console.
+2. Enable **Google Sheets API** and **Google Drive API**.
+3. Add authorized JavaScript origins (e.g. `http://localhost:5173`, `https://ek-so.github.io`).
+4. Copy `.env.example` to `.env.local` and set `VITE_GOOGLE_CLIENT_ID`.
+5. For GitHub Pages deploy, add the same variable as a repository secret and pass it into the build step.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+On first visit, Lingrow suggests signing in so collections can sync to Google; you can continue locally instead.

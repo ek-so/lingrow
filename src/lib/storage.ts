@@ -89,23 +89,38 @@ export function saveCollections(collections: Collection[]) {
   localStorage.setItem(COLLECTIONS_KEY, JSON.stringify(collections))
 }
 
-export function loadSettings(): AppSettings {
+function settingsKeyForUser(userId?: string | null) {
+  return userId ? `${SETTINGS_KEY}.${userId}` : SETTINGS_KEY
+}
+
+function parseSettings(raw: string | null): AppSettings {
+  if (!raw) return { ...defaultSettings }
+  const parsed = JSON.parse(raw) as Partial<AppSettings>
+  const pronounceFirst: PronounceFirst =
+    parsed.pronounceFirst === "word" ? "word" : "translation"
+  return { pronounceFirst }
+}
+
+/** Load settings for a Google user (or the anonymous local profile). */
+export function loadSettings(userId?: string | null): AppSettings {
   if (!canUseStorage()) return { ...defaultSettings }
   try {
-    const raw = localStorage.getItem(SETTINGS_KEY)
-    if (!raw) return { ...defaultSettings }
-    const parsed = JSON.parse(raw) as Partial<AppSettings>
-    const pronounceFirst: PronounceFirst =
-      parsed.pronounceFirst === "word" ? "word" : "translation"
-    return { pronounceFirst }
+    const keyed = localStorage.getItem(settingsKeyForUser(userId))
+    if (keyed) return parseSettings(keyed)
+    // Fall back to anonymous settings when a user first signs in.
+    if (userId) {
+      const anon = localStorage.getItem(SETTINGS_KEY)
+      if (anon) return parseSettings(anon)
+    }
+    return { ...defaultSettings }
   } catch {
     return { ...defaultSettings }
   }
 }
 
-export function saveSettings(settings: AppSettings) {
+export function saveSettings(settings: AppSettings, userId?: string | null) {
   if (!canUseStorage()) return
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+  localStorage.setItem(settingsKeyForUser(userId), JSON.stringify(settings))
 }
 
 export function newId(prefix = "id") {
