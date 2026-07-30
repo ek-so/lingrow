@@ -2,29 +2,29 @@ import { Link, useNavigate } from "react-router-dom"
 import { useCollections } from "@/lib/collections-context"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { SettingsMenu } from "@/components/SettingsMenu"
+import { pairLabel } from "@/lib/languages"
 import { BookOpen, Layers, Plus, Trash2 } from "lucide-react"
-import type { PronounceFirst } from "@/types"
 
 export default function Home() {
   const navigate = useNavigate()
-  const { collections, settings, deleteCollection, setPronounceFirst } = useCollections()
+  const { collections, deleteCollection } = useCollections()
 
   function onDelete(id: string, name: string) {
     if (!window.confirm(`Delete “${name}”? This can’t be undone.`)) return
     deleteCollection(id)
   }
 
-  function onPronounceChange(value: PronounceFirst) {
-    setPronounceFirst(value)
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-2xl px-5 py-10">
         <header className="mb-8">
-          <div className="flex items-center gap-2 text-primary">
-            <Layers className="h-5 w-5" />
-            <span className="text-sm font-medium tracking-wide uppercase">Lingrow</span>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-primary">
+              <Layers className="h-5 w-5" />
+              <span className="text-sm font-medium tracking-wide uppercase">Lingrow</span>
+            </div>
+            <SettingsMenu />
           </div>
           <div className="mt-2 flex items-start justify-between gap-3">
             <div>
@@ -39,39 +39,6 @@ export default function Home() {
             </Button>
           </div>
         </header>
-
-        <section className="mb-8 rounded-xl border border-border bg-card p-4">
-          <h2 className="text-sm font-medium">Pronounce first</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Choose what the voice says first when you hit Play.
-          </p>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => onPronounceChange("word")}
-              className={`rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
-                settings.pronounceFirst === "word"
-                  ? "border-primary bg-accent text-accent-foreground"
-                  : "border-border hover:bg-secondary"
-              }`}
-            >
-              <span className="font-medium">Word</span>
-              <span className="mt-0.5 block text-xs text-muted-foreground">German → English</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onPronounceChange("translation")}
-              className={`rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
-                settings.pronounceFirst === "translation"
-                  ? "border-primary bg-accent text-accent-foreground"
-                  : "border-border hover:bg-secondary"
-              }`}
-            >
-              <span className="font-medium">Translation</span>
-              <span className="mt-0.5 block text-xs text-muted-foreground">English → German</span>
-            </button>
-          </div>
-        </section>
 
         {collections.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border px-6 py-14 text-center">
@@ -109,10 +76,11 @@ export default function Home() {
                 </CardHeader>
                 <CardContent>
                   <Link to={`/study/${c.id}`} className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    <span className="rounded-full bg-accent px-2.5 py-1 text-accent-foreground font-medium">
+                      {pairLabel(c.wordLang, c.translationLang)}
+                    </span>
                     {c.level && (
-                      <span className="rounded-full bg-accent px-2.5 py-1 text-accent-foreground font-medium">
-                        {c.level}
-                      </span>
+                      <span className="rounded-full bg-secondary px-2.5 py-1 font-medium">{c.level}</span>
                     )}
                     {c.theme && <span className="rounded-full bg-secondary px-2.5 py-1">{c.theme}</span>}
                     <span className="rounded-full bg-secondary px-2.5 py-1">{c.words.length} words</span>

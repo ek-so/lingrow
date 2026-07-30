@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from "react"
-import type { AppSettings, Collection, PronounceFirst, Word } from "@/types"
+import type { AppSettings, Collection, LangCode, PronounceFirst, Word } from "@/types"
 import {
   loadCollections,
   loadSettings,
@@ -15,7 +15,9 @@ interface CollectionsContextValue {
   addCollection: (input: {
     name: string
     description?: string
-    words: Array<Pick<Word, "de" | "en">>
+    wordLang: LangCode
+    translationLang: LangCode
+    words: Array<Pick<Word, "word" | "translation">>
   }) => Collection
   deleteCollection: (id: string) => void
   setPronounceFirst: (value: PronounceFirst) => void
@@ -34,19 +36,26 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
   function addCollection(input: {
     name: string
     description?: string
-    words: Array<Pick<Word, "de" | "en">>
+    wordLang: LangCode
+    translationLang: LangCode
+    words: Array<Pick<Word, "word" | "translation">>
   }) {
+    if (input.wordLang === input.translationLang) {
+      throw new Error("Word and translation languages must differ")
+    }
     const collection: Collection = {
       id: newId("list"),
       name: input.name.trim(),
       description: (input.description ?? "").trim(),
+      wordLang: input.wordLang,
+      translationLang: input.translationLang,
       words: input.words
         .map((w) => ({
           id: newId("w"),
-          de: w.de.trim(),
-          en: w.en.trim(),
+          word: w.word.trim(),
+          translation: w.translation.trim(),
         }))
-        .filter((w) => w.de && w.en),
+        .filter((w) => w.word && w.translation),
     }
     setCollections((prev) => {
       const next = [collection, ...prev]
