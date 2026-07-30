@@ -45,20 +45,38 @@ interface CollectionsContextValue {
   updateCollection: (id: string, input: CollectionFields) => Collection | undefined
   deleteCollection: (id: string) => void
   setPronounceFirst: (value: PronounceFirst) => void
+  /** Pull spreadsheet → app (edits made in Google Sheets). */
   refreshFromCloud: () => Promise<void>
+  /** Push app → spreadsheet (full snapshot; deletes removed rows). */
+  pushToCloudNow: () => Promise<void>
+  /** Push local snapshot, then pull back — full two-way sync. */
+  syncWithGoogle: () => Promise<void>
 }
 
 const CollectionsContext = createContext<CollectionsContextValue | null>(null)
 
-function normalizeWords(words: WordPair[]): Word[] {
+const PUSH_DEBOUNCE_MS = 500
+
+function normalizeWords(words: WordPair[], previous?: Word[]): Word[] {
+  const prevById = new Map((previous ?? []).map((w) => [w.id, w]))
   return words
-    .map((w) => ({
-      id: newId("w"),
-      word: w.word.trim(),
-      translation: w.translation.trim(),
-      examples: normalizeExamples(w.examples),
-    }))
+    .map((w) => {
+      const word = w.word.trim()
+      const translation = w.translation.trim()
+      const existing = w.id && prevById.has(w.id) ? prevById.get(w.id) : undefined
+      return {
+        id: existing?.id ?? newId("w"),
+        word,
+        translation,
+        examples: normalizeExamples(w.examples),
+      }
+    })
     .filter((w) => w.word && w.translation)
+}
+
+type PushPayload = {
+  collections: Collection[]
+  settings: AppSettings
 }
 
 export function CollectionsProvider({ children }: { children: ReactNode }) {
@@ -83,6 +101,9 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
 
   const pushTimer = useRef<number | null>(null)
   const cloudReady = useRef(false)
+  const pushInFlight = useRef(false)
+  const queuedPush = useRef<PushPayload | null>(null)
+  const suppressAutoPush = useRef(false)
 
   // Reload local settings when the signed-in user changes.
   useEffect(() => {
@@ -101,15 +122,15 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
     [getAccessToken]
   )
 
-  const pushToCloud = useCallback(
-    async (nextCollections: Collection[], nextSettings: AppSettings) => {
+  const runPush = useCallback(
+    async (payload: PushPayload) => {
       if (authStatus !== "signed_in" || !user) return
       setSyncStatus("syncing")
       setSyncing(true)
       setSyncError(null)
       try {
         const result = await withFreshToken((token) =>
-          saveCloudBundle(token, user.id, nextCollections, nextSettings)
+          saveCloudBundle(token, user.id, payload.collections, payload.settings)
         )
         setSpreadsheetUrl(result.spreadsheetUrl)
         setSyncStatus("idle")
@@ -117,6 +138,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
         const msg = e instanceof Error ? e.message : "Cloud sync failed"
         setSyncError(msg)
         setSyncStatus("error")
+        throw e
       } finally {
         setSyncing(false)
       }
@@ -124,22 +146,63 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
     [authStatus, user, withFreshToken, setSyncing, setSpreadsheetUrl]
   )
 
+  const flushPushQueue = useCallback(async () => {
+    if (pushInFlight.current) return
+    if (authStatus !== "signed_in" || !user || !cloudReady.current) return
+
+    let lastError: unknown = null
+    while (queuedPush.current) {
+      const payload = queuedPush.current
+      queuedPush.current = null
+      pushInFlight.current = true
+      try {
+        await runPush(payload)
+        lastError = null
+      } catch (e) {
+        lastError = e
+        // Keep the failed payload queued for a later retry / manual sync.
+        if (!queuedPush.current) queuedPush.current = payload
+        break
+      } finally {
+        pushInFlight.current = false
+      }
+    }
+    if (lastError) throw lastError
+  }, [authStatus, user, runPush])
+
   const schedulePush = useCallback(
     (nextCollections: Collection[], nextSettings: AppSettings) => {
       if (authStatus !== "signed_in" || !user || !cloudReady.current) return
+      if (suppressAutoPush.current) return
+      queuedPush.current = { collections: nextCollections, settings: nextSettings }
       if (pushTimer.current) window.clearTimeout(pushTimer.current)
       pushTimer.current = window.setTimeout(() => {
-        void pushToCloud(nextCollections, nextSettings)
-      }, 700)
+        void flushPushQueue()
+      }, PUSH_DEBOUNCE_MS)
     },
-    [authStatus, user, pushToCloud]
+    [authStatus, user, flushPushQueue]
   )
+
+  const pushToCloudNow = useCallback(async () => {
+    if (authStatus !== "signed_in" || !user) return
+    if (pushTimer.current) {
+      window.clearTimeout(pushTimer.current)
+      pushTimer.current = null
+    }
+    queuedPush.current = {
+      collections: collectionsRef.current,
+      settings: settingsRef.current,
+    }
+    cloudReady.current = true
+    await flushPushQueue()
+  }, [authStatus, user, flushPushQueue])
 
   const refreshFromCloud = useCallback(async () => {
     if (!user) return
     setSyncStatus("syncing")
     setSyncing(true)
     setSyncError(null)
+    suppressAutoPush.current = true
     try {
       await withFreshToken(async (token) => {
         const bundle = await loadCloudBundle(token, user.id)
@@ -147,9 +210,11 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
 
         if (cloudHasData(bundle)) {
           setCollections(bundle.collections)
+          collectionsRef.current = bundle.collections
           saveCollections(bundle.collections)
           if (bundle.settings) {
             setSettings(bundle.settings)
+            settingsRef.current = bundle.settings
             saveSettings(bundle.settings, user.id)
           }
         } else {
@@ -167,28 +232,51 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
       setSyncError(msg)
       setSyncStatus("error")
       cloudReady.current = true
+      throw e
     } finally {
+      suppressAutoPush.current = false
       setSyncing(false)
     }
   }, [user, withFreshToken, setSyncing, setSpreadsheetUrl])
 
+  const syncWithGoogle = useCallback(async () => {
+    if (!user) return
+    // App → sheet first so deletes/creates land, then sheet → app for a clean round-trip.
+    await pushToCloudNow()
+    await refreshFromCloud()
+  }, [user, pushToCloudNow, refreshFromCloud])
+
   useEffect(() => {
     if (authStatus === "signed_in" && user) {
       cloudReady.current = false
-      void refreshFromCloud()
+      void refreshFromCloud().catch(() => undefined)
     } else {
       cloudReady.current = false
+      queuedPush.current = null
       setSyncStatus("local")
       setSyncError(null)
       setSpreadsheetUrl(null)
     }
   }, [authStatus, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Flush pending uploads when the tab hides so deletes aren't lost mid-debounce.
   useEffect(() => {
+    function onHide() {
+      if (document.visibilityState !== "hidden") return
+      if (pushTimer.current) {
+        window.clearTimeout(pushTimer.current)
+        pushTimer.current = null
+      }
+      void flushPushQueue()
+    }
+    document.addEventListener("visibilitychange", onHide)
+    window.addEventListener("pagehide", onHide)
     return () => {
+      document.removeEventListener("visibilitychange", onHide)
+      window.removeEventListener("pagehide", onHide)
       if (pushTimer.current) window.clearTimeout(pushTimer.current)
     }
-  }, [])
+  }, [flushPushQueue])
 
   function getCollection(id: string) {
     return collections.find((c) => c.id === id)
@@ -223,7 +311,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
           description: (input.description ?? "").trim(),
           wordLang: input.wordLang,
           translationLang: input.translationLang,
-          words: normalizeWords(input.words),
+          words: normalizeWords(input.words, c.words),
         }
         return updated
       })
@@ -265,6 +353,8 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
         deleteCollection,
         setPronounceFirst,
         refreshFromCloud,
+        pushToCloudNow,
+        syncWithGoogle,
       }}
     >
       {children}

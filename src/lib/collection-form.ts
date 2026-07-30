@@ -2,6 +2,8 @@ import type { LangCode, Word } from "@/types"
 import { examplesFromTextarea, examplesTextareaValue, normalizeExamples } from "@/lib/examples"
 
 export interface WordPair {
+  /** Existing word id when editing; omitted for brand-new rows. */
+  id?: string
   word: string
   translation: string
   examples?: string[]
@@ -53,6 +55,7 @@ export function draftFromWords(words: Word[]): DraftWord[] {
 export function pairsFromDraft(words: DraftWord[]): WordPair[] {
   return words
     .map((w) => ({
+      id: w.key,
       word: w.word.trim(),
       translation: w.translation.trim(),
       examples: examplesFromTextarea(w.examplesText),

@@ -26,7 +26,7 @@ export default function Profile() {
     signIn,
     signOut,
   } = useAuth()
-  const { settings, setPronounceFirst, syncStatus, syncError, refreshFromCloud } =
+  const { settings, setPronounceFirst, syncStatus, syncError, syncWithGoogle } =
     useCollections()
 
   function onPronounceChange(value: PronounceFirst) {
@@ -34,6 +34,7 @@ export default function Profile() {
   }
 
   const signedIn = status === "signed_in" && user
+  const busy = syncing || syncStatus === "syncing"
 
   return (
     <div className="min-h-screen bg-background">
@@ -75,7 +76,7 @@ export default function Profile() {
                   <p className="truncate font-medium">{user.name}</p>
                   <p className="truncate text-sm text-muted-foreground">{user.email}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    {syncStatus === "syncing" || syncing ? (
+                    {busy ? (
                       <span className="inline-flex items-center gap-1 text-primary">
                         <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
                         Syncing spreadsheet…
@@ -114,12 +115,12 @@ export default function Profile() {
                     type="button"
                     variant="outline"
                     onClick={() => {
-                      void refreshFromCloud()
+                      void syncWithGoogle().catch(() => undefined)
                     }}
-                    disabled={syncing || syncStatus === "syncing"}
+                    disabled={busy}
                   >
                     <RefreshCw className="h-4 w-4" />
-                    Refresh from Google
+                    Sync with Google
                   </Button>
                   {spreadsheetUrl ? (
                     <Button
@@ -151,6 +152,12 @@ export default function Profile() {
                 </Button>
               )}
             </div>
+            {signedIn ? (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Changes in the app upload automatically. Sync pushes your lists to the spreadsheet
+                (including deletes), then reloads anything edited in Google Sheets.
+              </p>
+            ) : null}
           </div>
         </section>
 

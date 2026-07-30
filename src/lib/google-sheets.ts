@@ -223,8 +223,9 @@ function parseSettings(rows: string[][]): AppSettings | null {
 async function readRange(
   accessToken: string,
   spreadsheetId: string,
-  range: string
+  sheetName: string
 ): Promise<string[][]> {
+  const range = sheetValuesRange(sheetName)
   const res = await sheetsFetch(
     accessToken,
     `/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?majorDimension=ROWS`
@@ -232,7 +233,7 @@ async function readRange(
   if (res.status === 400 || res.status === 404) return []
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`Failed to read ${range}: ${text}`)
+    throw new Error(`Failed to read ${sheetName}: ${text}`)
   }
   const data = (await res.json()) as { values?: string[][] }
   return data.values ?? []
@@ -261,37 +262,57 @@ async function ensureSheetTabs(accessToken: string, spreadsheetId: string) {
   })
 }
 
-async function clearAndWrite(
+function sheetValuesRange(sheetName: string) {
+  // Quote the tab name and clear a wide column span so leftover rows never stick around.
+  return `'${sheetName.replace(/'/g, "''")}'!A:ZZ`
+}
+
+function sheetWriteRange(sheetName: string) {
+  return `'${sheetName.replace(/'/g, "''")}'!A1`
+}
+
+/**
+ * Replace every value on the Collections / Words / Settings tabs with a full snapshot.
+ * Clear runs first across all tabs so deleted collections/words disappear from the sheet.
+ */
+async function replaceAllSheets(
   accessToken: string,
   spreadsheetId: string,
-  sheetName: string,
-  rows: string[][]
+  sheets: Array<{ name: string; rows: string[][] }>
 ) {
   const clearRes = await sheetsFetch(
     accessToken,
-    `/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}:clear`,
-    { method: "POST", body: "{}" }
-  )
-  if (!clearRes.ok && clearRes.status !== 400) {
-    const text = await clearRes.text()
-    throw new Error(`Failed to clear ${sheetName}: ${text}`)
-  }
-
-  const updateRes = await sheetsFetch(
-    accessToken,
-    `/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}?valueInputOption=RAW`,
+    `/spreadsheets/${spreadsheetId}/values:batchClear`,
     {
-      method: "PUT",
+      method: "POST",
       body: JSON.stringify({
-        range: sheetName,
-        majorDimension: "ROWS",
-        values: rows.map((r) => r.map(cell)),
+        ranges: sheets.map((s) => sheetValuesRange(s.name)),
       }),
     }
   )
-  if (!updateRes.ok) {
-    const text = await updateRes.text()
-    throw new Error(`Failed to write ${sheetName}: ${text}`)
+  if (!clearRes.ok) {
+    const text = await clearRes.text()
+    throw new Error(`Failed to clear spreadsheet tabs: ${text}`)
+  }
+
+  const writeRes = await sheetsFetch(
+    accessToken,
+    `/spreadsheets/${spreadsheetId}/values:batchUpdate`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        valueInputOption: "RAW",
+        data: sheets.map((s) => ({
+          range: sheetWriteRange(s.name),
+          majorDimension: "ROWS",
+          values: s.rows.map((r) => r.map(cell)),
+        })),
+      }),
+    }
+  )
+  if (!writeRes.ok) {
+    const text = await writeRes.text()
+    throw new Error(`Failed to write spreadsheet snapshot: ${text}`)
   }
 }
 
@@ -324,10 +345,10 @@ export async function saveCloudBundle(
   const spreadsheetId = await ensureSpreadsheet(accessToken, userId)
   await ensureSheetTabs(accessToken, spreadsheetId)
 
-  await Promise.all([
-    clearAndWrite(accessToken, spreadsheetId, COLLECTIONS_SHEET, collectionsToRows(collections)),
-    clearAndWrite(accessToken, spreadsheetId, WORDS_SHEET, wordsToRows(collections)),
-    clearAndWrite(accessToken, spreadsheetId, SETTINGS_SHEET, settingsToRows(settings)),
+  await replaceAllSheets(accessToken, spreadsheetId, [
+    { name: COLLECTIONS_SHEET, rows: collectionsToRows(collections) },
+    { name: WORDS_SHEET, rows: wordsToRows(collections) },
+    { name: SETTINGS_SHEET, rows: settingsToRows(settings) },
   ])
 
   return { spreadsheetId, spreadsheetUrl: spreadsheetUrl(spreadsheetId) }

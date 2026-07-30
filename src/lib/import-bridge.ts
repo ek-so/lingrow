@@ -78,6 +78,7 @@ export function normalizePairs(pairs: WordPair[]): WordPair[] {
     if (seen.has(key)) continue
     seen.add(key)
     out.push({
+      id: pair.id,
       word,
       translation,
       examples: normalizeExamples(pair.examples),
