@@ -19,6 +19,14 @@ export type DraftWord = {
   translation: string
 }
 
+export interface CollectionFormValues {
+  name: string
+  description: string
+  wordLang: LangCode
+  translationLang: LangCode
+  words: DraftWord[]
+}
+
 export function emptyDraftWord(): DraftWord {
   return {
     key: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
