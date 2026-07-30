@@ -64,32 +64,42 @@ export function StudyStats({
   ].filter((row) => row.value > 0)
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-10">
-        <p className="text-sm font-medium uppercase tracking-wide text-primary">Results</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">{headline}</h1>
-        <p className="mt-1 text-muted-foreground">{collectionName}</p>
+    <div className="h-dvh overflow-hidden bg-background">
+      <div className="absolute inset-x-0 top-0 bottom-[5.5rem] flex items-center justify-center overflow-hidden px-5">
+        <div className="w-full max-w-2xl">
+          <p className="text-sm font-medium uppercase tracking-wide text-primary">Results</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight">{headline}</h1>
+          <p className="mt-1 text-muted-foreground">{collectionName}</p>
 
-        <div className="mt-10 rounded-2xl border border-border bg-card p-6">
-          <p className="text-sm text-muted-foreground">You know</p>
-          <p className="mt-1 text-4xl font-semibold tracking-tight">
-            {known}
-            <span className="text-xl font-medium text-muted-foreground"> / {total}</span>
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {Math.round((known / Math.max(total, 1)) * 100)}% known
-          </p>
+          <div className="mt-8 rounded-2xl border border-border bg-card p-6">
+            <p className="text-sm text-muted-foreground">You know</p>
+            <p className="mt-1 text-4xl font-semibold tracking-tight">
+              {known}
+              <span className="text-xl font-medium text-muted-foreground"> / {total}</span>
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {Math.round((known / Math.max(total, 1)) * 100)}% known
+            </p>
 
-          {rows.length > 0 ? (
-            <div className="mt-6 grid gap-3">
-              {rows.map((row) => (
-                <StatRow key={row.key} icon={row.icon} label={row.label} hint={row.hint} value={row.value} />
-              ))}
-            </div>
-          ) : null}
+            {rows.length > 0 ? (
+              <div className="mt-6 grid gap-3">
+                {rows.map((row) => (
+                  <StatRow
+                    key={row.key}
+                    icon={row.icon}
+                    label={row.label}
+                    hint={row.hint}
+                    value={row.value}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
+      </div>
 
-        <div className="mt-auto flex flex-col gap-3 pt-10">
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border/80 bg-background/90 backdrop-blur-md">
+        <div className="mx-auto flex max-w-2xl flex-col gap-2 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <Button size="lg" onClick={onFinish}>
             Finish
           </Button>

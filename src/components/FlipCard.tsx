@@ -8,22 +8,25 @@ interface FlipCardProps {
   back: ReactNode
   flipped: boolean
   onFlip: (next: boolean) => void
-  /** When true, horizontal swipe rates the card instead of flipping. */
-  swipeToRate?: boolean
+  /**
+   * rate — horizontal swipe rates the card (multi-word study)
+   * flip — horizontal swipe / tap toggles sides (single-word study)
+   */
+  swipeMode?: "rate" | "flip"
   onSwipeLeft?: () => void
   onSwipeRight?: () => void
   className?: string
 }
 
 /**
- * Flashcard: tap to flip. Swipe left/right to rate (manual or auto play).
+ * Flashcard: tap to flip. Swipe left/right rates (rate mode) or flips (flip mode).
  */
 export function FlipCard({
   front,
   back,
   flipped,
   onFlip,
-  swipeToRate = false,
+  swipeMode = "rate",
   onSwipeLeft,
   onSwipeRight,
   className,
@@ -39,7 +42,7 @@ export function FlipCard({
     setDragX(0)
     setExitX(0)
     setExiting(false)
-  }, [flipped, front, back])
+  }, [flipped])
 
   function onPointerDown(e: PointerEvent<HTMLDivElement>) {
     if (exiting) return
@@ -54,9 +57,7 @@ export function FlipCard({
     const dx = e.clientX - startX.current
     const dy = e.clientY - startY.current
     if (Math.abs(dx) < Math.abs(dy) && Math.abs(dx) < 12) return
-    if (swipeToRate) {
-      setDragX(Math.max(-140, Math.min(140, dx)))
-    }
+    setDragX(Math.max(-140, Math.min(140, dx)))
   }
 
   function finishGesture(clientX: number) {
@@ -66,21 +67,28 @@ export function FlipCard({
     startX.current = null
     startY.current = null
 
-    if (swipeToRate && Math.abs(dx) > 72) {
-      const dir: CardSwipeDirection = dx < 0 ? "left" : "right"
-      setExiting(true)
-      setExitX(dir === "left" ? -420 : 420)
-      window.setTimeout(() => {
-        if (dir === "left") onSwipeLeft?.()
-        else onSwipeRight?.()
-        setDragX(0)
-        setExitX(0)
-        setExiting(false)
-      }, 220)
+    if (Math.abs(dx) > 72) {
+      if (swipeMode === "rate") {
+        const dir: CardSwipeDirection = dx < 0 ? "left" : "right"
+        setExiting(true)
+        setExitX(dir === "left" ? -420 : 420)
+        window.setTimeout(() => {
+          if (dir === "left") onSwipeLeft?.()
+          else onSwipeRight?.()
+          setDragX(0)
+          setExitX(0)
+          setExiting(false)
+        }, 220)
+        return
+      }
+
+      // flip mode: left/right swipe swaps sides
+      onFlip(!flipped)
+      setDragX(0)
       return
     }
 
-    // Tap or short drag — flip the card (including when only one word exists).
+    // Tap or short drag — flip
     onFlip(!flipped)
     setDragX(0)
   }
@@ -101,28 +109,29 @@ export function FlipCard({
       e.preventDefault()
       onFlip(!flipped)
     }
-    if (!swipeToRate) return
     if (e.key === "ArrowLeft") {
       e.preventDefault()
-      onSwipeLeft?.()
+      if (swipeMode === "rate") onSwipeLeft?.()
+      else onFlip(!flipped)
     }
     if (e.key === "ArrowRight") {
       e.preventDefault()
-      onSwipeRight?.()
+      if (swipeMode === "rate") onSwipeRight?.()
+      else onFlip(!flipped)
     }
   }
 
   const shift = exiting ? exitX : dragX
   const rot = Math.max(-14, Math.min(14, shift * 0.06))
-  const knowHint = swipeToRate && dragX > 28
-  const learnHint = swipeToRate && dragX < -28
+  const knowHint = swipeMode === "rate" && dragX > 28
+  const learnHint = swipeMode === "rate" && dragX < -28
 
   return (
     <div
       className={cn("relative w-full select-none [perspective:1200px]", className)}
-      style={{ touchAction: "pan-y" }}
+      style={{ touchAction: "none" }}
     >
-      {swipeToRate ? (
+      {swipeMode === "rate" ? (
         <>
           <div
             className={cn(
@@ -152,7 +161,7 @@ export function FlipCard({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
-        className="relative min-h-56 h-80 w-full cursor-grab active:cursor-grabbing outline-none"
+        className="relative h-80 w-full max-h-[min(20rem,46dvh)] cursor-grab active:cursor-grabbing outline-none"
         style={{
           transform: `translateX(${shift}px) rotate(${rot}deg)`,
           transition: dragging.current ? "none" : "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",

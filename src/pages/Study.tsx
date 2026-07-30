@@ -283,6 +283,7 @@ export default function Study() {
   const word = collection.words[index]
   const sides = sidesForWord(collection, word)
   const progressPct = ((index + (playing && phase === "pause" ? 1 : 0)) / collection.words.length) * 100
+  const singleWord = collection.words.length === 1
 
   function togglePlay() {
     if (playing) {
@@ -328,6 +329,14 @@ export default function Study() {
     setFlipped(false)
   }
 
+  function swapSides() {
+    if (playing) {
+      stopSpeech()
+      setPlaying(false)
+    }
+    handleFlip(!flipped)
+  }
+
   function onDelete() {
     if (!collection) return
     if (!window.confirm(`Delete “${collection.name}”? This can’t be undone.`)) return
@@ -337,7 +346,7 @@ export default function Study() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-dvh overflow-hidden bg-background">
       <header className="fixed inset-x-0 top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-2xl w-full items-center justify-between gap-3 px-5 py-3">
           <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
@@ -364,59 +373,65 @@ export default function Study() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-2xl w-full px-5 pt-[4.75rem] pb-28 flex flex-col flex-1">
-        <Progress value={progressPct} className="mb-2" />
-        <div className="mb-8 flex items-center justify-between gap-3 text-sm text-muted-foreground">
-          <span>{pairLabel(collection.wordLang, collection.translationLang)}</span>
-          <span>
-            {index + 1} / {collection.words.length}
-          </span>
+      <div className="absolute inset-x-0 top-[3.75rem] bottom-[4.75rem] flex flex-col overflow-hidden">
+        <div className="mx-auto w-full max-w-2xl shrink-0 px-5 pt-3">
+          <Progress value={progressPct} className="mb-2" />
+          <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+            <span>{pairLabel(collection.wordLang, collection.translationLang)}</span>
+            <span>
+              {index + 1} / {collection.words.length}
+            </span>
+          </div>
         </div>
 
-        <div className="flex-1 flex flex-col items-center justify-center gap-3">
-          <FlipCard
-            key={word.id}
-            flipped={flipped}
-            onFlip={handleFlip}
-            swipeToRate
-            onSwipeLeft={() => rateAndAdvance(word.id, "learning", collection.words.length)}
-            onSwipeRight={() => rateAndAdvance(word.id, "known", collection.words.length)}
-            front={
-              <>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">{sides.frontHint}</p>
-                <p className="mt-3 text-3xl font-semibold tracking-tight">{sides.frontText}</p>
-                {sides.frontExamples?.length ? (
-                  <ul className="mt-4 w-full space-y-1.5 text-left text-sm leading-snug text-muted-foreground">
-                    {sides.frontExamples.map((ex) => (
-                      <li key={ex} className="border-l-2 border-border pl-2.5">
-                        {ex}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </>
-            }
-            back={
-              <>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">{sides.backHint}</p>
-                <p className="mt-3 text-3xl font-semibold tracking-tight">{sides.backText}</p>
-                {sides.backExamples?.length ? (
-                  <ul className="mt-4 w-full space-y-1.5 text-left text-sm leading-snug text-muted-foreground">
-                    {sides.backExamples.map((ex) => (
-                      <li key={ex} className="border-l-2 border-border pl-2.5">
-                        {ex}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </>
-            }
-          />
-          <p className="text-xs text-muted-foreground">
-            {playing
-              ? "Auto play — swipe to rate · Tap to flip"
-              : "Tap to flip & hear the other side · Swipe right if you know it · Left if still learning"}
-          </p>
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-5">
+          <div className="w-full max-w-2xl">
+            <FlipCard
+              key={word.id}
+              flipped={flipped}
+              onFlip={handleFlip}
+              swipeMode={singleWord ? "flip" : "rate"}
+              onSwipeLeft={() => rateAndAdvance(word.id, "learning", collection.words.length)}
+              onSwipeRight={() => rateAndAdvance(word.id, "known", collection.words.length)}
+              front={
+                <>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{sides.frontHint}</p>
+                  <p className="mt-3 text-3xl font-semibold tracking-tight">{sides.frontText}</p>
+                  {sides.frontExamples?.length ? (
+                    <ul className="mt-4 w-full space-y-1.5 text-left text-sm leading-snug text-muted-foreground">
+                      {sides.frontExamples.map((ex) => (
+                        <li key={ex} className="border-l-2 border-border pl-2.5">
+                          {ex}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </>
+              }
+              back={
+                <>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{sides.backHint}</p>
+                  <p className="mt-3 text-3xl font-semibold tracking-tight">{sides.backText}</p>
+                  {sides.backExamples?.length ? (
+                    <ul className="mt-4 w-full space-y-1.5 text-left text-sm leading-snug text-muted-foreground">
+                      {sides.backExamples.map((ex) => (
+                        <li key={ex} className="border-l-2 border-border pl-2.5">
+                          {ex}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </>
+              }
+            />
+            <p className="mt-3 text-center text-xs text-muted-foreground">
+              {singleWord
+                ? "Swipe or tap to swap sides"
+                : playing
+                  ? "Auto play — swipe to rate · Tap to flip"
+                  : "Tap to flip · Swipe right if you know it · Left if still learning"}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -425,15 +440,15 @@ export default function Study() {
           <Button
             variant="outline"
             size="icon"
-            aria-label={collection.words.length === 1 ? "Show other side" : "Previous"}
+            aria-label={singleWord ? "Show other side" : "Previous"}
             onClick={() => {
-              if (collection.words.length === 1) {
-                handleFlip(!flipped)
+              if (singleWord) {
+                swapSides()
                 return
               }
               goTo(index - 1)
             }}
-            disabled={collection.words.length > 1 && index === 0}
+            disabled={!singleWord && index === 0}
           >
             <SkipBack className="h-4 w-4" />
           </Button>
@@ -451,10 +466,10 @@ export default function Study() {
           <Button
             variant="outline"
             size="icon"
-            aria-label={collection.words.length === 1 ? "Show other side" : "Next"}
+            aria-label={singleWord ? "Show other side" : "Next"}
             onClick={() => {
-              if (collection.words.length === 1) {
-                handleFlip(!flipped)
+              if (singleWord) {
+                swapSides()
                 return
               }
               goNext()
