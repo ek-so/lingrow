@@ -241,7 +241,7 @@ export default function Study() {
           {pronounceFirst === "word"
             ? `${langLabel(collection.wordLang)} → ${langLabel(collection.translationLang)}`
             : `${langLabel(collection.translationLang)} → ${langLabel(collection.wordLang)}`}
-          . Change order on the home screen. Keep the screen on while studying.
+          . Change order in Settings. Keep the screen on while studying.
         </p>
       </div>
     </div>
