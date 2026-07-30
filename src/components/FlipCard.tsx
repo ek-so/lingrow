@@ -80,10 +80,8 @@ export function FlipCard({
       return
     }
 
-    if (Math.abs(dx) < 12) {
-      onFlip(!flipped)
-    }
-
+    // Tap or short drag — flip the card (including when only one word exists).
+    onFlip(!flipped)
     setDragX(0)
   }
 

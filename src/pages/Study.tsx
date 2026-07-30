@@ -364,12 +364,14 @@ export default function Study() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-2xl w-full px-5 py-6 flex flex-col flex-1">
-        <p className="mb-6 text-right text-sm text-muted-foreground">
-          {pairLabel(collection.wordLang, collection.translationLang)} · {index + 1} / {collection.words.length}
-        </p>
-
-        <Progress value={progressPct} className="mb-8" />
+      <div className="mx-auto max-w-2xl w-full px-5 pt-6 pb-28 flex flex-col flex-1">
+        <Progress value={progressPct} className="mb-2" />
+        <div className="mb-8 flex items-center justify-between gap-3 text-sm text-muted-foreground">
+          <span>{pairLabel(collection.wordLang, collection.translationLang)}</span>
+          <span>
+            {index + 1} / {collection.words.length}
+          </span>
+        </div>
 
         <div className="flex-1 flex flex-col items-center justify-center gap-3">
           <FlipCard
@@ -416,9 +418,23 @@ export default function Study() {
               : "Tap to flip & hear the other side · Swipe right if you know it · Left if still learning"}
           </p>
         </div>
+      </div>
 
-        <div className="mt-8 flex items-center justify-center gap-4">
-          <Button variant="outline" size="icon" onClick={() => goTo(index - 1)} disabled={index === 0}>
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border/80 bg-background/90 backdrop-blur-md">
+        <div className="mx-auto flex max-w-2xl items-center justify-center gap-4 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label={collection.words.length === 1 ? "Show other side" : "Previous"}
+            onClick={() => {
+              if (collection.words.length === 1) {
+                handleFlip(!flipped)
+                return
+              }
+              goTo(index - 1)
+            }}
+            disabled={collection.words.length > 1 && index === 0}
+          >
             <SkipBack className="h-4 w-4" />
           </Button>
           <Button size="lg" onClick={togglePlay} className="w-32">
@@ -432,18 +448,21 @@ export default function Study() {
               </>
             )}
           </Button>
-          <Button variant="outline" size="icon" onClick={goNext}>
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label={collection.words.length === 1 ? "Show other side" : "Next"}
+            onClick={() => {
+              if (collection.words.length === 1) {
+                handleFlip(!flipped)
+                return
+              }
+              goNext()
+            }}
+          >
             <SkipForward className="h-4 w-4" />
           </Button>
         </div>
-
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          Pronouncing{" "}
-          {pronounceFirst === "word"
-            ? `${langLabel(collection.wordLang)} → ${langLabel(collection.translationLang)}`
-            : `${langLabel(collection.translationLang)} → ${langLabel(collection.wordLang)}`}
-          . Keep the screen on while studying.
-        </p>
       </div>
     </div>
   )
