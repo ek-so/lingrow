@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { useCollections } from "@/lib/collections-context"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { FlipCard } from "@/components/FlipCard"
+import { OverflowMenu } from "@/components/OverflowMenu"
 import { LANGS, langLabel, pairLabel } from "@/lib/languages"
 import { ArrowLeft, Pause, Play, SkipBack, SkipForward } from "lucide-react"
 import type { Collection, PronounceFirst, Word } from "@/types"
@@ -12,7 +13,8 @@ type SpeakPhase = "first" | "second" | "pause"
 
 export default function Study() {
   const { id } = useParams()
-  const { getCollection, settings } = useCollections()
+  const navigate = useNavigate()
+  const { getCollection, settings, deleteCollection } = useCollections()
   const collection = id ? getCollection(id) : undefined
   const pronounceFirst: PronounceFirst = settings.pronounceFirst
 
@@ -176,18 +178,43 @@ export default function Study() {
     setFlipped(false)
   }
 
+  function onDelete() {
+    if (!collection) return
+    if (!window.confirm(`Delete “${collection.name}”? This can’t be undone.`)) return
+    stopSpeech()
+    deleteCollection(collection.id)
+    navigate("/")
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <div className="mx-auto max-w-2xl w-full px-5 py-6 flex flex-col flex-1">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-2">
           <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-4 w-4" />
             Collections
           </Link>
-          <span className="text-sm text-muted-foreground">
-            {pairLabel(collection.wordLang, collection.translationLang)} · {index + 1} / {collection.words.length}
-          </span>
+          <OverflowMenu
+            label={`Actions for ${collection.name}`}
+            items={[
+              {
+                label: "Edit",
+                onSelect: () => {
+                  stopSpeech()
+                  navigate(`/edit/${collection.id}`)
+                },
+              },
+              {
+                label: "Delete",
+                destructive: true,
+                onSelect: onDelete,
+              },
+            ]}
+          />
         </div>
+        <p className="mb-6 text-right text-sm text-muted-foreground">
+          {pairLabel(collection.wordLang, collection.translationLang)} · {index + 1} / {collection.words.length}
+        </p>
 
         <Progress value={progressPct} className="mb-8" />
 
