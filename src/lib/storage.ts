@@ -5,7 +5,7 @@ const COLLECTIONS_KEY = "lingrow.collections.v1"
 const SETTINGS_KEY = "lingrow.settings.v1"
 
 const defaultSettings: AppSettings = {
-  pronounceFirst: "word",
+  pronounceFirst: "translation",
 }
 
 function canUseStorage() {
