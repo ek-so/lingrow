@@ -2,15 +2,20 @@ import { useState, type FormEvent } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useCollections } from "@/lib/collections-context"
 import { Button } from "@/components/ui/button"
-import { LANG_CODES, LANGS, langLabel, otherLangs } from "@/lib/languages"
+import { LANG_CODES, LANGS, langLabel } from "@/lib/languages"
 import type { LangCode } from "@/types"
-import { ArrowLeft, Plus, Trash2 } from "lucide-react"
+import { ArrowLeft, Info, Plus, Trash2 } from "lucide-react"
 
 interface DraftWord {
   key: string
   word: string
   translation: string
 }
+
+const selectClassName =
+  "h-10 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+const inputClassName =
+  "h-10 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
 
 function emptyWord(): DraftWord {
   return {
@@ -20,40 +25,33 @@ function emptyWord(): DraftWord {
   }
 }
 
-function LangPicker({
+function LangSelect({
+  id,
   label,
   value,
-  options,
   onChange,
 }: {
+  id: string
   label: string
   value: LangCode
-  options: LangCode[]
   onChange: (code: LangCode) => void
 }) {
   return (
-    <div>
-      <p className="text-sm font-medium">{label}</p>
-      <div
-        className={`mt-2 grid gap-2 ${options.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}
+    <label className="flex flex-col gap-1.5" htmlFor={id}>
+      <span className="text-sm font-medium">{label}</span>
+      <select
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value as LangCode)}
+        className={selectClassName}
       >
-        {options.map((code) => (
-          <button
-            key={code}
-            type="button"
-            onClick={() => onChange(code)}
-            className={`rounded-lg border px-2 py-2.5 text-center text-sm transition-colors ${
-              value === code
-                ? "border-primary bg-accent text-accent-foreground"
-                : "border-border hover:bg-secondary"
-            }`}
-          >
-            <span className="font-medium">{LANGS[code].short}</span>
-            <span className="mt-0.5 block text-xs text-muted-foreground">{LANGS[code].name}</span>
-          </button>
+        {LANG_CODES.map((code) => (
+          <option key={code} value={code}>
+            {LANGS[code].name}
+          </option>
         ))}
-      </div>
-    </div>
+      </select>
+    </label>
   )
 }
 
@@ -67,14 +65,7 @@ export default function NewList() {
   const [words, setWords] = useState<DraftWord[]>([emptyWord(), emptyWord(), emptyWord()])
   const [error, setError] = useState<string | null>(null)
 
-  const translationOptions = otherLangs(wordLang)
-
-  function onWordLangChange(code: LangCode) {
-    setWordLang(code)
-    if (code === translationLang) {
-      setTranslationLang(otherLangs(code)[0])
-    }
-  }
+  const sameLanguage = wordLang === translationLang
 
   function updateWord(key: string, field: "word" | "translation", value: string) {
     setWords((prev) => prev.map((w) => (w.key === key ? { ...w, [field]: value } : w)))
@@ -92,12 +83,12 @@ export default function NewList() {
       setError("Give your list a name.")
       return
     }
-    if (wordLang === translationLang) {
-      setError("Pick two different languages.")
-      return
-    }
     if (validWords.length === 0) {
-      setError(`Add at least one pair with both ${langLabel(wordLang)} and ${langLabel(translationLang)}.`)
+      setError(
+        sameLanguage
+          ? `Add at least one pair with both sides filled in (${langLabel(wordLang)}).`
+          : `Add at least one pair with both ${langLabel(wordLang)} and ${langLabel(translationLang)}.`,
+      )
       return
     }
     const created = addCollection({
@@ -120,7 +111,7 @@ export default function NewList() {
 
         <h1 className="mt-6 text-2xl font-semibold tracking-tight">New list</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Choose the word language and what it translates into, then add pairs.
+          Choose languages, then add word pairs for your cards.
         </p>
 
         <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-6">
@@ -130,7 +121,7 @@ export default function NewList() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Kitchen verbs"
-              className="h-10 rounded-md border border-input bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className={inputClassName}
             />
           </label>
 
@@ -140,49 +131,51 @@ export default function NewList() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Short note for yourself"
-              className="h-10 rounded-md border border-input bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className={inputClassName}
             />
           </label>
 
-          <section className="rounded-xl border border-border bg-card p-4 flex flex-col gap-4">
-            <LangPicker
-              label="Word language"
+          <div className="flex flex-col gap-4">
+            <LangSelect
+              id="from-lang"
+              label="Translates from"
               value={wordLang}
-              options={LANG_CODES}
-              onChange={onWordLangChange}
+              onChange={setWordLang}
             />
-            <LangPicker
-              label="Translates into"
+            <LangSelect
+              id="into-lang"
+              label="Into"
               value={translationLang}
-              options={translationOptions}
               onChange={setTranslationLang}
             />
-          </section>
+            {sameLanguage ? (
+              <p className="flex items-start gap-2 text-xs text-muted-foreground">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Same language chosen — cards will still flip between the two sides.
+                </span>
+              </p>
+            ) : null}
+          </div>
 
           <div>
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-sm font-medium">Words</span>
-              <Button type="button" variant="outline" size="sm" onClick={() => setWords((w) => [...w, emptyWord()])}>
-                <Plus className="h-4 w-4" />
-                Add row
-              </Button>
-            </div>
-            <div className="flex flex-col gap-2">
+            <span className="text-sm font-medium">Words</span>
+            <div className="mt-3 flex flex-col gap-2">
               {words.map((w, i) => (
-                <div key={w.key} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                <div key={w.key} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.5rem] gap-2">
                   <input
                     value={w.word}
                     onChange={(e) => updateWord(w.key, "word", e.target.value)}
                     placeholder={i === 0 ? langLabel(wordLang) : undefined}
                     aria-label={langLabel(wordLang)}
-                    className="h-10 rounded-md border border-input bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+                    className={inputClassName}
                   />
                   <input
                     value={w.translation}
                     onChange={(e) => updateWord(w.key, "translation", e.target.value)}
                     placeholder={i === 0 ? langLabel(translationLang) : undefined}
                     aria-label={langLabel(translationLang)}
-                    className="h-10 rounded-md border border-input bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+                    className={inputClassName}
                   />
                   <Button
                     type="button"
@@ -191,6 +184,7 @@ export default function NewList() {
                     aria-label="Remove word"
                     onClick={() => removeWord(w.key)}
                     disabled={words.length <= 1}
+                    className="h-10 w-10"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -201,9 +195,19 @@ export default function NewList() {
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-          <Button type="submit" size="lg">
-            Save list
-          </Button>
+          <div className="flex flex-col gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setWords((w) => [...w, emptyWord()])}
+            >
+              <Plus className="h-4 w-4" />
+              Add row
+            </Button>
+            <Button type="submit" size="lg">
+              Save list
+            </Button>
+          </div>
         </form>
       </div>
     </div>
