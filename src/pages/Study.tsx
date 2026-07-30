@@ -70,7 +70,7 @@ export default function Study() {
     playClingSound()
   }, [view])
 
-  function speak(text: string, lang: string, onEnd: () => void) {
+  function speak(text: string, lang: string, onEnd?: () => void) {
     const utter = new SpeechSynthesisUtterance(text)
     utter.lang = lang
     const prefix = lang.toLowerCase().slice(0, 2)
@@ -79,8 +79,22 @@ export default function Study() {
       voicesRef.current.find((v) => v.lang.toLowerCase().startsWith(prefix))
     if (voice) utter.voice = voice
     utter.rate = 0.95
-    utter.onend = onEnd
+    if (onEnd) utter.onend = onEnd
     window.speechSynthesis.speak(utter)
+  }
+
+  function speakOnce(text: string, lang: string) {
+    window.speechSynthesis.cancel()
+    speak(text, lang)
+  }
+
+  function speakVisibleSide(wordIndex: number, showBack: boolean) {
+    if (!collection) return
+    const word = collection.words[wordIndex]
+    if (!word) return
+    const sides = sidesForWord(collection, word)
+    const side = showBack ? sides.second : sides.first
+    speakOnce(side.text, side.lang)
   }
 
   function sidesForWord(collection: Collection, word: Word) {
@@ -141,6 +155,7 @@ export default function Study() {
     const sides = sidesForWord(collection, word)
 
     if (phase === "first") {
+      window.speechSynthesis.cancel()
       speak(sides.first.text, sides.first.lang, () => {
         timeoutRef.current = window.setTimeout(() => setPhase("second"), 400)
       })
@@ -163,9 +178,23 @@ export default function Study() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing, phase, index, pronounceFirst, view])
 
+  // Manual study: pronounce the front side once when landing on a card.
+  useEffect(() => {
+    if (playing || view !== "cards" || !collection) return
+    if (flipped) return
+    speakVisibleSide(index, false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, playing, view, id, pronounceFirst])
+
   function stopSpeech() {
     window.speechSynthesis.cancel()
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
+  }
+
+  function handleFlip(next: boolean) {
+    setFlipped(next)
+    if (playing || view !== "cards") return
+    speakVisibleSide(index, next)
   }
 
   if (!collection) {
@@ -280,7 +309,7 @@ export default function Study() {
           <FlipCard
             key={word.id}
             flipped={flipped}
-            onFlip={setFlipped}
+            onFlip={handleFlip}
             swipeToRate={manualMode}
             onSwipeLeft={() => rateAndAdvance(word.id, "learning", collection.words.length)}
             onSwipeRight={() => rateAndAdvance(word.id, "known", collection.words.length)}
@@ -299,7 +328,7 @@ export default function Study() {
           />
           <p className="text-xs text-muted-foreground">
             {manualMode
-              ? "Tap to flip · Swipe right if you know it · Left if still learning"
+              ? "Tap to flip & hear the other side · Swipe right if you know it · Left if still learning"
               : "Auto play — tap to flip while listening"}
           </p>
         </div>
