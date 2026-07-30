@@ -16,7 +16,7 @@ interface FlipCardProps {
 }
 
 /**
- * Flashcard: tap to flip. In manual study, swipe left/right to rate.
+ * Flashcard: tap to flip. Swipe left/right to rate (manual or auto play).
  */
 export function FlipCard({
   front,

@@ -30,6 +30,7 @@ export default function Study() {
   const voicesRef = useRef<SpeechSynthesisVoice[]>([])
   const timeoutRef = useRef<number | null>(null)
   const clingPlayed = useRef(false)
+  const speakGen = useRef(0)
 
   function resetSession() {
     stopSpeech()
@@ -79,7 +80,13 @@ export default function Study() {
       voicesRef.current.find((v) => v.lang.toLowerCase().startsWith(prefix))
     if (voice) utter.voice = voice
     utter.rate = 0.95
-    if (onEnd) utter.onend = onEnd
+    if (onEnd) {
+      const gen = speakGen.current
+      utter.onend = () => {
+        if (speakGen.current !== gen) return
+        onEnd()
+      }
+    }
     window.speechSynthesis.speak(utter)
   }
 
@@ -130,17 +137,23 @@ export default function Study() {
   }
 
   function finishAutoSession(words: Word[]) {
-    const next: Record<string, StudyRating> = {}
-    for (const w of words) next[w.id] = "listened"
-    setRatings(next)
+    setRatings((prev) => {
+      const next = { ...prev }
+      for (const w of words) {
+        if (!next[w.id]) next[w.id] = "listened"
+      }
+      return next
+    })
     setPlaying(false)
     setView("stats")
   }
 
   function rateAndAdvance(wordId: string, rating: StudyRating, total: number) {
+    stopSpeech()
     setRatings((prev) => ({ ...prev, [wordId]: rating }))
     setFlipped(false)
     if (index >= total - 1) {
+      setPlaying(false)
       setView("stats")
       return
     }
@@ -153,19 +166,27 @@ export default function Study() {
     const word = collection.words[index]
     if (!word) return
     const sides = sidesForWord(collection, word)
+    const gen = speakGen.current
 
     if (phase === "first") {
       window.speechSynthesis.cancel()
       speak(sides.first.text, sides.first.lang, () => {
-        timeoutRef.current = window.setTimeout(() => setPhase("second"), 400)
+        timeoutRef.current = window.setTimeout(() => {
+          if (speakGen.current !== gen) return
+          setPhase("second")
+        }, 400)
       })
     } else if (phase === "second") {
       speak(sides.second.text, sides.second.lang, () => {
-        timeoutRef.current = window.setTimeout(() => setPhase("pause"), 600)
+        timeoutRef.current = window.setTimeout(() => {
+          if (speakGen.current !== gen) return
+          setPhase("pause")
+        }, 600)
       })
     } else if (phase === "pause") {
       const totalWords = collection.words.length
       timeoutRef.current = window.setTimeout(() => {
+        if (speakGen.current !== gen) return
         if (index < totalWords - 1) {
           setIndex((i) => i + 1)
           setPhase("first")
@@ -187,6 +208,7 @@ export default function Study() {
   }, [index, playing, view, id, pronounceFirst])
 
   function stopSpeech() {
+    speakGen.current += 1
     window.speechSynthesis.cancel()
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
   }
@@ -227,6 +249,9 @@ export default function Study() {
     const known = collection.words.filter((w) => ratings[w.id] === "known").length
     const learning = collection.words.filter((w) => ratings[w.id] === "learning").length
     const listened = collection.words.filter((w) => ratings[w.id] === "listened").length
+    const skipped = collection.words.filter(
+      (w) => ratings[w.id] === "skipped" || ratings[w.id] == null,
+    ).length
     return (
       <StudyStats
         collectionName={collection.name}
@@ -234,6 +259,7 @@ export default function Study() {
         known={known}
         learning={learning}
         listened={listened}
+        skipped={skipped}
         onFinish={() => navigate("/")}
         onRestart={resetSession}
       />
@@ -243,7 +269,6 @@ export default function Study() {
   const word = collection.words[index]
   const sides = sidesForWord(collection, word)
   const progressPct = ((index + (playing && phase === "pause" ? 1 : 0)) / collection.words.length) * 100
-  const manualMode = !playing
 
   function togglePlay() {
     if (playing) {
@@ -261,6 +286,30 @@ export default function Study() {
     stopSpeech()
     setPlaying(false)
     setIndex(Math.max(0, Math.min(collection.words.length - 1, newIndex)))
+    setPhase("first")
+    setFlipped(false)
+  }
+
+  function goNext() {
+    if (!collection) return
+    const current = collection.words[index]
+    stopSpeech()
+    setPlaying(false)
+    setRatings((prev) => {
+      const next = { ...prev }
+      if (!next[current.id]) next[current.id] = "skipped"
+      if (index >= collection.words.length - 1) {
+        for (const w of collection.words) {
+          if (!next[w.id]) next[w.id] = "skipped"
+        }
+      }
+      return next
+    })
+    if (index >= collection.words.length - 1) {
+      setView("stats")
+      return
+    }
+    setIndex(index + 1)
     setPhase("first")
     setFlipped(false)
   }
@@ -310,7 +359,7 @@ export default function Study() {
             key={word.id}
             flipped={flipped}
             onFlip={handleFlip}
-            swipeToRate={manualMode}
+            swipeToRate
             onSwipeLeft={() => rateAndAdvance(word.id, "learning", collection.words.length)}
             onSwipeRight={() => rateAndAdvance(word.id, "known", collection.words.length)}
             front={
@@ -327,9 +376,9 @@ export default function Study() {
             }
           />
           <p className="text-xs text-muted-foreground">
-            {manualMode
-              ? "Tap to flip & hear the other side · Swipe right if you know it · Left if still learning"
-              : "Auto play — tap to flip while listening"}
+            {playing
+              ? "Auto play — swipe to rate · Tap to flip"
+              : "Tap to flip & hear the other side · Swipe right if you know it · Left if still learning"}
           </p>
         </div>
 
@@ -348,12 +397,7 @@ export default function Study() {
               </>
             )}
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => goTo(index + 1)}
-            disabled={index === collection.words.length - 1}
-          >
+          <Button variant="outline" size="icon" onClick={goNext}>
             <SkipForward className="h-4 w-4" />
           </Button>
         </div>

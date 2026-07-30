@@ -19,9 +19,9 @@ import type { LangCode } from "@/types"
 import { Info, Plus, Trash2, Upload } from "lucide-react"
 
 const selectClassName =
-  "h-10 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+  "h-10 w-full rounded-md border border-input bg-card px-3 text-base outline-none focus:ring-2 focus:ring-ring"
 const inputClassName =
-  "h-10 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+  "h-10 w-full rounded-md border border-input bg-card px-3 text-base outline-none focus:ring-2 focus:ring-ring"
 
 function LangSelect({
   id,
