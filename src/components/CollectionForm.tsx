@@ -1,6 +1,10 @@
 import { useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { ImportWordsPanel } from "@/components/ImportWordsPanel"
+import {
+  DuplicateImportSheet,
+  type DuplicateImportChoice,
+} from "@/components/DuplicateImportSheet"
 import { LANG_CODES, LANGS, langLabel } from "@/lib/languages"
 import {
   emptyDraftWord,
@@ -66,27 +70,70 @@ interface CollectionFormProps {
   }) => void
 }
 
-function appendImportedWords(existing: DraftWord[], pairs: WordPair[]): DraftWord[] {
-  const filled = existing.filter((w) => w.word.trim() || w.translation.trim())
-  const seen = new Set(
-    filled.map((w) => `${w.word.trim().toLowerCase()}::${w.translation.trim().toLowerCase()}`),
-  )
-  const imported: DraftWord[] = []
+interface PendingImport {
+  pairs: WordPair[]
+  duplicates: WordPair[]
+  fresh: WordPair[]
+}
+
+function wordKey(word: string) {
+  return word.trim().toLowerCase()
+}
+
+function normalizePairs(pairs: WordPair[]): WordPair[] {
+  const seen = new Set<string>()
+  const out: WordPair[] = []
   for (const pair of pairs) {
     const word = pair.word.trim()
     const translation = pair.translation.trim()
     if (!word || !translation) continue
-    const key = `${word.toLowerCase()}::${translation.toLowerCase()}`
+    const key = wordKey(word)
     if (seen.has(key)) continue
     seen.add(key)
-    imported.push({
-      key: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${imported.length}`,
-      word,
-      translation,
+    out.push({ word, translation })
+  }
+  return out
+}
+
+function classifyImport(existing: DraftWord[], pairs: WordPair[]) {
+  const filled = existing.filter((w) => w.word.trim())
+  const existingKeys = new Set(filled.map((w) => wordKey(w.word)))
+  const normalized = normalizePairs(pairs)
+  const duplicates: WordPair[] = []
+  const fresh: WordPair[] = []
+  for (const pair of normalized) {
+    if (existingKeys.has(wordKey(pair.word))) duplicates.push(pair)
+    else fresh.push(pair)
+  }
+  return { filled, duplicates, fresh, normalized }
+}
+
+function applyImport(
+  existing: DraftWord[],
+  pairs: WordPair[],
+  choice: DuplicateImportChoice | null,
+): DraftWord[] {
+  const { filled, duplicates, fresh } = classifyImport(existing, pairs)
+
+  let next = filled.length > 0 ? [...filled] : []
+
+  if (choice === "rewrite" && duplicates.length > 0) {
+    const byWord = new Map(duplicates.map((d) => [wordKey(d.word), d]))
+    next = next.map((row) => {
+      const hit = byWord.get(wordKey(row.word))
+      if (!hit) return row
+      return { ...row, translation: hit.translation }
     })
   }
-  const base = filled.length > 0 ? filled : []
-  const next = [...base, ...imported]
+
+  const stamp = Date.now()
+  const additions = fresh.map((pair, i) => ({
+    key: `${stamp}-${Math.random().toString(36).slice(2, 7)}-${i}`,
+    word: pair.word,
+    translation: pair.translation,
+  }))
+
+  next = [...next, ...additions]
   return next.length > 0 ? next : [emptyDraftWord()]
 }
 
@@ -98,6 +145,8 @@ export function CollectionForm({ initial, submitLabel, onSubmit }: CollectionFor
   const [words, setWords] = useState<DraftWord[]>(initial.words)
   const [error, setError] = useState<string | null>(null)
   const [showImport, setShowImport] = useState(false)
+  const [pendingImport, setPendingImport] = useState<PendingImport | null>(null)
+  const [duplicateChoice, setDuplicateChoice] = useState<DuplicateImportChoice>("skip")
 
   const sameLanguage = wordLang === translationLang
 
@@ -107,6 +156,24 @@ export function CollectionForm({ initial, submitLabel, onSubmit }: CollectionFor
 
   function removeWord(key: string) {
     setWords((prev) => (prev.length <= 1 ? prev : prev.filter((w) => w.key !== key)))
+  }
+
+  function finishImport(pairs: WordPair[], choice: DuplicateImportChoice | null) {
+    setWords((prev) => applyImport(prev, pairs, choice))
+    setPendingImport(null)
+    setShowImport(false)
+    setError(null)
+    setDuplicateChoice("skip")
+  }
+
+  function handleImportedPairs(pairs: WordPair[]) {
+    const { duplicates, fresh, normalized } = classifyImport(words, pairs)
+    if (duplicates.length === 0) {
+      finishImport(normalized, null)
+      return
+    }
+    setPendingImport({ pairs: normalized, duplicates, fresh })
+    setDuplicateChoice("skip")
   }
 
   function handleSubmit(e: FormEvent) {
@@ -136,103 +203,117 @@ export function CollectionForm({ initial, submitLabel, onSubmit }: CollectionFor
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-      <label className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium">Name</span>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Kitchen verbs"
-          className={inputClassName}
-        />
-      </label>
-
-      <label className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium">Description (optional)</span>
-        <input
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Short note for yourself"
-          className={inputClassName}
-        />
-      </label>
-
-      <div className="flex flex-col gap-4">
-        <LangSelect id="from-lang" label="Translates from" value={wordLang} onChange={setWordLang} />
-        <LangSelect id="into-lang" label="Into" value={translationLang} onChange={setTranslationLang} />
-        {sameLanguage ? (
-          <p className="flex items-start gap-2 text-xs text-muted-foreground">
-            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>Same language chosen — cards will still flip between the two sides.</span>
-          </p>
-        ) : null}
-      </div>
-
-      <div>
-        <span className="text-sm font-medium">Words</span>
-        <div className="mt-3 flex flex-col gap-2">
-          {words.map((w, i) => (
-            <div key={w.key} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.5rem] gap-2">
-              <input
-                value={w.word}
-                onChange={(e) => updateWord(w.key, "word", e.target.value)}
-                placeholder={i === 0 ? langLabel(wordLang) : undefined}
-                aria-label={langLabel(wordLang)}
-                className={inputClassName}
-              />
-              <input
-                value={w.translation}
-                onChange={(e) => updateWord(w.key, "translation", e.target.value)}
-                placeholder={i === 0 ? langLabel(translationLang) : undefined}
-                aria-label={langLabel(translationLang)}
-                className={inputClassName}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label="Remove word"
-                onClick={() => removeWord(w.key)}
-                disabled={words.length <= 1}
-                className="h-10 w-10"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-
-      <div className="flex flex-col gap-3">
-        <Button type="button" variant="outline" onClick={() => setWords((w) => [...w, emptyDraftWord()])}>
-          <Plus className="h-4 w-4" />
-          Add row
-        </Button>
-
-        {showImport ? (
-          <ImportWordsPanel
-            wordLang={wordLang}
-            translationLang={translationLang}
-            onClose={() => setShowImport(false)}
-            onImport={(pairs) => {
-              setWords((prev) => appendImportedWords(prev, pairs))
-              setShowImport(false)
-              setError(null)
-            }}
+    <>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium">Name</span>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Kitchen verbs"
+            className={inputClassName}
           />
-        ) : (
-          <Button type="button" variant="outline" onClick={() => setShowImport(true)}>
-            <Upload className="h-4 w-4" />
-            Import
-          </Button>
-        )}
+        </label>
 
-        <Button type="submit" size="lg">
-          {submitLabel}
-        </Button>
-      </div>
-    </form>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium">Description (optional)</span>
+          <input
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Short note for yourself"
+            className={inputClassName}
+          />
+        </label>
+
+        <div className="flex flex-col gap-4">
+          <LangSelect id="from-lang" label="Translates from" value={wordLang} onChange={setWordLang} />
+          <LangSelect id="into-lang" label="Into" value={translationLang} onChange={setTranslationLang} />
+          {sameLanguage ? (
+            <p className="flex items-start gap-2 text-xs text-muted-foreground">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>Same language chosen — cards will still flip between the two sides.</span>
+            </p>
+          ) : null}
+        </div>
+
+        <div>
+          <span className="text-sm font-medium">Words</span>
+          <div className="mt-3 flex flex-col gap-2">
+            {words.map((w, i) => (
+              <div key={w.key} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.5rem] gap-2">
+                <input
+                  value={w.word}
+                  onChange={(e) => updateWord(w.key, "word", e.target.value)}
+                  placeholder={i === 0 ? langLabel(wordLang) : undefined}
+                  aria-label={langLabel(wordLang)}
+                  className={inputClassName}
+                />
+                <input
+                  value={w.translation}
+                  onChange={(e) => updateWord(w.key, "translation", e.target.value)}
+                  placeholder={i === 0 ? langLabel(translationLang) : undefined}
+                  aria-label={langLabel(translationLang)}
+                  className={inputClassName}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Remove word"
+                  onClick={() => removeWord(w.key)}
+                  disabled={words.length <= 1}
+                  className="h-10 w-10"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+
+        <div className="flex flex-col gap-3">
+          <Button type="button" variant="outline" onClick={() => setWords((w) => [...w, emptyDraftWord()])}>
+            <Plus className="h-4 w-4" />
+            Add row
+          </Button>
+
+          {showImport ? (
+            <ImportWordsPanel
+              wordLang={wordLang}
+              translationLang={translationLang}
+              onClose={() => setShowImport(false)}
+              onImport={handleImportedPairs}
+            />
+          ) : (
+            <Button type="button" variant="outline" onClick={() => setShowImport(true)}>
+              <Upload className="h-4 w-4" />
+              Import
+            </Button>
+          )}
+
+          <Button type="submit" size="lg">
+            {submitLabel}
+          </Button>
+        </div>
+      </form>
+
+      <DuplicateImportSheet
+        open={pendingImport != null}
+        duplicates={pendingImport?.duplicates ?? []}
+        newCount={pendingImport?.fresh.length ?? 0}
+        choice={duplicateChoice}
+        onChoiceChange={setDuplicateChoice}
+        onCancel={() => {
+          setPendingImport(null)
+          setDuplicateChoice("skip")
+        }}
+        onContinue={() => {
+          if (!pendingImport) return
+          finishImport(pendingImport.pairs, duplicateChoice)
+        }}
+      />
+    </>
   )
 }
