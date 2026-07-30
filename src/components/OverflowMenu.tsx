@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState } from "react"
 import { MoreVertical } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -90,9 +90,4 @@ export function OverflowMenu({
       ) : null}
     </div>
   )
-}
-
-/** Convenience wrapper when you need a custom trigger label only. */
-export function OverflowMenuHint({ children }: { children: ReactNode }) {
-  return children
 }
