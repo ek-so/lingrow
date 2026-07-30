@@ -8,14 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react"
-import {
-  getGoogleClientId,
-  GOOGLE_SCOPES,
-  hasEnvGoogleClientId,
-  isGoogleConfigured,
-  loadSavedGoogleClientId,
-  saveGoogleClientId,
-} from "@/lib/google-config"
+import { GOOGLE_CLIENT_ID, GOOGLE_SCOPES, isGoogleConfigured } from "@/lib/google-config"
 import { fetchGoogleUserInfo, loadGoogleIdentityServices } from "@/lib/google-gis"
 import {
   dismissLoginPrompt,
@@ -32,9 +25,6 @@ interface AuthContextValue {
   user: AuthSession | null
   accessToken: string | null
   configured: boolean
-  clientIdLockedByEnv: boolean
-  clientId: string
-  setClientId: (clientId: string) => void
   error: string | null
   syncing: boolean
   setSyncing: (value: boolean) => void
@@ -65,14 +55,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [signingIn, setSigningIn] = useState(false)
   const [spreadsheetUrl, setSpreadsheetUrl] = useState<string | null>(null)
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
-  const [clientId, setClientIdState] = useState(() => getGoogleClientId())
-  const configured = clientId.length > 0
-  const clientIdLockedByEnv = hasEnvGoogleClientId()
 
   const tokenClientRef = useRef<GoogleTokenClient | null>(null)
-  const tokenClientIdRef = useRef<string>("")
   const tokenWaiters = useRef<TokenWaiter[]>([])
   const accessTokenRef = useRef<string | null>(null)
+  const configured = isGoogleConfigured()
 
   accessTokenRef.current = accessToken
 
@@ -126,18 +113,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   handleTokenResponseRef.current = handleTokenResponse
 
   const ensureTokenClient = useCallback(async () => {
-    const id = getGoogleClientId()
-    if (!id) {
-      throw new Error("Add your Google OAuth client ID in Profile first.")
+    if (!GOOGLE_CLIENT_ID) {
+      throw new Error("Google sign-in is not configured for this site yet.")
     }
     await loadGoogleIdentityServices()
     if (!window.google?.accounts?.oauth2) {
       throw new Error("Google Identity Services is unavailable")
     }
-    if (!tokenClientRef.current || tokenClientIdRef.current !== id) {
-      tokenClientIdRef.current = id
+    if (!tokenClientRef.current) {
       tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
-        client_id: id,
+        client_id: GOOGLE_CLIENT_ID,
         scope: GOOGLE_SCOPES,
         callback: (response) => {
           void handleTokenResponseRef.current(response)
@@ -154,29 +139,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return tokenClientRef.current
   }, [settleToken])
 
-  const setClientId = useCallback((next: string) => {
-    if (hasEnvGoogleClientId()) return
-    saveGoogleClientId(next)
-    const resolved = getGoogleClientId()
-    setClientIdState(resolved)
-    tokenClientRef.current = null
-    tokenClientIdRef.current = ""
-    setError(null)
-  }, [])
-
   useEffect(() => {
     let cancelled = false
     const prompt = loadLoginPromptState()
     const session = loadAuthSession()
 
     async function boot() {
-      // Keep Profile-saved id in sync if env is empty.
-      if (!hasEnvGoogleClientId()) {
-        const saved = loadSavedGoogleClientId()
-        if (saved && saved !== clientId) setClientIdState(saved)
-      }
-
-      if (!isGoogleConfigured()) {
+      if (!configured) {
         if (!cancelled) {
           setStatus("signed_out")
           setShowLoginPrompt(!prompt.dismissed && !session)
@@ -216,13 +185,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-    // Re-boot when client id becomes available.
-  }, [clientId, ensureTokenClient])
+  }, [configured, ensureTokenClient])
 
   const signIn = useCallback(async () => {
     setError(null)
-    if (!getGoogleClientId()) {
-      setError("Add your Google OAuth client ID in Profile, then try again.")
+    if (!configured) {
+      setError("Google sign-in is not configured for this site yet.")
       throw new Error("Google is not configured")
     }
     setSigningIn(true)
@@ -233,23 +201,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           resolve: () => resolve(),
           reject,
         })
-        client.requestAccessToken({ prompt: "consent" })
+        // Opens Google’s account chooser / consent (normal platform flow).
+        client.requestAccessToken({ prompt: "select_account" })
       })
     } catch (e) {
       setSigningIn(false)
       throw e
     }
-  }, [ensureTokenClient])
+  }, [configured, ensureTokenClient])
 
   const getAccessToken = useCallback(async () => {
     if (accessTokenRef.current) return accessTokenRef.current
-    if (!getGoogleClientId()) throw new Error("Google is not configured")
+    if (!configured) throw new Error("Google is not configured")
     const client = await ensureTokenClient()
     return new Promise<string>((resolve, reject) => {
       tokenWaiters.current.push({ resolve, reject })
       client.requestAccessToken({ prompt: "" })
     })
-  }, [ensureTokenClient])
+  }, [configured, ensureTokenClient])
 
   const signOut = useCallback(() => {
     const token = accessTokenRef.current
@@ -280,9 +249,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       accessToken,
       configured,
-      clientIdLockedByEnv,
-      clientId,
-      setClientId,
       error,
       syncing,
       setSyncing,
@@ -301,9 +267,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       accessToken,
       configured,
-      clientIdLockedByEnv,
-      clientId,
-      setClientId,
       error,
       syncing,
       spreadsheetUrl,

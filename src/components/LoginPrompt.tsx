@@ -1,25 +1,10 @@
-import { useEffect, useState } from "react"
-import { Link } from "react-router-dom"
+import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
 import { Cloud, HardDrive } from "lucide-react"
 
 export function LoginPrompt() {
-  const {
-    showLoginPrompt,
-    signIn,
-    continueLocally,
-    clientId,
-    setClientId,
-    clientIdLockedByEnv,
-    error,
-    signingIn,
-  } = useAuth()
-  const [draftId, setDraftId] = useState(clientId)
-
-  useEffect(() => {
-    setDraftId(clientId)
-  }, [clientId])
+  const { showLoginPrompt, signIn, continueLocally, error, signingIn } = useAuth()
 
   useEffect(() => {
     if (!showLoginPrompt) return
@@ -36,18 +21,6 @@ export function LoginPrompt() {
   }, [showLoginPrompt, continueLocally])
 
   if (!showLoginPrompt) return null
-
-  async function onSignIn() {
-    if (!clientIdLockedByEnv) {
-      const next = draftId.trim()
-      if (next !== clientId) setClientId(next)
-    }
-    try {
-      await signIn()
-    } catch {
-      // error surfaced via auth context
-    }
-  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center">
@@ -94,32 +67,6 @@ export function LoginPrompt() {
           </li>
         </ul>
 
-        {!clientIdLockedByEnv ? (
-          <div className="mt-4">
-            <label htmlFor="login-google-client-id" className="text-sm font-medium">
-              Google OAuth client ID
-            </label>
-            <input
-              id="login-google-client-id"
-              type="text"
-              value={draftId}
-              onChange={(e) => setDraftId(e.target.value)}
-              placeholder="123….apps.googleusercontent.com"
-              className="mt-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
-              autoComplete="off"
-              spellCheck={false}
-            />
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              Create a Web client ID in Google Cloud, enable Sheets + Drive APIs, and add this
-              site’s origin. You can also set it later in{" "}
-              <Link to="/profile" className="underline" onClick={continueLocally}>
-                Profile
-              </Link>
-              .
-            </p>
-          </div>
-        ) : null}
-
         {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
 
         <div className="mt-5 flex flex-col gap-2">
@@ -128,7 +75,7 @@ export function LoginPrompt() {
             size="lg"
             disabled={signingIn}
             onClick={() => {
-              void onSignIn()
+              void signIn().catch(() => undefined)
             }}
           >
             {signingIn ? "Opening Google…" : "Sign in with Google"}
