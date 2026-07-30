@@ -1,5 +1,6 @@
 import type { AppSettings, Collection, LangCode, PronounceFirst, Word } from "@/types"
 import { seedCollections } from "@/data/collections"
+import { normalizeExamples } from "@/lib/examples"
 import { isLangCode } from "@/lib/languages"
 
 const COLLECTIONS_KEY = "lingrow.collections.v2"
@@ -16,11 +17,21 @@ function canUseStorage() {
 
 function migrateWord(raw: Record<string, unknown>): Word | null {
   if (typeof raw.id === "string" && typeof raw.word === "string" && typeof raw.translation === "string") {
-    return { id: raw.id, word: raw.word, translation: raw.translation }
+    return {
+      id: raw.id,
+      word: raw.word,
+      translation: raw.translation,
+      examples: normalizeExamples(raw.examples),
+    }
   }
   // v1 shape: { id, de, en }
   if (typeof raw.id === "string" && typeof raw.de === "string" && typeof raw.en === "string") {
-    return { id: raw.id, word: raw.de, translation: raw.en }
+    return {
+      id: raw.id,
+      word: raw.de,
+      translation: raw.en,
+      examples: normalizeExamples(raw.examples),
+    }
   }
   return null
 }

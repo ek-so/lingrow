@@ -14,6 +14,13 @@ import type { Collection, PronounceFirst, Word } from "@/types"
 type SpeakPhase = "first" | "second" | "pause"
 type StudyView = "cards" | "stats"
 
+/** Gap after saying one side before the other side of the same card. */
+const BETWEEN_SIDES_MS = 850
+/** Brief hold after the second side before the between-card pause. */
+const AFTER_SECOND_SIDE_MS = 600
+/** Gap between finishing a card and starting the next one. */
+const BETWEEN_CARDS_MS = 900
+
 export default function Study() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -105,15 +112,18 @@ export default function Study() {
   }
 
   function sidesForWord(collection: Collection, word: Word) {
+    const examples = word.examples?.length ? word.examples : undefined
     const wordSide = {
       text: word.word,
       lang: LANGS[collection.wordLang].speech,
       hint: `${langLabel(collection.wordLang)} · Word`,
+      examples,
     }
     const translationSide = {
       text: word.translation,
       lang: LANGS[collection.translationLang].speech,
       hint: `${langLabel(collection.translationLang)} · Translation`,
+      examples: undefined as string[] | undefined,
     }
 
     if (pronounceFirst === "translation") {
@@ -124,6 +134,8 @@ export default function Study() {
         backText: wordSide.text,
         frontHint: translationSide.hint,
         backHint: wordSide.hint,
+        frontExamples: translationSide.examples,
+        backExamples: wordSide.examples,
       }
     }
     return {
@@ -133,6 +145,8 @@ export default function Study() {
       backText: translationSide.text,
       frontHint: wordSide.hint,
       backHint: translationSide.hint,
+      frontExamples: wordSide.examples,
+      backExamples: translationSide.examples,
     }
   }
 
@@ -174,14 +188,14 @@ export default function Study() {
         timeoutRef.current = window.setTimeout(() => {
           if (speakGen.current !== gen) return
           setPhase("second")
-        }, 400)
+        }, BETWEEN_SIDES_MS)
       })
     } else if (phase === "second") {
       speak(sides.second.text, sides.second.lang, () => {
         timeoutRef.current = window.setTimeout(() => {
           if (speakGen.current !== gen) return
           setPhase("pause")
-        }, 600)
+        }, AFTER_SECOND_SIDE_MS)
       })
     } else if (phase === "pause") {
       const totalWords = collection.words.length
@@ -194,7 +208,7 @@ export default function Study() {
         } else {
           finishAutoSession(collection.words)
         }
-      }, 900)
+      }, BETWEEN_CARDS_MS)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing, phase, index, pronounceFirst, view])
@@ -366,12 +380,30 @@ export default function Study() {
               <>
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">{sides.frontHint}</p>
                 <p className="mt-3 text-3xl font-semibold tracking-tight">{sides.frontText}</p>
+                {sides.frontExamples?.length ? (
+                  <ul className="mt-4 w-full space-y-1.5 text-left text-sm leading-snug text-muted-foreground">
+                    {sides.frontExamples.map((ex) => (
+                      <li key={ex} className="border-l-2 border-border pl-2.5">
+                        {ex}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </>
             }
             back={
               <>
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">{sides.backHint}</p>
                 <p className="mt-3 text-3xl font-semibold tracking-tight">{sides.backText}</p>
+                {sides.backExamples?.length ? (
+                  <ul className="mt-4 w-full space-y-1.5 text-left text-sm leading-snug text-muted-foreground">
+                    {sides.backExamples.map((ex) => (
+                      <li key={ex} className="border-l-2 border-border pl-2.5">
+                        {ex}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </>
             }
           />

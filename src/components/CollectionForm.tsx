@@ -63,7 +63,7 @@ interface CollectionFormProps {
     description: string
     wordLang: LangCode
     translationLang: LangCode
-    words: Array<{ word: string; translation: string }>
+    words: Array<{ word: string; translation: string; examples?: string[] }>
   }) => void
 }
 
@@ -96,12 +96,19 @@ export function CollectionForm({ initial, submitLabel, onSubmit }: CollectionFor
   const [description, setDescription] = useState(boot.description)
   const [wordLang, setWordLang] = useState<LangCode>(boot.wordLang)
   const [translationLang, setTranslationLang] = useState<LangCode>(boot.translationLang)
-  const [words, setWords] = useState<DraftWord[]>(boot.words)
+  const [words, setWords] = useState<DraftWord[]>(() =>
+    boot.words.map((w) => ({
+      key: w.key || emptyDraftWord().key,
+      word: w.word ?? "",
+      translation: w.translation ?? "",
+      examplesText: w.examplesText ?? "",
+    })),
+  )
   const [error, setError] = useState<string | null>(null)
 
   const sameLanguage = wordLang === translationLang
 
-  function updateWord(key: string, field: "word" | "translation", value: string) {
+  function updateWord(key: string, field: "word" | "translation" | "examplesText", value: string) {
     setWords((prev) => prev.map((w) => (w.key === key ? { ...w, [field]: value } : w)))
   }
 
@@ -178,34 +185,49 @@ export function CollectionForm({ initial, submitLabel, onSubmit }: CollectionFor
 
       <div>
         <span className="text-sm font-medium">Words</span>
-        <div className="mt-3 flex flex-col gap-2">
+        <p className="mt-1 text-xs text-muted-foreground">
+          Optional: add 2–3 example sentences (word language) under each pair — one per line.
+        </p>
+        <div className="mt-3 flex flex-col gap-4">
           {words.map((w, i) => (
-            <div key={w.key} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.5rem] gap-2">
-              <input
-                value={w.word}
-                onChange={(e) => updateWord(w.key, "word", e.target.value)}
-                placeholder={i === 0 ? langLabel(wordLang) : undefined}
-                aria-label={langLabel(wordLang)}
-                className={inputClassName}
-              />
-              <input
-                value={w.translation}
-                onChange={(e) => updateWord(w.key, "translation", e.target.value)}
-                placeholder={i === 0 ? langLabel(translationLang) : undefined}
-                aria-label={langLabel(translationLang)}
-                className={inputClassName}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label="Remove word"
-                onClick={() => removeWord(w.key)}
-                disabled={words.length <= 1}
-                className="h-10 w-10"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+            <div key={w.key} className="rounded-lg border border-border p-3">
+              <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.5rem] gap-2">
+                <input
+                  value={w.word}
+                  onChange={(e) => updateWord(w.key, "word", e.target.value)}
+                  placeholder={i === 0 ? langLabel(wordLang) : undefined}
+                  aria-label={langLabel(wordLang)}
+                  className={inputClassName}
+                />
+                <input
+                  value={w.translation}
+                  onChange={(e) => updateWord(w.key, "translation", e.target.value)}
+                  placeholder={i === 0 ? langLabel(translationLang) : undefined}
+                  aria-label={langLabel(translationLang)}
+                  className={inputClassName}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Remove word"
+                  onClick={() => removeWord(w.key)}
+                  disabled={words.length <= 1}
+                  className="h-10 w-10"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+              <label className="mt-2 flex flex-col gap-1">
+                <span className="sr-only">Examples for {w.word || `row ${i + 1}`}</span>
+                <textarea
+                  value={w.examplesText}
+                  onChange={(e) => updateWord(w.key, "examplesText", e.target.value)}
+                  rows={2}
+                  placeholder="Example sentences (optional, one per line)"
+                  className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                />
+              </label>
             </div>
           ))}
         </div>

@@ -1,6 +1,7 @@
 import type { AppSettings, Collection, LangCode, PronounceFirst, Word } from "@/types"
 import { isLangCode } from "@/lib/languages"
 import { LINGROW_SPREADSHEET_TITLE } from "@/lib/google-config"
+import { joinExamples, normalizeExamples } from "@/lib/examples"
 import { loadSpreadsheetId, saveSpreadsheetId } from "@/lib/prefs"
 
 const COLLECTIONS_SHEET = "Collections"
@@ -17,7 +18,7 @@ const COLLECTIONS_HEADER = [
   "theme",
 ] as const
 
-const WORDS_HEADER = ["collectionId", "id", "word", "translation"] as const
+const WORDS_HEADER = ["collectionId", "id", "word", "translation", "examples"] as const
 const SETTINGS_HEADER = ["key", "value"] as const
 
 export interface CloudBundle {
@@ -153,7 +154,7 @@ function wordsToRows(collections: Collection[]): string[][] {
   const rows: string[][] = [[...WORDS_HEADER]]
   for (const c of collections) {
     for (const w of c.words) {
-      rows.push([c.id, w.id, w.word, w.translation])
+      rows.push([c.id, w.id, w.word, w.translation, joinExamples(w.examples)])
     }
   }
   return rows
@@ -173,10 +174,15 @@ function parseCollections(
   const wordsByCollection = new Map<string, Word[]>()
   const [, ...wBody] = wordRows
   for (const row of wBody) {
-    const [collectionId, id, word, translation] = row
+    const [collectionId, id, word, translation, examplesCell] = row
     if (!collectionId || !id || !word || !translation) continue
     const list = wordsByCollection.get(collectionId) ?? []
-    list.push({ id, word, translation })
+    list.push({
+      id,
+      word,
+      translation,
+      examples: normalizeExamples(examplesCell),
+    })
     wordsByCollection.set(collectionId, list)
   }
 

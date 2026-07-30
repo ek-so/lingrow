@@ -5,6 +5,7 @@ import {
   type DraftWord,
   type WordPair,
 } from "@/lib/collection-form"
+import { normalizeExamples } from "@/lib/examples"
 
 const DRAFT_KEY = "lingrow.import.draft.v1"
 const RESULT_KEY = "lingrow.import.result.v1"
@@ -76,7 +77,11 @@ export function normalizePairs(pairs: WordPair[]): WordPair[] {
     const key = wordKey(word)
     if (seen.has(key)) continue
     seen.add(key)
-    out.push({ word, translation })
+    out.push({
+      word,
+      translation,
+      examples: normalizeExamples(pair.examples),
+    })
   }
   return out
 }
@@ -108,7 +113,11 @@ export function applyImport(
     next = next.map((row) => {
       const hit = byWord.get(wordKey(row.word))
       if (!hit) return row
-      return { ...row, translation: hit.translation }
+      return {
+        ...row,
+        translation: hit.translation,
+        examplesText: hit.examples?.length ? hit.examples.join("\n") : row.examplesText,
+      }
     })
   }
 
@@ -117,6 +126,7 @@ export function applyImport(
     key: `${stamp}-${Math.random().toString(36).slice(2, 7)}-${i}`,
     word: pair.word,
     translation: pair.translation,
+    examplesText: pair.examples?.length ? pair.examples.join("\n") : "",
   }))
 
   next = [...next, ...additions]

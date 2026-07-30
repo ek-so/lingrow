@@ -1,8 +1,10 @@
 import type { LangCode, Word } from "@/types"
+import { examplesFromTextarea, examplesTextareaValue, normalizeExamples } from "@/lib/examples"
 
 export interface WordPair {
   word: string
   translation: string
+  examples?: string[]
 }
 
 export interface CollectionInput {
@@ -17,6 +19,8 @@ export type DraftWord = {
   key: string
   word: string
   translation: string
+  /** One example sentence per line while editing. */
+  examplesText: string
 }
 
 export interface CollectionFormValues {
@@ -32,6 +36,7 @@ export function emptyDraftWord(): DraftWord {
     key: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     word: "",
     translation: "",
+    examplesText: "",
   }
 }
 
@@ -41,11 +46,31 @@ export function draftFromWords(words: Word[]): DraftWord[] {
     key: w.id,
     word: w.word,
     translation: w.translation,
+    examplesText: examplesTextareaValue(w.examples),
   }))
 }
 
 export function pairsFromDraft(words: DraftWord[]): WordPair[] {
   return words
-    .map((w) => ({ word: w.word.trim(), translation: w.translation.trim() }))
+    .map((w) => ({
+      word: w.word.trim(),
+      translation: w.translation.trim(),
+      examples: examplesFromTextarea(w.examplesText),
+    }))
     .filter((w) => w.word && w.translation)
+}
+
+export function pairFromParts(
+  word: string,
+  translation: string,
+  examples?: string[] | string,
+): WordPair | null {
+  const w = word.trim()
+  const t = translation.trim()
+  if (!w || !t) return null
+  return {
+    word: w,
+    translation: t,
+    examples: normalizeExamples(examples),
+  }
 }

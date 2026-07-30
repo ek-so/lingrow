@@ -16,6 +16,7 @@ import {
   saveSettings,
 } from "@/lib/storage"
 import type { WordPair } from "@/lib/collection-form"
+import { normalizeExamples } from "@/lib/examples"
 import { useAuth } from "@/lib/auth-context"
 import {
   cloudHasData,
@@ -55,6 +56,7 @@ function normalizeWords(words: WordPair[]): Word[] {
       id: newId("w"),
       word: w.word.trim(),
       translation: w.translation.trim(),
+      examples: normalizeExamples(w.examples),
     }))
     .filter((w) => w.word && w.translation)
 }

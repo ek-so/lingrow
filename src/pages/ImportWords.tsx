@@ -93,7 +93,7 @@ export default function ImportWords() {
       setPairs(parsed)
       setFileLabel(file.name)
       if (parsed.length === 0) {
-        setError("No word pairs found. Expect two columns: word and translation.")
+        setError("No word pairs found. Expect columns: word, translation, optional examples.")
       }
     } catch {
       setError("Could not read that file. Try exporting as .xlsx or .csv.")
@@ -109,7 +109,9 @@ export default function ImportWords() {
     setPairs(parsed)
     setFileLabel(null)
     if (parsed.length === 0) {
-      setError("No pairs found. Use lines like “- apple — der Apfel” or “word - translation”.")
+      setError(
+        "No pairs found. Use lines like “- apple — der Apfel || Ich esse einen Apfel.” or “word - translation”.",
+      )
     } else {
       setError(null)
     }
@@ -164,7 +166,8 @@ export default function ImportWords() {
             <div className="rounded-xl border border-dashed border-border p-5">
               <p className="text-sm font-medium">Spreadsheet</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Two columns: {langLabel(wordLang)} then {langLabel(translationLang)}. Header optional.
+                Columns: {langLabel(wordLang)}, {langLabel(translationLang)}, optional examples
+                (separate sentences with || or newlines). Header optional.
               </p>
               <input
                 ref={fileRef}
@@ -193,12 +196,15 @@ export default function ImportWords() {
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   rows={10}
-                  placeholder={"- the apple — der Apfel\n- to run — laufen\n- fast - schnell"}
+                  placeholder={
+                    "- the apple — der Apfel || Ich esse einen Apfel. || Der Apfel ist rot.\n- to run — laufen || Ich laufe jeden Morgen."
+                  }
                   className="w-full rounded-md border border-input bg-card px-3 py-2 text-base outline-none focus:ring-2 focus:ring-ring"
                 />
               </label>
               <p className="mt-2 text-xs text-muted-foreground">
-                One pair per line. Bullets optional. Separators: —, –, -, :, =, or tab.
+                One pair per line. Bullets optional. Separators: —, –, -, :, =, or tab. Add examples
+                after the translation with || (up to three).
               </p>
               <Button type="button" variant="outline" className="mt-3" onClick={onParseText}>
                 Parse text
@@ -228,6 +234,7 @@ export default function ImportWords() {
                   <tr>
                     <th className="px-3 py-2 font-medium">{langLabel(wordLang)}</th>
                     <th className="px-3 py-2 font-medium">{langLabel(translationLang)}</th>
+                    <th className="px-3 py-2 font-medium">Examples</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -235,6 +242,9 @@ export default function ImportWords() {
                     <tr key={`${p.word}-${i}`} className="border-t border-border">
                       <td className="px-3 py-2">{p.word}</td>
                       <td className="px-3 py-2">{p.translation}</td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {p.examples?.length ? p.examples.join(" · ") : "—"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

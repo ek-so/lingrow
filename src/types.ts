@@ -4,6 +4,8 @@ export interface Word {
   id: string
   word: string
   translation: string
+  /** Short usage sentences in the word language (shown on the word side). */
+  examples?: string[]
 }
 
 export type Level = "A1" | "A2" | "B1" | "B2" | "C1" | "C2"

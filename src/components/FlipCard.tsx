@@ -154,7 +154,7 @@ export function FlipCard({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
-        className="relative h-56 w-full cursor-grab active:cursor-grabbing outline-none"
+        className="relative min-h-56 h-80 w-full cursor-grab active:cursor-grabbing outline-none"
         style={{
           transform: `translateX(${shift}px) rotate(${rot}deg)`,
           transition: dragging.current ? "none" : "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",
@@ -170,7 +170,7 @@ export function FlipCard({
         >
           <div
             className={cn(
-              "absolute inset-0 flex flex-col items-center justify-center rounded-xl border bg-card px-6 text-center shadow-sm [backface-visibility:hidden]",
+              "absolute inset-0 flex flex-col items-center justify-center overflow-y-auto rounded-xl border bg-card px-6 py-5 text-center shadow-sm [backface-visibility:hidden]",
               knowHint ? "border-primary" : learnHint ? "border-destructive" : "border-border",
             )}
           >
@@ -178,7 +178,7 @@ export function FlipCard({
           </div>
           <div
             className={cn(
-              "absolute inset-0 flex flex-col items-center justify-center rounded-xl border bg-card px-6 text-center shadow-sm [backface-visibility:hidden]",
+              "absolute inset-0 flex flex-col items-center justify-center overflow-y-auto rounded-xl border bg-card px-6 py-5 text-center shadow-sm [backface-visibility:hidden]",
               knowHint ? "border-primary" : learnHint ? "border-destructive" : "border-border",
             )}
             style={{ transform: "rotateY(180deg)" }}
