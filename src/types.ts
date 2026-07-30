@@ -14,3 +14,10 @@ export interface Collection {
   theme?: string
   words: Word[]
 }
+
+/** What speechSynthesis says first during study playback. */
+export type PronounceFirst = "word" | "translation"
+
+export interface AppSettings {
+  pronounceFirst: PronounceFirst
+}

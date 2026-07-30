@@ -1,6 +1,7 @@
 import type { Collection } from "@/types"
 
-export const collections: Collection[] = [
+/** Default lists seeded into localStorage on first visit. */
+export const seedCollections: Collection[] = [
   {
     id: "test-5",
     name: "Test Collection",
