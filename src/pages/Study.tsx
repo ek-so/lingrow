@@ -338,11 +338,11 @@ export default function Study() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <div className="mx-auto max-w-2xl w-full px-5 py-6 flex flex-col flex-1">
-        <div className="flex items-center justify-between mb-2">
+      <header className="sticky top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
+        <div className="mx-auto flex max-w-2xl w-full items-center justify-between gap-3 px-5 py-3">
           <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-4 w-4" />
-            Collections
+            My sets
           </Link>
           <OverflowMenu
             label={`Actions for ${collection.name}`}
@@ -362,6 +362,9 @@ export default function Study() {
             ]}
           />
         </div>
+      </header>
+
+      <div className="mx-auto max-w-2xl w-full px-5 py-6 flex flex-col flex-1">
         <p className="mb-6 text-right text-sm text-muted-foreground">
           {pairLabel(collection.wordLang, collection.translationLang)} · {index + 1} / {collection.words.length}
         </p>

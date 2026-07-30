@@ -10,13 +10,20 @@ export default function NewList() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-2xl px-5 py-6">
-        <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" />
-          Collections
-        </Link>
+      <header className="sticky top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
+        <div className="mx-auto flex max-w-2xl items-center px-5 py-3">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            My sets
+          </Link>
+        </div>
+      </header>
 
-        <h1 className="mt-6 text-2xl font-semibold tracking-tight">New list</h1>
+      <div className="mx-auto max-w-2xl px-5 py-6">
+        <h1 className="text-2xl font-semibold tracking-tight">New set</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Choose languages, then add word pairs — or import from a file or bullet list.
         </p>
@@ -30,7 +37,7 @@ export default function NewList() {
               translationLang: "en",
               words: [emptyDraftWord(), emptyDraftWord(), emptyDraftWord()],
             }}
-            submitLabel="Save list"
+            submitLabel="Save set"
             onSubmit={(values) => {
               const created = addCollection(values)
               navigate(`/study/${created.id}`)

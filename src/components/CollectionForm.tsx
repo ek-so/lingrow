@@ -189,23 +189,25 @@ export function CollectionForm({ initial, submitLabel, onSubmit }: CollectionFor
           Optional: add 2–3 example sentences (word language) under each pair — one per line.
         </p>
         <div className="mt-3 flex flex-col gap-4">
-          {words.map((w, i) => (
+          {words.map((w) => (
             <div key={w.key} className="rounded-lg border border-border p-3">
-              <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.5rem] gap-2">
-                <input
-                  value={w.word}
-                  onChange={(e) => updateWord(w.key, "word", e.target.value)}
-                  placeholder={i === 0 ? langLabel(wordLang) : undefined}
-                  aria-label={langLabel(wordLang)}
-                  className={inputClassName}
-                />
-                <input
-                  value={w.translation}
-                  onChange={(e) => updateWord(w.key, "translation", e.target.value)}
-                  placeholder={i === 0 ? langLabel(translationLang) : undefined}
-                  aria-label={langLabel(translationLang)}
-                  className={inputClassName}
-                />
+              <div className="flex items-start gap-2">
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  <input
+                    value={w.word}
+                    onChange={(e) => updateWord(w.key, "word", e.target.value)}
+                    placeholder={langLabel(wordLang)}
+                    aria-label={langLabel(wordLang)}
+                    className={inputClassName}
+                  />
+                  <input
+                    value={w.translation}
+                    onChange={(e) => updateWord(w.key, "translation", e.target.value)}
+                    placeholder={langLabel(translationLang)}
+                    aria-label={langLabel(translationLang)}
+                    className={inputClassName}
+                  />
+                </div>
                 <Button
                   type="button"
                   variant="ghost"
@@ -213,13 +215,13 @@ export function CollectionForm({ initial, submitLabel, onSubmit }: CollectionFor
                   aria-label="Remove word"
                   onClick={() => removeWord(w.key)}
                   disabled={words.length <= 1}
-                  className="h-10 w-10"
+                  className="mt-0 h-10 w-10 shrink-0"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
               <label className="mt-2 flex flex-col gap-1">
-                <span className="sr-only">Examples for {w.word || `row ${i + 1}`}</span>
+                <span className="sr-only">Examples for {w.word || "word"}</span>
                 <textarea
                   value={w.examplesText}
                   onChange={(e) => updateWord(w.key, "examplesText", e.target.value)}

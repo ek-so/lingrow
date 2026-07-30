@@ -37,16 +37,21 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-2xl px-5 py-10">
-        <header className="mb-8">
+      <header className="sticky top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
+        <div className="mx-auto flex max-w-2xl items-center px-5 py-3">
           <Link
             to="/"
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back
+            My sets
           </Link>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight">Profile</h1>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-2xl px-5 py-8">
+        <header className="mb-8">
+          <h1 className="text-3xl font-semibold tracking-tight">Profile</h1>
           <p className="mt-1 text-muted-foreground">
             Account, cloud storage, and study settings for this user.
           </p>

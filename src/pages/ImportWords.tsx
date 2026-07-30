@@ -119,17 +119,21 @@ export default function ImportWords() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-2xl px-5 py-6">
-        <button
-          type="button"
-          onClick={requestBack}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </button>
+      <header className="sticky top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
+        <div className="mx-auto flex max-w-2xl items-center px-5 py-3">
+          <button
+            type="button"
+            onClick={requestBack}
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </button>
+        </div>
+      </header>
 
-        <h1 className="mt-6 text-2xl font-semibold tracking-tight">Import words</h1>
+      <div className="mx-auto max-w-2xl px-5 py-6">
+        <h1 className="text-2xl font-semibold tracking-tight">Import words</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Upload a spreadsheet or paste a bullet list. Imported pairs are added to your list.
         </p>

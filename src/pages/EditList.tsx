@@ -14,7 +14,7 @@ export default function EditList() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <p className="text-muted-foreground">Collection not found.</p>
+          <p className="text-muted-foreground">Set not found.</p>
           <Link to="/" className="text-primary underline mt-2 inline-block">
             Back home
           </Link>
@@ -25,13 +25,20 @@ export default function EditList() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-2xl px-5 py-6">
-        <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" />
-          Collections
-        </Link>
+      <header className="sticky top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
+        <div className="mx-auto flex max-w-2xl items-center px-5 py-3">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            My sets
+          </Link>
+        </div>
+      </header>
 
-        <h1 className="mt-6 text-2xl font-semibold tracking-tight">Edit list</h1>
+      <div className="mx-auto max-w-2xl px-5 py-6">
+        <h1 className="text-2xl font-semibold tracking-tight">Edit set</h1>
         <p className="mt-1 text-sm text-muted-foreground">Update languages, name, or word pairs.</p>
 
         <div className="mt-8">
