@@ -11,7 +11,6 @@ import {
   LoaderCircle,
   LogIn,
   LogOut,
-  RefreshCw,
   UserRound,
 } from "lucide-react"
 
@@ -26,8 +25,7 @@ export default function Profile() {
     signIn,
     signOut,
   } = useAuth()
-  const { settings, setPronounceFirst, syncStatus, syncError, syncWithGoogle } =
-    useCollections()
+  const { settings, setPronounceFirst, syncStatus, syncError } = useCollections()
 
   function onPronounceChange(value: PronounceFirst) {
     setPronounceFirst(value)
@@ -35,6 +33,7 @@ export default function Profile() {
 
   const signedIn = status === "signed_in" && user
   const busy = syncing || syncStatus === "syncing"
+  const wordFirst = settings.pronounceFirst === "word"
 
   return (
     <div className="min-h-screen bg-background">
@@ -111,17 +110,6 @@ export default function Profile() {
             <div className="mt-4 flex flex-wrap gap-2">
               {signedIn ? (
                 <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      void syncWithGoogle().catch(() => undefined)
-                    }}
-                    disabled={busy}
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Sync with Google
-                  </Button>
                   {spreadsheetUrl ? (
                     <Button
                       type="button"
@@ -152,12 +140,6 @@ export default function Profile() {
                 </Button>
               )}
             </div>
-            {signedIn ? (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Changes in the app upload automatically. Sync pushes your lists to the spreadsheet
-                (including deletes), then reloads anything edited in Google Sheets.
-              </p>
-            ) : null}
           </div>
         </section>
 
@@ -165,45 +147,44 @@ export default function Profile() {
           <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
             Settings
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {signedIn
-              ? "Saved for your Google account and mirrored in the spreadsheet."
-              : "Saved on this device until you sign in."}
-          </p>
           <div className="mt-3 rounded-xl border border-border bg-card p-4">
-            <h3 className="text-sm font-medium">Pronounce first</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Global study order. Each list still chooses its own language pair.
-            </p>
-            <div className="mt-3 grid grid-cols-1 gap-2">
-              <button
-                type="button"
-                onClick={() => onPronounceChange("word")}
-                className={`rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
-                  settings.pronounceFirst === "word"
-                    ? "border-primary bg-accent text-accent-foreground"
-                    : "border-border hover:bg-secondary"
-                }`}
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-sm font-medium">Study order</h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {wordFirst ? "Word first" : "Translation first"}
+                </p>
+              </div>
+              <div
+                role="group"
+                aria-label="Pronounce first"
+                className="inline-flex shrink-0 rounded-lg border border-border bg-secondary p-0.5"
               >
-                <span className="font-medium">Word</span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">
-                  Word → translation
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onPronounceChange("translation")}
-                className={`rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
-                  settings.pronounceFirst === "translation"
-                    ? "border-primary bg-accent text-accent-foreground"
-                    : "border-border hover:bg-secondary"
-                }`}
-              >
-                <span className="font-medium">Translation</span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">
-                  Translation → word
-                </span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => onPronounceChange("word")}
+                  aria-pressed={wordFirst}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                    wordFirst
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Word first
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onPronounceChange("translation")}
+                  aria-pressed={!wordFirst}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                    !wordFirst
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Translation first
+                </button>
+              </div>
             </div>
           </div>
         </section>
