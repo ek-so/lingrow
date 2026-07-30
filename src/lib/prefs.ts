@@ -1,5 +1,6 @@
 const LOGIN_PROMPT_KEY = "lingrow.loginPrompt.v1"
 const AUTH_SESSION_KEY = "lingrow.auth.v1"
+const ACCESS_TOKEN_KEY = "lingrow.accessToken.v1"
 const SPREADSHEET_KEY_PREFIX = "lingrow.spreadsheet.v1."
 
 export interface LoginPromptState {
@@ -13,6 +14,13 @@ export interface AuthSession {
   email: string
   name: string
   picture?: string
+}
+
+/** Short-lived Google OAuth access token cached in the browser. */
+export interface StoredAccessToken {
+  token: string
+  /** Absolute expiry time (ms since epoch). */
+  expiresAt: number
 }
 
 function canUseStorage() {
@@ -71,6 +79,31 @@ export function saveAuthSession(session: AuthSession | null) {
     return
   }
   localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session))
+}
+
+export function loadAccessToken(): StoredAccessToken | null {
+  if (!canUseStorage()) return null
+  try {
+    const raw = localStorage.getItem(ACCESS_TOKEN_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<StoredAccessToken>
+    if (typeof parsed.token !== "string" || typeof parsed.expiresAt !== "number") {
+      return null
+    }
+    if (!parsed.token || !Number.isFinite(parsed.expiresAt)) return null
+    return { token: parsed.token, expiresAt: parsed.expiresAt }
+  } catch {
+    return null
+  }
+}
+
+export function saveAccessToken(record: StoredAccessToken | null) {
+  if (!canUseStorage()) return
+  if (!record) {
+    localStorage.removeItem(ACCESS_TOKEN_KEY)
+    return
+  }
+  localStorage.setItem(ACCESS_TOKEN_KEY, JSON.stringify(record))
 }
 
 export function loadSpreadsheetId(userId: string): string | null {

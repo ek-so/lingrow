@@ -17,7 +17,12 @@ import {
 } from "@/lib/storage"
 import type { WordPair } from "@/lib/collection-form"
 import { useAuth } from "@/lib/auth-context"
-import { cloudHasData, loadCloudBundle, saveCloudBundle } from "@/lib/google-sheets"
+import {
+  cloudHasData,
+  GoogleAuthError,
+  loadCloudBundle,
+  saveCloudBundle,
+} from "@/lib/google-sheets"
 
 interface CollectionFields {
   name: string
@@ -82,6 +87,18 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
     setSettings(loadSettings(userId))
   }, [userId])
 
+  const withFreshToken = useCallback(
+    async <T,>(run: (token: string) => Promise<T>): Promise<T> => {
+      try {
+        return await run(await getAccessToken())
+      } catch (e) {
+        if (!(e instanceof GoogleAuthError)) throw e
+        return await run(await getAccessToken({ force: true }))
+      }
+    },
+    [getAccessToken]
+  )
+
   const pushToCloud = useCallback(
     async (nextCollections: Collection[], nextSettings: AppSettings) => {
       if (authStatus !== "signed_in" || !user) return
@@ -89,8 +106,9 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
       setSyncing(true)
       setSyncError(null)
       try {
-        const token = await getAccessToken()
-        const result = await saveCloudBundle(token, user.id, nextCollections, nextSettings)
+        const result = await withFreshToken((token) =>
+          saveCloudBundle(token, user.id, nextCollections, nextSettings)
+        )
         setSpreadsheetUrl(result.spreadsheetUrl)
         setSyncStatus("idle")
       } catch (e) {
@@ -101,7 +119,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
         setSyncing(false)
       }
     },
-    [authStatus, user, getAccessToken, setSyncing, setSpreadsheetUrl]
+    [authStatus, user, withFreshToken, setSyncing, setSpreadsheetUrl]
   )
 
   const schedulePush = useCallback(
@@ -121,24 +139,25 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
     setSyncing(true)
     setSyncError(null)
     try {
-      const token = await getAccessToken()
-      const bundle = await loadCloudBundle(token, user.id)
-      setSpreadsheetUrl(bundle.spreadsheetUrl)
+      await withFreshToken(async (token) => {
+        const bundle = await loadCloudBundle(token, user.id)
+        setSpreadsheetUrl(bundle.spreadsheetUrl)
 
-      if (cloudHasData(bundle)) {
-        setCollections(bundle.collections)
-        saveCollections(bundle.collections)
-        if (bundle.settings) {
-          setSettings(bundle.settings)
-          saveSettings(bundle.settings, user.id)
+        if (cloudHasData(bundle)) {
+          setCollections(bundle.collections)
+          saveCollections(bundle.collections)
+          if (bundle.settings) {
+            setSettings(bundle.settings)
+            saveSettings(bundle.settings, user.id)
+          }
+        } else {
+          // First sign-in: upload local collections + settings to Google.
+          const localCollections = collectionsRef.current
+          const localSettings = settingsRef.current
+          const result = await saveCloudBundle(token, user.id, localCollections, localSettings)
+          setSpreadsheetUrl(result.spreadsheetUrl)
         }
-      } else {
-        // First sign-in: upload local collections + settings to Google.
-        const localCollections = collectionsRef.current
-        const localSettings = settingsRef.current
-        const result = await saveCloudBundle(token, user.id, localCollections, localSettings)
-        setSpreadsheetUrl(result.spreadsheetUrl)
-      }
+      })
       cloudReady.current = true
       setSyncStatus("idle")
     } catch (e) {
@@ -149,7 +168,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
     } finally {
       setSyncing(false)
     }
-  }, [user, getAccessToken, setSyncing, setSpreadsheetUrl])
+  }, [user, withFreshToken, setSyncing, setSpreadsheetUrl])
 
   useEffect(() => {
     if (authStatus === "signed_in" && user) {

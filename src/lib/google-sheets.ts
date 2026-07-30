@@ -27,6 +27,22 @@ export interface CloudBundle {
   spreadsheetUrl: string
 }
 
+export class GoogleAuthError extends Error {
+  readonly status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = "GoogleAuthError"
+    this.status = status
+  }
+}
+
+function throwIfUnauthorized(res: Response, text: string): void {
+  if (res.status === 401 || res.status === 403) {
+    throw new GoogleAuthError(res.status, text || `Google API unauthorized (${res.status})`)
+  }
+}
+
 async function sheetsFetch(
   accessToken: string,
   path: string,
@@ -40,6 +56,10 @@ async function sheetsFetch(
       ...(init?.headers ?? {}),
     },
   })
+  if (res.status === 401 || res.status === 403) {
+    const text = await res.text()
+    throwIfUnauthorized(res, text)
+  }
   return res
 }
 
@@ -56,6 +76,10 @@ async function driveFetch(
       ...(init?.headers ?? {}),
     },
   })
+  if (res.status === 401 || res.status === 403) {
+    const text = await res.text()
+    throwIfUnauthorized(res, text)
+  }
   return res
 }
 
