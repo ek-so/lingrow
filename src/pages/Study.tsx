@@ -5,11 +5,14 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { FlipCard } from "@/components/FlipCard"
 import { OverflowMenu } from "@/components/OverflowMenu"
+import { StudyStats, type StudyRating } from "@/components/StudyStats"
+import { playClingSound } from "@/lib/cling"
 import { LANGS, langLabel, pairLabel } from "@/lib/languages"
 import { ArrowLeft, Pause, Play, SkipBack, SkipForward } from "lucide-react"
 import type { Collection, PronounceFirst, Word } from "@/types"
 
 type SpeakPhase = "first" | "second" | "pause"
+type StudyView = "cards" | "stats"
 
 export default function Study() {
   const { id } = useParams()
@@ -22,14 +25,26 @@ export default function Study() {
   const [playing, setPlaying] = useState(false)
   const [phase, setPhase] = useState<SpeakPhase>("first")
   const [flipped, setFlipped] = useState(false)
+  const [view, setView] = useState<StudyView>("cards")
+  const [ratings, setRatings] = useState<Record<string, StudyRating>>({})
   const voicesRef = useRef<SpeechSynthesisVoice[]>([])
   const timeoutRef = useRef<number | null>(null)
+  const clingPlayed = useRef(false)
 
-  useEffect(() => {
+  function resetSession() {
+    stopSpeech()
     setIndex(0)
     setPlaying(false)
     setPhase("first")
     setFlipped(false)
+    setView("cards")
+    setRatings({})
+    clingPlayed.current = false
+  }
+
+  useEffect(() => {
+    resetSession()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, pronounceFirst])
 
   useEffect(() => {
@@ -48,6 +63,12 @@ export default function Study() {
     if (!playing) return
     setFlipped(phase === "second" || phase === "pause")
   }, [playing, phase])
+
+  useEffect(() => {
+    if (view !== "stats" || clingPlayed.current) return
+    clingPlayed.current = true
+    playClingSound()
+  }, [view])
 
   function speak(text: string, lang: string, onEnd: () => void) {
     const utter = new SpeechSynthesisUtterance(text)
@@ -94,8 +115,27 @@ export default function Study() {
     }
   }
 
+  function finishAutoSession(words: Word[]) {
+    const next: Record<string, StudyRating> = {}
+    for (const w of words) next[w.id] = "listened"
+    setRatings(next)
+    setPlaying(false)
+    setView("stats")
+  }
+
+  function rateAndAdvance(wordId: string, rating: StudyRating, total: number) {
+    setRatings((prev) => ({ ...prev, [wordId]: rating }))
+    setFlipped(false)
+    if (index >= total - 1) {
+      setView("stats")
+      return
+    }
+    setIndex((i) => i + 1)
+    setPhase("first")
+  }
+
   useEffect(() => {
-    if (!playing || !collection) return
+    if (!playing || !collection || view !== "cards") return
     const word = collection.words[index]
     if (!word) return
     const sides = sidesForWord(collection, word)
@@ -116,12 +156,17 @@ export default function Study() {
           setPhase("first")
           setFlipped(false)
         } else {
-          setPlaying(false)
+          finishAutoSession(collection.words)
         }
       }, 900)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, phase, index, pronounceFirst])
+  }, [playing, phase, index, pronounceFirst, view])
+
+  function stopSpeech() {
+    window.speechSynthesis.cancel()
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+  }
 
   if (!collection) {
     return (
@@ -149,14 +194,27 @@ export default function Study() {
     )
   }
 
+  if (view === "stats") {
+    const known = collection.words.filter((w) => ratings[w.id] === "known").length
+    const learning = collection.words.filter((w) => ratings[w.id] === "learning").length
+    const listened = collection.words.filter((w) => ratings[w.id] === "listened").length
+    return (
+      <StudyStats
+        collectionName={collection.name}
+        total={collection.words.length}
+        known={known}
+        learning={learning}
+        listened={listened}
+        onFinish={() => navigate("/")}
+        onRestart={resetSession}
+      />
+    )
+  }
+
   const word = collection.words[index]
   const sides = sidesForWord(collection, word)
-  const progressPct = ((index + (phase === "pause" ? 1 : 0)) / collection.words.length) * 100
-
-  function stopSpeech() {
-    window.speechSynthesis.cancel()
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
-  }
+  const progressPct = ((index + (playing && phase === "pause" ? 1 : 0)) / collection.words.length) * 100
+  const manualMode = !playing
 
   function togglePlay() {
     if (playing) {
@@ -220,8 +278,12 @@ export default function Study() {
 
         <div className="flex-1 flex flex-col items-center justify-center gap-3">
           <FlipCard
+            key={word.id}
             flipped={flipped}
             onFlip={setFlipped}
+            swipeToRate={manualMode}
+            onSwipeLeft={() => rateAndAdvance(word.id, "learning", collection.words.length)}
+            onSwipeRight={() => rateAndAdvance(word.id, "known", collection.words.length)}
             front={
               <>
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">{sides.frontHint}</p>
@@ -235,7 +297,11 @@ export default function Study() {
               </>
             }
           />
-          <p className="text-xs text-muted-foreground">Swipe or tap the card to flip</p>
+          <p className="text-xs text-muted-foreground">
+            {manualMode
+              ? "Tap to flip · Swipe right if you know it · Left if still learning"
+              : "Auto play — tap to flip while listening"}
+          </p>
         </div>
 
         <div className="mt-8 flex items-center justify-center gap-4">
@@ -268,7 +334,7 @@ export default function Study() {
           {pronounceFirst === "word"
             ? `${langLabel(collection.wordLang)} → ${langLabel(collection.translationLang)}`
             : `${langLabel(collection.translationLang)} → ${langLabel(collection.wordLang)}`}
-          . Change order in Settings. Keep the screen on while studying.
+          . Keep the screen on while studying.
         </p>
       </div>
     </div>
