@@ -1,6 +1,11 @@
-/** Google OAuth client ID from Vite env (set at build time). */
+/** Public OAuth Web client ID for Lingrow (safe to ship in the frontend). */
+const BUILTIN_GOOGLE_CLIENT_ID =
+  "843982348245-qq0fqarm7lv7bq1tf2471brc32fg211a.apps.googleusercontent.com"
+
+/** Prefer build env override; fall back to the shipped Lingrow client. */
 export const GOOGLE_CLIENT_ID =
-  (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined)?.trim() ?? ""
+  (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined)?.trim() ||
+  BUILTIN_GOOGLE_CLIENT_ID
 
 export const GOOGLE_SCOPES = [
   "openid",
