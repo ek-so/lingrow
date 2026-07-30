@@ -36,7 +36,7 @@ function migrateCollection(raw: unknown): Collection | null {
 
   let wordLang: LangCode = "de"
   let translationLang: LangCode = "en"
-  if (isLangCode(c.wordLang) && isLangCode(c.translationLang) && c.wordLang !== c.translationLang) {
+  if (isLangCode(c.wordLang) && isLangCode(c.translationLang)) {
     wordLang = c.wordLang
     translationLang = c.translationLang
   }

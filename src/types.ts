@@ -14,7 +14,7 @@ export interface Collection {
   description: string
   /** Language of the “word” side of each card. */
   wordLang: LangCode
-  /** Language of the “translation” side. Must differ from wordLang. */
+  /** Language of the “translation” side (may match wordLang for same-language drills). */
   translationLang: LangCode
   level?: Level
   theme?: string

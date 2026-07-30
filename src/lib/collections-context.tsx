@@ -40,9 +40,6 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
     translationLang: LangCode
     words: Array<Pick<Word, "word" | "translation">>
   }) {
-    if (input.wordLang === input.translationLang) {
-      throw new Error("Word and translation languages must differ")
-    }
     const collection: Collection = {
       id: newId("list"),
       name: input.name.trim(),
