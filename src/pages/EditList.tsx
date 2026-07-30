@@ -25,7 +25,7 @@ export default function EditList() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
+      <header className="fixed inset-x-0 top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-2xl items-center px-5 py-3">
           <Link
             to="/"
@@ -37,7 +37,7 @@ export default function EditList() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-2xl px-5 py-6">
+      <div className="mx-auto max-w-2xl px-5 pb-6 pt-[4.75rem]">
         <h1 className="text-2xl font-semibold tracking-tight">Edit set</h1>
         <p className="mt-1 text-sm text-muted-foreground">Update languages, name, or word pairs.</p>
 

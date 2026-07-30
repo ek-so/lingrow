@@ -338,7 +338,7 @@ export default function Study() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="sticky top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
+      <header className="fixed inset-x-0 top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-2xl w-full items-center justify-between gap-3 px-5 py-3">
           <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-4 w-4" />
@@ -364,7 +364,7 @@ export default function Study() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-2xl w-full px-5 pt-6 pb-28 flex flex-col flex-1">
+      <div className="mx-auto max-w-2xl w-full px-5 pt-[4.75rem] pb-28 flex flex-col flex-1">
         <Progress value={progressPct} className="mb-2" />
         <div className="mb-8 flex items-center justify-between gap-3 text-sm text-muted-foreground">
           <span>{pairLabel(collection.wordLang, collection.translationLang)}</span>
