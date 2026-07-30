@@ -1,8 +1,8 @@
 import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
-import { Check, CircleHelp, Headphones, RotateCcw } from "lucide-react"
+import { Check, CircleHelp, Headphones, RotateCcw, SkipForward } from "lucide-react"
 
-export type StudyRating = "known" | "learning" | "listened"
+export type StudyRating = "known" | "learning" | "listened" | "skipped"
 
 interface StudyStatsProps {
   collectionName: string
@@ -10,6 +10,7 @@ interface StudyStatsProps {
   known: number
   learning: number
   listened: number
+  skipped: number
   onFinish: () => void
   onRestart: () => void
 }
@@ -20,16 +21,47 @@ export function StudyStats({
   known,
   learning,
   listened,
+  skipped,
   onFinish,
   onRestart,
 }: StudyStatsProps) {
-  const rated = known + learning + listened
   const headline =
-    listened === total && known === 0 && learning === 0
+    listened === total && known === 0 && learning === 0 && skipped === 0
       ? "Session complete"
       : known === total
         ? "Nailed it"
         : "Nice work"
+
+  const rows = [
+    {
+      key: "known",
+      icon: <Check className="h-4 w-4 text-primary" />,
+      label: "Know",
+      hint: "Swiped right",
+      value: known,
+    },
+    {
+      key: "learning",
+      icon: <CircleHelp className="h-4 w-4 text-destructive" />,
+      label: "Still learning",
+      hint: "Swiped left",
+      value: learning,
+    },
+    {
+      key: "listened",
+      icon: <Headphones className="h-4 w-4 text-muted-foreground" />,
+      label: "Listened",
+      hint: "Played in auto mode",
+      value: listened,
+    },
+    {
+      key: "skipped",
+      icon: <SkipForward className="h-4 w-4 text-muted-foreground" />,
+      label: "Skipped",
+      hint: "Passed with next",
+      value: skipped,
+    },
+  ].filter((row) => row.value > 0)
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -45,30 +77,16 @@ export function StudyStats({
             <span className="text-xl font-medium text-muted-foreground"> / {total}</span>
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {rated < total ? `${total - rated} not rated yet · ` : null}
             {Math.round((known / Math.max(total, 1)) * 100)}% known
           </p>
 
-          <div className="mt-6 grid gap-3">
-            <StatRow
-              icon={<Check className="h-4 w-4 text-primary" />}
-              label="Know"
-              hint="Swiped right"
-              value={known}
-            />
-            <StatRow
-              icon={<CircleHelp className="h-4 w-4 text-destructive" />}
-              label="Still learning"
-              hint="Swiped left"
-              value={learning}
-            />
-            <StatRow
-              icon={<Headphones className="h-4 w-4 text-muted-foreground" />}
-              label="Listened"
-              hint="Played in auto mode"
-              value={listened}
-            />
-          </div>
+          {rows.length > 0 ? (
+            <div className="mt-6 grid gap-3">
+              {rows.map((row) => (
+                <StatRow key={row.key} icon={row.icon} label={row.label} hint={row.hint} value={row.value} />
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-auto flex flex-col gap-3 pt-10">
