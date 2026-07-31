@@ -57,9 +57,15 @@ export default function Profile() {
           </h2>
           <div className="mt-3 rounded-xl border border-border bg-card p-4">
             {signedIn && user ? (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{user.email || user.name}</p>
+                  <p
+                    className="truncate text-sm font-medium"
+                    // Keep email as plain text (no mailto / data-detector link).
+                    data-mailto="false"
+                  >
+                    {(user.email || user.name).replace("@", "\u200B@")}
+                  </p>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     {busy ? (
                       <span className="inline-flex items-center gap-1 text-primary">

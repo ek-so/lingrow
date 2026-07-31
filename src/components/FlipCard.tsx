@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react"
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
 export type CardSwipeDirection = "left" | "right"
@@ -10,7 +10,7 @@ interface FlipCardProps {
   onFlip: (next: boolean) => void
   /**
    * rate — horizontal swipe rates the card (multi-word study)
-   * flip — horizontal swipe also toggles sides (single-word study)
+   * flip — horizontal swipe toggles sides (single-word study)
    * Tap always flips in both modes.
    */
   swipeMode?: "rate" | "flip"
@@ -36,9 +36,12 @@ export function FlipCard({
   const startY = useRef<number | null>(null)
   const dragging = useRef(false)
   const suppressClick = useRef(false)
+  const flippedRef = useRef(flipped)
   const [dragX, setDragX] = useState(0)
   const [exitX, setExitX] = useState(0)
   const [exiting, setExiting] = useState(false)
+
+  flippedRef.current = flipped
 
   useEffect(() => {
     setDragX(0)
@@ -46,8 +49,14 @@ export function FlipCard({
     setExiting(false)
   }, [flipped])
 
+  function flip() {
+    onFlip(!flippedRef.current)
+  }
+
   function onPointerDown(e: PointerEvent<HTMLDivElement>) {
     if (exiting) return
+    // Only primary button / touch.
+    if (e.pointerType === "mouse" && e.button !== 0) return
     startX.current = e.clientX
     startY.current = e.clientY
     dragging.current = true
@@ -70,8 +79,10 @@ export function FlipCard({
     startX.current = null
     startY.current = null
 
+    // Always consume the synthetic click that follows pointerup.
+    suppressClick.current = true
+
     if (Math.abs(dx) > 72) {
-      suppressClick.current = true
       if (swipeMode === "rate") {
         const dir: CardSwipeDirection = dx < 0 ? "left" : "right"
         setExiting(true)
@@ -86,17 +97,24 @@ export function FlipCard({
         return
       }
 
-      onFlip(!flipped)
+      // Single-word: swipe swaps sides (no fly-away).
+      flip()
       setDragX(0)
       return
     }
 
-    // Short movement: let the following click event flip once.
+    // Tap / short drag — same flip path for 1-word and multi-word sets.
+    flip()
     setDragX(0)
   }
 
   function onPointerUp(e: PointerEvent<HTMLDivElement>) {
     finishGesture(e.clientX)
+  }
+
+  function onLostPointerCapture(e: PointerEvent<HTMLDivElement>) {
+    // iOS can cancel capture without pointerup; still finish the gesture.
+    if (dragging.current) finishGesture(e.clientX)
   }
 
   function onPointerCancel() {
@@ -106,29 +124,32 @@ export function FlipCard({
     setDragX(0)
   }
 
-  function onClick() {
-    if (exiting) return
+  function onClick(e: MouseEvent<HTMLDivElement>) {
+    // Pointer path already flipped; ignore the follow-up click.
     if (suppressClick.current) {
       suppressClick.current = false
+      e.preventDefault()
+      e.stopPropagation()
       return
     }
-    onFlip(!flipped)
+    if (exiting) return
+    flip()
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault()
-      onFlip(!flipped)
+      flip()
     }
     if (e.key === "ArrowLeft") {
       e.preventDefault()
       if (swipeMode === "rate") onSwipeLeft?.()
-      else onFlip(!flipped)
+      else flip()
     }
     if (e.key === "ArrowRight") {
       e.preventDefault()
       if (swipeMode === "rate") onSwipeRight?.()
-      else onFlip(!flipped)
+      else flip()
     }
   }
 
@@ -173,6 +194,7 @@ export function FlipCard({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
+        onLostPointerCapture={onLostPointerCapture}
         className="relative h-80 w-full max-h-[min(20rem,46dvh)] cursor-pointer outline-none"
         style={{
           transform: `translateX(${shift}px) rotate(${rot}deg)`,
@@ -180,16 +202,15 @@ export function FlipCard({
         }}
       >
         <div
-          className="relative h-full w-full"
+          className="relative h-full w-full [transform-style:preserve-3d]"
           style={{
-            transformStyle: "preserve-3d",
             transform: `rotateY(${flipped ? 180 : 0}deg)`,
             transition: "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)",
           }}
         >
           <div
             className={cn(
-              "absolute inset-0 flex flex-col items-center justify-center overflow-y-auto rounded-xl border bg-card px-6 py-5 text-center shadow-sm [backface-visibility:hidden] [-webkit-backface-visibility:hidden]",
+              "absolute inset-0 flex flex-col items-center justify-center overflow-hidden rounded-xl border bg-card px-6 py-5 text-center shadow-sm [backface-visibility:hidden] [-webkit-backface-visibility:hidden]",
               knowHint ? "border-primary" : learnHint ? "border-destructive" : "border-border",
             )}
           >
@@ -197,7 +218,7 @@ export function FlipCard({
           </div>
           <div
             className={cn(
-              "absolute inset-0 flex flex-col items-center justify-center overflow-y-auto rounded-xl border bg-card px-6 py-5 text-center shadow-sm [backface-visibility:hidden] [-webkit-backface-visibility:hidden]",
+              "absolute inset-0 flex flex-col items-center justify-center overflow-hidden rounded-xl border bg-card px-6 py-5 text-center shadow-sm [backface-visibility:hidden] [-webkit-backface-visibility:hidden]",
               knowHint ? "border-primary" : learnHint ? "border-destructive" : "border-border",
             )}
             style={{ transform: "rotateY(180deg)" }}
