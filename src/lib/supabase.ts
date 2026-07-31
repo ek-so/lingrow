@@ -26,7 +26,7 @@ export function getSupabase(): SupabaseClient {
   return client
 }
 
-/** Where GitHub OAuth should return after sign-in. */
+/** Where the magic link should land after sign-in. */
 export function authRedirectTo() {
   const base = import.meta.env.BASE_URL || "/"
   const origin = typeof window !== "undefined" ? window.location.origin : ""

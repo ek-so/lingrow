@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
@@ -8,15 +9,26 @@ import {
   Cloud,
   CloudOff,
   LoaderCircle,
-  LogIn,
   LogOut,
+  Mail,
   RefreshCw,
   UserRound,
 } from "lucide-react"
 
 export default function Profile() {
-  const { user, error, syncing, signingIn, signIn, signOut, configured } = useAuth()
+  const {
+    user,
+    error,
+    syncing,
+    signingIn,
+    signIn,
+    signOut,
+    configured,
+    linkSentTo,
+    clearLinkSent,
+  } = useAuth()
   const { settings, setPronounceFirst, syncStatus, syncError, refreshFromCloud } = useCollections()
+  const [email, setEmail] = useState("")
 
   function onPronounceChange(value: PronounceFirst) {
     setPronounceFirst(value)
@@ -94,10 +106,22 @@ export default function Profile() {
               </div>
             ) : (
               <div>
-                <p className="font-medium">Not signed in</p>
+                <p className="font-medium">
+                  {linkSentTo ? "Check your email" : "Not signed in"}
+                </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Sign in with GitHub so Lingrow can store your collections in the cloud. Without
-                  sign-in, data stays in this browser only.
+                  {linkSentTo ? (
+                    <>
+                      We sent a magic link to{" "}
+                      <span className="font-medium text-foreground">{linkSentTo}</span>. Open it on
+                      this device to finish signing in.
+                    </>
+                  ) : (
+                    <>
+                      Email yourself a magic link so Lingrow can store your collections in the cloud.
+                      Without sign-in, data stays in this browser only.
+                    </>
+                  )}
                 </p>
               </div>
             )}
@@ -109,13 +133,13 @@ export default function Profile() {
                 Set <code className="rounded bg-secondary px-1 py-0.5 text-xs">VITE_SUPABASE_URL</code>{" "}
                 and{" "}
                 <code className="rounded bg-secondary px-1 py-0.5 text-xs">VITE_SUPABASE_ANON_KEY</code>{" "}
-                to enable GitHub sign-in.
+                to enable email sign-in.
               </p>
             ) : null}
 
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-col gap-2">
               {signedIn ? (
-                <>
+                <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
                     variant="outline"
@@ -137,18 +161,50 @@ export default function Profile() {
                     <LogOut className="h-4 w-4" />
                     Sign out
                   </Button>
-                </>
+                </div>
+              ) : linkSentTo ? (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    disabled={signingIn || !configured}
+                    onClick={() => {
+                      void signIn(linkSentTo).catch(() => undefined)
+                    }}
+                  >
+                    <Mail className="h-4 w-4" />
+                    {signingIn ? "Sending…" : "Resend link"}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => clearLinkSent()}>
+                    Use a different email
+                  </Button>
+                </div>
               ) : (
-                <Button
-                  type="button"
-                  disabled={signingIn || !configured}
-                  onClick={() => {
-                    void signIn().catch(() => undefined)
+                <form
+                  className="flex flex-col gap-2 sm:flex-row"
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    void signIn(email).catch(() => undefined)
                   }}
                 >
-                  <LogIn className="h-4 w-4" />
-                  {signingIn ? "Connecting…" : "Sign in with GitHub"}
-                </Button>
+                  <label className="sr-only" htmlFor="profile-email">
+                    Email
+                  </label>
+                  <input
+                    id="profile-email"
+                    type="email"
+                    autoComplete="email"
+                    inputMode="email"
+                    required
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring sm:min-w-0 sm:flex-1"
+                  />
+                  <Button type="submit" disabled={signingIn || !configured} className="shrink-0">
+                    <Mail className="h-4 w-4" />
+                    {signingIn ? "Sending…" : "Email magic link"}
+                  </Button>
+                </form>
               )}
             </div>
           </div>

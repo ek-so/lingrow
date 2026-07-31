@@ -26,10 +26,12 @@ interface AuthContextValue {
   setSyncing: (value: boolean) => void
   showLoginPrompt: boolean
   signingIn: boolean
-  signIn: () => Promise<void>
+  linkSentTo: string | null
+  signIn: (email: string) => Promise<void>
   signOut: () => Promise<void>
   dismissPrompt: () => void
   continueLocally: () => void
+  clearLinkSent: () => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -41,7 +43,7 @@ function sessionFromUser(user: User): AuthSession {
     (typeof meta.name === "string" && meta.name) ||
     (typeof meta.user_name === "string" && meta.user_name) ||
     user.email ||
-    "GitHub user"
+    "User"
   const picture =
     (typeof meta.avatar_url === "string" && meta.avatar_url) ||
     (typeof meta.picture === "string" && meta.picture) ||
@@ -61,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [signingIn, setSigningIn] = useState(false)
+  const [linkSentTo, setLinkSentTo] = useState<string | null>(null)
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
 
   useEffect(() => {
@@ -108,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setStatus("signed_in")
         setShowLoginPrompt(false)
         setSigningIn(false)
+        setLinkSentTo(null)
         setError(null)
         dismissLoginPrompt()
       } else {
@@ -122,32 +126,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [configured])
 
-  const signIn = useCallback(async () => {
-    setError(null)
-    if (!configured) {
-      setError("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable sign-in.")
-      throw new Error("Supabase is not configured")
-    }
-    setSigningIn(true)
-    try {
-      const supabase = getSupabase()
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: "github",
-        options: {
-          redirectTo: authRedirectTo(),
-        },
-      })
-      if (oauthError) throw oauthError
-    } catch (e) {
-      setSigningIn(false)
-      const msg = e instanceof Error ? e.message : "GitHub sign-in failed"
-      setError(msg)
-      throw e
-    }
-  }, [configured])
+  const signIn = useCallback(
+    async (email: string) => {
+      setError(null)
+      setLinkSentTo(null)
+      const trimmed = email.trim()
+      if (!trimmed) {
+        setError("Enter your email address.")
+        throw new Error("Email is required")
+      }
+      if (!configured) {
+        setError("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable sign-in.")
+        throw new Error("Supabase is not configured")
+      }
+      setSigningIn(true)
+      try {
+        const supabase = getSupabase()
+        const { error: otpError } = await supabase.auth.signInWithOtp({
+          email: trimmed,
+          options: {
+            emailRedirectTo: authRedirectTo(),
+          },
+        })
+        if (otpError) throw otpError
+        setLinkSentTo(trimmed)
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Could not send magic link"
+        setError(msg)
+        throw e
+      } finally {
+        setSigningIn(false)
+      }
+    },
+    [configured]
+  )
 
   const signOut = useCallback(async () => {
     setError(null)
+    setLinkSentTo(null)
     if (configured) {
       try {
         await getSupabase().auth.signOut()
@@ -169,6 +185,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setShowLoginPrompt(false)
   }, [])
 
+  const clearLinkSent = useCallback(() => {
+    setLinkSentTo(null)
+  }, [])
+
   const value = useMemo<AuthContextValue>(
     () => ({
       status,
@@ -179,10 +199,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSyncing,
       showLoginPrompt,
       signingIn,
+      linkSentTo,
       signIn,
       signOut,
       dismissPrompt,
       continueLocally,
+      clearLinkSent,
     }),
     [
       status,
@@ -192,10 +214,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       syncing,
       showLoginPrompt,
       signingIn,
+      linkSentTo,
       signIn,
       signOut,
       dismissPrompt,
       continueLocally,
+      clearLinkSent,
     ]
   )
 
