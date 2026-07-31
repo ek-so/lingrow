@@ -7,6 +7,7 @@ import { FlipCard } from "@/components/FlipCard"
 import { OverflowMenu } from "@/components/OverflowMenu"
 import { StudyStats, type StudyRating } from "@/components/StudyStats"
 import { playClingSound } from "@/lib/cling"
+import { downloadCollectionExcel } from "@/lib/export-collection"
 import { LANGS, langLabel, pairLabel } from "@/lib/languages"
 import { ArrowLeft, Pause, Play, SkipBack, SkipForward } from "lucide-react"
 import type { Collection, PronounceFirst, Word } from "@/types"
@@ -345,6 +346,11 @@ export default function Study() {
     navigate("/")
   }
 
+  function onExport() {
+    if (!collection) return
+    void downloadCollectionExcel(collection)
+  }
+
   return (
     <div className="h-dvh overflow-hidden bg-background">
       <header className="fixed inset-x-0 top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
@@ -362,6 +368,10 @@ export default function Study() {
                   stopSpeech()
                   navigate(`/edit/${collection.id}`)
                 },
+              },
+              {
+                label: "Export",
+                onSelect: onExport,
               },
               {
                 label: "Delete",

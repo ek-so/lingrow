@@ -186,7 +186,7 @@ export function CollectionForm({ initial, submitLabel, onSubmit }: CollectionFor
       <div>
         <span className="text-sm font-medium">Words</span>
         <p className="mt-1 text-xs text-muted-foreground">
-          Optional: add 2–3 example sentences (word language) under each pair — one per line.
+          Optional: add example sentences (word language) under each pair — one per line.
         </p>
         <div className="mt-3 flex flex-col gap-4">
           {words.map((w) => (

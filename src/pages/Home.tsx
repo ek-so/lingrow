@@ -4,8 +4,10 @@ import { useAuth } from "@/lib/auth-context"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { OverflowMenu } from "@/components/OverflowMenu"
+import { downloadCollectionExcel } from "@/lib/export-collection"
 import { pairLabel } from "@/lib/languages"
 import { Layers, Plus, UserRound } from "lucide-react"
+import type { Collection } from "@/types"
 
 export default function Home() {
   const navigate = useNavigate()
@@ -15,6 +17,10 @@ export default function Home() {
   function onDelete(id: string, name: string) {
     if (!window.confirm(`Delete “${name}”? This can’t be undone.`)) return
     deleteCollection(id)
+  }
+
+  function onExport(collection: Collection) {
+    void downloadCollectionExcel(collection)
   }
 
   function goNew() {
@@ -83,6 +89,10 @@ export default function Home() {
                       {
                         label: "Edit",
                         onSelect: () => navigate(`/edit/${c.id}`),
+                      },
+                      {
+                        label: "Export",
+                        onSelect: () => onExport(c),
                       },
                       {
                         label: "Delete",

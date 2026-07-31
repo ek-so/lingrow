@@ -1,9 +1,8 @@
 /** Join/split usage examples for sheets, import, and forms. */
 
 export const EXAMPLE_SEP = " || "
-export const MAX_EXAMPLES = 3
 
-/** Trim, drop empties, cap at MAX_EXAMPLES. */
+/** Trim and drop empties. Keeps every non-empty example (no hard cap). */
 export function normalizeExamples(raw: unknown): string[] | undefined {
   let parts: string[] = []
   if (Array.isArray(raw)) {
@@ -11,8 +10,7 @@ export function normalizeExamples(raw: unknown): string[] | undefined {
   } else if (typeof raw === "string") {
     parts = splitExamplesCell(raw)
   }
-  const capped = parts.slice(0, MAX_EXAMPLES)
-  return capped.length > 0 ? capped : undefined
+  return parts.length > 0 ? parts : undefined
 }
 
 /** Split a spreadsheet/import cell into example sentences. */
@@ -24,7 +22,6 @@ export function splitExamplesCell(cell: string): string[] {
       .split(/\s*\|\|\s*/)
       .map((s) => s.trim())
       .filter(Boolean)
-      .slice(0, MAX_EXAMPLES)
   }
   // Newlines or single pipes also work in paste/spreadsheet cells.
   if (/\r?\n/.test(trimmed)) {
@@ -32,16 +29,14 @@ export function splitExamplesCell(cell: string): string[] {
       .split(/\r?\n/)
       .map((s) => s.trim())
       .filter(Boolean)
-      .slice(0, MAX_EXAMPLES)
   }
   if (trimmed.includes(" | ")) {
     return trimmed
       .split(/\s+\|\s+/)
       .map((s) => s.trim())
       .filter(Boolean)
-      .slice(0, MAX_EXAMPLES)
   }
-  return [trimmed].slice(0, MAX_EXAMPLES)
+  return [trimmed]
 }
 
 export function joinExamples(examples: string[] | undefined): string {

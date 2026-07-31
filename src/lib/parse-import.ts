@@ -1,6 +1,6 @@
 import type { WordPair } from "@/lib/collection-form"
 import { pairFromParts } from "@/lib/collection-form"
-import { splitExamplesCell } from "@/lib/examples"
+import { normalizeExamples, splitExamplesCell } from "@/lib/examples"
 
 const BULLET_RE = /^\s*(?:[-*•–—]|\d+[.)])\s+/
 const SEPARATORS = [" — ", " – ", " - ", "\t", " = ", ": "] as const
@@ -68,7 +68,18 @@ export function parseBulletText(text: string): WordPair[] {
 }
 
 const HEADERISH =
-  /^(word|words|german|deutsch|english|russian|translation|from|to|examples?|example|usage)$/i
+  /^(word|words|german|deutsch|english|russian|translation|from|to|examples?|example(?:\s*\d+)?|usage)$/i
+
+/** Collect examples from column 3 onward (joined cell or one example per column). */
+function examplesFromRow(row: unknown[]): string[] | undefined {
+  const cells = row.slice(2).map(cleanCell).filter(Boolean)
+  if (cells.length === 0) return undefined
+  if (cells.length === 1) return splitExamplesCell(cells[0]!)
+  const parts = cells.flatMap((cell) =>
+    /\|\|/.test(cell) ? splitExamplesCell(cell) : [cell],
+  )
+  return normalizeExamples(parts)
+}
 
 function sheetRowsToPairs(rows: unknown[][]): WordPair[] {
   const pairs: WordPair[] = []
@@ -78,7 +89,6 @@ function sheetRowsToPairs(rows: unknown[][]): WordPair[] {
     const row = rows[i] ?? []
     const a = cleanCell(row[0])
     const b = cleanCell(row[1])
-    const c = cleanCell(row[2])
     if (!a || !b) continue
 
     if (i === 0 && HEADERISH.test(a) && HEADERISH.test(b)) continue
@@ -86,7 +96,7 @@ function sheetRowsToPairs(rows: unknown[][]): WordPair[] {
     const key = `${a.toLowerCase()}::${b.toLowerCase()}`
     if (seen.has(key)) continue
     seen.add(key)
-    const pair = pairFromParts(a, b, c ? splitExamplesCell(c) : undefined)
+    const pair = pairFromParts(a, b, examplesFromRow(row))
     if (pair) pairs.push(pair)
   }
 
