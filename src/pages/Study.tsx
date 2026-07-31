@@ -9,7 +9,7 @@ import { StudyStats, type StudyRating } from "@/components/StudyStats"
 import { playClingSound } from "@/lib/cling"
 import { downloadCollectionExcel } from "@/lib/export-collection"
 import { LANGS, langLabel, pairLabel } from "@/lib/languages"
-import { ArrowLeft, Pause, Play, SkipBack, SkipForward } from "lucide-react"
+import { ArrowLeft, Download, Pause, Pencil, Play, SkipBack, SkipForward, Trash2 } from "lucide-react"
 import type { Collection, PronounceFirst, Word } from "@/types"
 
 type SpeakPhase = "first" | "second" | "pause"
@@ -330,14 +330,6 @@ export default function Study() {
     setFlipped(false)
   }
 
-  function swapSides() {
-    if (playing) {
-      stopSpeech()
-      setPlaying(false)
-    }
-    handleFlip(!flipped)
-  }
-
   function onDelete() {
     if (!collection) return
     if (!window.confirm(`Delete “${collection.name}”? This can’t be undone.`)) return
@@ -364,6 +356,7 @@ export default function Study() {
             items={[
               {
                 label: "Edit",
+                icon: <Pencil />,
                 onSelect: () => {
                   stopSpeech()
                   navigate(`/edit/${collection.id}`)
@@ -371,10 +364,12 @@ export default function Study() {
               },
               {
                 label: "Export",
+                icon: <Download />,
                 onSelect: onExport,
               },
               {
                 label: "Delete",
+                icon: <Trash2 />,
                 destructive: true,
                 onSelect: onDelete,
               },
@@ -399,7 +394,13 @@ export default function Study() {
             <FlipCard
               key={word.id}
               flipped={flipped}
-              onFlip={handleFlip}
+              onFlip={(next) => {
+                if (playing) {
+                  stopSpeech()
+                  setPlaying(false)
+                }
+                handleFlip(next)
+              }}
               swipeMode={singleWord ? "flip" : "rate"}
               onSwipeLeft={() => rateAndAdvance(word.id, "learning", collection.words.length)}
               onSwipeRight={() => rateAndAdvance(word.id, "known", collection.words.length)}
@@ -436,7 +437,7 @@ export default function Study() {
             />
             <p className="mt-3 text-center text-xs text-muted-foreground">
               {singleWord
-                ? "Swipe or tap to swap sides"
+                ? "Tap or swipe the card to swap sides · Next finishes"
                 : playing
                   ? "Auto play — swipe to rate · Tap to flip"
                   : "Tap to flip · Swipe right if you know it · Left if still learning"}
@@ -450,15 +451,9 @@ export default function Study() {
           <Button
             variant="outline"
             size="icon"
-            aria-label={singleWord ? "Show other side" : "Previous"}
-            onClick={() => {
-              if (singleWord) {
-                swapSides()
-                return
-              }
-              goTo(index - 1)
-            }}
-            disabled={!singleWord && index === 0}
+            aria-label="Previous"
+            onClick={() => goTo(index - 1)}
+            disabled={index === 0}
           >
             <SkipBack className="h-4 w-4" />
           </Button>
@@ -473,18 +468,7 @@ export default function Study() {
               </>
             )}
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label={singleWord ? "Show other side" : "Next"}
-            onClick={() => {
-              if (singleWord) {
-                swapSides()
-                return
-              }
-              goNext()
-            }}
-          >
+          <Button variant="outline" size="icon" aria-label="Next" onClick={goNext}>
             <SkipForward className="h-4 w-4" />
           </Button>
         </div>

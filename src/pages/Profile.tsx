@@ -177,12 +177,7 @@ export default function Profile() {
           </h2>
           <div className="mt-3 rounded-xl border border-border bg-card p-4">
             <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <h3 className="text-sm font-medium">Study order</h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {wordFirst ? "Word first" : "Translation first"}
-                </p>
-              </div>
+              <h3 className="text-sm font-medium">Study order</h3>
               <div
                 role="group"
                 aria-label="Pronounce first"

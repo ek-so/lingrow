@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { OverflowMenu } from "@/components/OverflowMenu"
 import { downloadCollectionExcel } from "@/lib/export-collection"
 import { pairLabel } from "@/lib/languages"
-import { Layers, Plus, UserRound } from "lucide-react"
+import { Layers, Pencil, Plus, Trash2, Download, UserRound } from "lucide-react"
 import type { Collection } from "@/types"
 
 export default function Home() {
@@ -88,14 +88,17 @@ export default function Home() {
                     items={[
                       {
                         label: "Edit",
+                        icon: <Pencil />,
                         onSelect: () => navigate(`/edit/${c.id}`),
                       },
                       {
                         label: "Export",
+                        icon: <Download />,
                         onSelect: () => onExport(c),
                       },
                       {
                         label: "Delete",
+                        icon: <Trash2 />,
                         destructive: true,
                         onSelect: () => onDelete(c.id, c.name),
                       },

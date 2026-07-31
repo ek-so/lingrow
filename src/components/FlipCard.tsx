@@ -10,7 +10,8 @@ interface FlipCardProps {
   onFlip: (next: boolean) => void
   /**
    * rate — horizontal swipe rates the card (multi-word study)
-   * flip — horizontal swipe / tap toggles sides (single-word study)
+   * flip — horizontal swipe also toggles sides (single-word study)
+   * Tap always flips in both modes.
    */
   swipeMode?: "rate" | "flip"
   onSwipeLeft?: () => void
@@ -34,6 +35,7 @@ export function FlipCard({
   const startX = useRef<number | null>(null)
   const startY = useRef<number | null>(null)
   const dragging = useRef(false)
+  const suppressClick = useRef(false)
   const [dragX, setDragX] = useState(0)
   const [exitX, setExitX] = useState(0)
   const [exiting, setExiting] = useState(false)
@@ -49,6 +51,7 @@ export function FlipCard({
     startX.current = e.clientX
     startY.current = e.clientY
     dragging.current = true
+    suppressClick.current = false
     e.currentTarget.setPointerCapture(e.pointerId)
   }
 
@@ -68,6 +71,7 @@ export function FlipCard({
     startY.current = null
 
     if (Math.abs(dx) > 72) {
+      suppressClick.current = true
       if (swipeMode === "rate") {
         const dir: CardSwipeDirection = dx < 0 ? "left" : "right"
         setExiting(true)
@@ -82,14 +86,12 @@ export function FlipCard({
         return
       }
 
-      // flip mode: left/right swipe swaps sides
       onFlip(!flipped)
       setDragX(0)
       return
     }
 
-    // Tap or short drag — flip
-    onFlip(!flipped)
+    // Short movement: let the following click event flip once.
     setDragX(0)
   }
 
@@ -102,6 +104,15 @@ export function FlipCard({
     startX.current = null
     startY.current = null
     setDragX(0)
+  }
+
+  function onClick() {
+    if (exiting) return
+    if (suppressClick.current) {
+      suppressClick.current = false
+      return
+    }
+    onFlip(!flipped)
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
@@ -157,11 +168,12 @@ export function FlipCard({
         tabIndex={0}
         aria-label={flipped ? "Show front of card" : "Show back of card"}
         onKeyDown={onKeyDown}
+        onClick={onClick}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
-        className="relative h-80 w-full max-h-[min(20rem,46dvh)] cursor-grab active:cursor-grabbing outline-none"
+        className="relative h-80 w-full max-h-[min(20rem,46dvh)] cursor-pointer outline-none"
         style={{
           transform: `translateX(${shift}px) rotate(${rot}deg)`,
           transition: dragging.current ? "none" : "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",
@@ -177,7 +189,7 @@ export function FlipCard({
         >
           <div
             className={cn(
-              "absolute inset-0 flex flex-col items-center justify-center overflow-y-auto rounded-xl border bg-card px-6 py-5 text-center shadow-sm [backface-visibility:hidden]",
+              "absolute inset-0 flex flex-col items-center justify-center overflow-y-auto rounded-xl border bg-card px-6 py-5 text-center shadow-sm [backface-visibility:hidden] [-webkit-backface-visibility:hidden]",
               knowHint ? "border-primary" : learnHint ? "border-destructive" : "border-border",
             )}
           >
@@ -185,7 +197,7 @@ export function FlipCard({
           </div>
           <div
             className={cn(
-              "absolute inset-0 flex flex-col items-center justify-center overflow-y-auto rounded-xl border bg-card px-6 py-5 text-center shadow-sm [backface-visibility:hidden]",
+              "absolute inset-0 flex flex-col items-center justify-center overflow-y-auto rounded-xl border bg-card px-6 py-5 text-center shadow-sm [backface-visibility:hidden] [-webkit-backface-visibility:hidden]",
               knowHint ? "border-primary" : learnHint ? "border-destructive" : "border-border",
             )}
             style={{ transform: "rotateY(180deg)" }}
