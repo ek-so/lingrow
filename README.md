@@ -8,7 +8,9 @@ Sign in with Google to store collections in a **Lingrow Collections** spreadshee
 
 The app ships with a Google OAuth Web client ID. In Google Cloud Console for that client, keep Authorized JavaScript origins updated (`https://ek-so.github.io`, `http://localhost:5173`) and leave **Google Sheets API** + **Google Drive API** enabled. Optional override: `VITE_GOOGLE_CLIENT_ID`.
 
-Legal pages (for Google OAuth consent screen):
+Legal / OAuth consent screen URLs:
 
+- App homepage (for Google verification): https://ek-so.github.io/lingrow/about.html
 - Privacy Policy: https://ek-so.github.io/lingrow/privacy.html
 - Terms of Use: https://ek-so.github.io/lingrow/terms.html
+- App itself: https://ek-so.github.io/lingrow/

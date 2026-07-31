@@ -200,6 +200,13 @@ export default function Profile() {
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
             <a
+              href={`${import.meta.env.BASE_URL}about.html`}
+              className="text-primary underline-offset-2 hover:underline"
+            >
+              About Lingrow
+            </a>
+            <span className="mx-2 text-border">·</span>
+            <a
               href={`${import.meta.env.BASE_URL}privacy.html`}
               className="text-primary underline-offset-2 hover:underline"
             >
