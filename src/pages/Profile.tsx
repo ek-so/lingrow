@@ -193,6 +193,27 @@ export default function Profile() {
             </div>
           </div>
         </section>
+
+        <section className="mt-8">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+            Legal
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            <a
+              href={`${import.meta.env.BASE_URL}privacy.html`}
+              className="text-primary underline-offset-2 hover:underline"
+            >
+              Privacy Policy
+            </a>
+            <span className="mx-2 text-border">·</span>
+            <a
+              href={`${import.meta.env.BASE_URL}terms.html`}
+              className="text-primary underline-offset-2 hover:underline"
+            >
+              Terms of Use
+            </a>
+          </p>
+        </section>
       </div>
     </div>
   )
