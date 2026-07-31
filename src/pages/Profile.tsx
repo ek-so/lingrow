@@ -4,16 +4,7 @@ import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
 import { useCollections } from "@/lib/collections-context"
 import type { PronounceFirst } from "@/types"
-import {
-  ArrowLeft,
-  Cloud,
-  CloudOff,
-  LoaderCircle,
-  LogOut,
-  Mail,
-  RefreshCw,
-  UserRound,
-} from "lucide-react"
+import { ArrowLeft, Cloud, CloudOff, LoaderCircle, LogOut, Mail } from "lucide-react"
 
 export default function Profile() {
   const {
@@ -27,7 +18,7 @@ export default function Profile() {
     linkSentTo,
     clearLinkSent,
   } = useAuth()
-  const { settings, setPronounceFirst, syncStatus, syncError, refreshFromCloud } = useCollections()
+  const { settings, setPronounceFirst, syncStatus, syncError } = useCollections()
   const [email, setEmail] = useState("")
 
   function onPronounceChange(value: PronounceFirst) {
@@ -66,25 +57,10 @@ export default function Profile() {
           </h2>
           <div className="mt-3 rounded-xl border border-border bg-card p-4">
             {signedIn && user ? (
-              <div className="flex items-start gap-3">
-                {user.picture ? (
-                  <img
-                    src={user.picture}
-                    alt=""
-                    className="h-12 w-12 rounded-full border border-border object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-muted-foreground">
-                    <UserRound className="h-6 w-6" />
-                  </div>
-                )}
+              <div className="flex items-center gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{user.name}</p>
-                  {user.email ? (
-                    <p className="truncate text-sm text-muted-foreground">{user.email}</p>
-                  ) : null}
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <p className="truncate font-medium">{user.email || user.name}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     {busy ? (
                       <span className="inline-flex items-center gap-1 text-primary">
                         <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
@@ -98,11 +74,22 @@ export default function Profile() {
                     ) : (
                       <span className="inline-flex items-center gap-1 text-primary">
                         <Cloud className="h-3.5 w-3.5" />
-                        Synced to the cloud
+                        Synced
                       </span>
                     )}
                   </div>
                 </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="shrink-0"
+                  onClick={() => {
+                    void signOut()
+                  }}
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sign out
+                </Button>
               </div>
             ) : (
               <div>
@@ -111,11 +98,7 @@ export default function Profile() {
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {linkSentTo ? (
-                    <>
-                      We sent a magic link to{" "}
-                      <span className="font-medium text-foreground">{linkSentTo}</span>. Open it on
-                      this device to finish signing in.
-                    </>
+                    <>Open the magic link on this device to finish signing in.</>
                   ) : (
                     <>
                       Email yourself a magic link so Lingrow can store your collections in the cloud.
@@ -137,76 +120,54 @@ export default function Profile() {
               </p>
             ) : null}
 
-            <div className="mt-4 flex flex-col gap-2">
-              {signedIn ? (
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => {
-                      void refreshFromCloud().catch(() => undefined)
+            {!signedIn ? (
+              <div className="mt-4 flex flex-col gap-2">
+                {linkSentTo ? (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      disabled={signingIn || !configured}
+                      onClick={() => {
+                        void signIn(linkSentTo).catch(() => undefined)
+                      }}
+                    >
+                      <Mail className="h-4 w-4" />
+                      {signingIn ? "Sending…" : "Resend link"}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => clearLinkSent()}>
+                      Use a different email
+                    </Button>
+                  </div>
+                ) : (
+                  <form
+                    className="flex flex-col gap-2 sm:flex-row"
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      void signIn(email).catch(() => undefined)
                     }}
                   >
-                    <RefreshCw className="h-4 w-4" />
-                    Refresh from cloud
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      void signOut()
-                    }}
-                  >
-                    <LogOut className="h-4 w-4" />
-                    Sign out
-                  </Button>
-                </div>
-              ) : linkSentTo ? (
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    disabled={signingIn || !configured}
-                    onClick={() => {
-                      void signIn(linkSentTo).catch(() => undefined)
-                    }}
-                  >
-                    <Mail className="h-4 w-4" />
-                    {signingIn ? "Sending…" : "Resend link"}
-                  </Button>
-                  <Button type="button" variant="outline" onClick={() => clearLinkSent()}>
-                    Use a different email
-                  </Button>
-                </div>
-              ) : (
-                <form
-                  className="flex flex-col gap-2 sm:flex-row"
-                  onSubmit={(e) => {
-                    e.preventDefault()
-                    void signIn(email).catch(() => undefined)
-                  }}
-                >
-                  <label className="sr-only" htmlFor="profile-email">
-                    Email
-                  </label>
-                  <input
-                    id="profile-email"
-                    type="email"
-                    autoComplete="email"
-                    inputMode="email"
-                    required
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring sm:min-w-0 sm:flex-1"
-                  />
-                  <Button type="submit" disabled={signingIn || !configured} className="shrink-0">
-                    <Mail className="h-4 w-4" />
-                    {signingIn ? "Sending…" : "Email magic link"}
-                  </Button>
-                </form>
-              )}
-            </div>
+                    <label className="sr-only" htmlFor="profile-email">
+                      Email
+                    </label>
+                    <input
+                      id="profile-email"
+                      type="email"
+                      autoComplete="email"
+                      inputMode="email"
+                      required
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring sm:min-w-0 sm:flex-1"
+                    />
+                    <Button type="submit" disabled={signingIn || !configured} className="shrink-0">
+                      <Mail className="h-4 w-4" />
+                      {signingIn ? "Sending…" : "Email magic link"}
+                    </Button>
+                  </form>
+                )}
+              </div>
+            ) : null}
           </div>
         </section>
 
