@@ -87,8 +87,8 @@ export default function Profile() {
                 </div>
                 <Button
                   type="button"
-                  variant="destructive"
-                  className="shrink-0"
+                  variant="secondary"
+                  className="shrink-0 text-destructive hover:text-destructive"
                   onClick={() => {
                     void signOut()
                   }}
