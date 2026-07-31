@@ -18,12 +18,7 @@ import {
 import type { WordPair } from "@/lib/collection-form"
 import { normalizeExamples } from "@/lib/examples"
 import { useAuth } from "@/lib/auth-context"
-import {
-  cloudHasData,
-  GoogleAuthError,
-  loadCloudBundle,
-  saveCloudBundle,
-} from "@/lib/google-sheets"
+import { cloudHasData, loadCloudBundle, saveCloudBundle } from "@/lib/cloud-sync"
 
 interface CollectionFields {
   name: string
@@ -45,12 +40,8 @@ interface CollectionsContextValue {
   updateCollection: (id: string, input: CollectionFields) => Collection | undefined
   deleteCollection: (id: string) => void
   setPronounceFirst: (value: PronounceFirst) => void
-  /** Pull spreadsheet → app (edits made in Google Sheets). */
   refreshFromCloud: () => Promise<void>
-  /** Push app → spreadsheet (full snapshot; deletes removed rows). */
   pushToCloudNow: () => Promise<void>
-  /** Push local snapshot, then pull back — full two-way sync. */
-  syncWithGoogle: () => Promise<void>
 }
 
 const CollectionsContext = createContext<CollectionsContextValue | null>(null)
@@ -80,13 +71,7 @@ type PushPayload = {
 }
 
 export function CollectionsProvider({ children }: { children: ReactNode }) {
-  const {
-    status: authStatus,
-    user,
-    getAccessToken,
-    setSyncing,
-    setSpreadsheetUrl,
-  } = useAuth()
+  const { status: authStatus, user, setSyncing } = useAuth()
 
   const userId = user?.id ?? null
   const [collections, setCollections] = useState<Collection[]>(() => loadCollections())
@@ -105,22 +90,9 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
   const queuedPush = useRef<PushPayload | null>(null)
   const suppressAutoPush = useRef(false)
 
-  // Reload local settings when the signed-in user changes.
   useEffect(() => {
     setSettings(loadSettings(userId))
   }, [userId])
-
-  const withFreshToken = useCallback(
-    async <T,>(run: (token: string) => Promise<T>): Promise<T> => {
-      try {
-        return await run(await getAccessToken())
-      } catch (e) {
-        if (!(e instanceof GoogleAuthError)) throw e
-        return await run(await getAccessToken({ force: true }))
-      }
-    },
-    [getAccessToken]
-  )
 
   const runPush = useCallback(
     async (payload: PushPayload) => {
@@ -129,10 +101,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
       setSyncing(true)
       setSyncError(null)
       try {
-        const result = await withFreshToken((token) =>
-          saveCloudBundle(token, user.id, payload.collections, payload.settings)
-        )
-        setSpreadsheetUrl(result.spreadsheetUrl)
+        await saveCloudBundle(user.id, payload.collections, payload.settings)
         setSyncStatus("idle")
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Cloud sync failed"
@@ -143,7 +112,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
         setSyncing(false)
       }
     },
-    [authStatus, user, withFreshToken, setSyncing, setSpreadsheetUrl]
+    [authStatus, user, setSyncing]
   )
 
   const flushPushQueue = useCallback(async () => {
@@ -160,7 +129,6 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
         lastError = null
       } catch (e) {
         lastError = e
-        // Keep the failed payload queued for a later retry / manual sync.
         if (!queuedPush.current) queuedPush.current = payload
         break
       } finally {
@@ -204,31 +172,26 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
     setSyncError(null)
     suppressAutoPush.current = true
     try {
-      await withFreshToken(async (token) => {
-        const bundle = await loadCloudBundle(token, user.id)
-        setSpreadsheetUrl(bundle.spreadsheetUrl)
+      const bundle = await loadCloudBundle(user.id)
 
-        if (cloudHasData(bundle)) {
-          setCollections(bundle.collections)
-          collectionsRef.current = bundle.collections
-          saveCollections(bundle.collections)
-          if (bundle.settings) {
-            setSettings(bundle.settings)
-            settingsRef.current = bundle.settings
-            saveSettings(bundle.settings, user.id)
-          }
-        } else {
-          // First sign-in: upload local collections + settings to Google.
-          const localCollections = collectionsRef.current
-          const localSettings = settingsRef.current
-          const result = await saveCloudBundle(token, user.id, localCollections, localSettings)
-          setSpreadsheetUrl(result.spreadsheetUrl)
+      if (cloudHasData(bundle)) {
+        setCollections(bundle.collections)
+        collectionsRef.current = bundle.collections
+        saveCollections(bundle.collections)
+        if (bundle.settings) {
+          setSettings(bundle.settings)
+          settingsRef.current = bundle.settings
+          saveSettings(bundle.settings, user.id)
         }
-      })
+      } else {
+        const localCollections = collectionsRef.current
+        const localSettings = settingsRef.current
+        await saveCloudBundle(user.id, localCollections, localSettings)
+      }
       cloudReady.current = true
       setSyncStatus("idle")
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Could not load Google spreadsheet"
+      const msg = e instanceof Error ? e.message : "Could not sync with the cloud"
       setSyncError(msg)
       setSyncStatus("error")
       cloudReady.current = true
@@ -237,14 +200,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
       suppressAutoPush.current = false
       setSyncing(false)
     }
-  }, [user, withFreshToken, setSyncing, setSpreadsheetUrl])
-
-  const syncWithGoogle = useCallback(async () => {
-    if (!user) return
-    // App → sheet first so deletes/creates land, then sheet → app for a clean round-trip.
-    await pushToCloudNow()
-    await refreshFromCloud()
-  }, [user, pushToCloudNow, refreshFromCloud])
+  }, [user, setSyncing])
 
   useEffect(() => {
     if (authStatus === "signed_in" && user) {
@@ -255,11 +211,9 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
       queuedPush.current = null
       setSyncStatus("local")
       setSyncError(null)
-      setSpreadsheetUrl(null)
     }
   }, [authStatus, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Flush pending uploads when the tab hides so deletes aren't lost mid-debounce.
   useEffect(() => {
     function onHide() {
       if (document.visibilityState !== "hidden") return
@@ -354,7 +308,6 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
         setPronounceFirst,
         refreshFromCloud,
         pushToCloudNow,
-        syncWithGoogle,
       }}
     >
       {children}

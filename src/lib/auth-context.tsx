@@ -4,330 +4,160 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react"
-import { GOOGLE_CLIENT_ID, GOOGLE_SCOPES, isGoogleConfigured } from "@/lib/google-config"
-import { fetchGoogleUserInfo, loadGoogleIdentityServices } from "@/lib/google-gis"
+import type { User } from "@supabase/supabase-js"
+import { authRedirectTo, getSupabase, isSupabaseConfigured } from "@/lib/supabase"
 import {
   dismissLoginPrompt,
-  loadAccessToken,
-  loadAuthSession,
   loadLoginPromptState,
-  saveAccessToken,
-  saveAuthSession,
   type AuthSession,
 } from "@/lib/prefs"
 
 export type AuthStatus = "loading" | "signed_out" | "signed_in" | "error"
 
-/** Refresh a bit before Google's expires_in so sync never hits a dead token first. */
-const TOKEN_EXPIRY_SKEW_MS = 60_000
-const DEFAULT_TOKEN_LIFETIME_SEC = 3600
-
 interface AuthContextValue {
   status: AuthStatus
   user: AuthSession | null
-  accessToken: string | null
   configured: boolean
   error: string | null
   syncing: boolean
   setSyncing: (value: boolean) => void
-  spreadsheetUrl: string | null
-  setSpreadsheetUrl: (url: string | null) => void
   showLoginPrompt: boolean
   signingIn: boolean
   signIn: () => Promise<void>
-  signOut: () => void
-  getAccessToken: (options?: { force?: boolean }) => Promise<string>
+  signOut: () => Promise<void>
   dismissPrompt: () => void
   continueLocally: () => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-type TokenWaiter = {
-  resolve: (token: string) => void
-  reject: (err: Error) => void
-}
-
-function isTokenFresh(expiresAt: number, now = Date.now()) {
-  return now < expiresAt - TOKEN_EXPIRY_SKEW_MS
+function sessionFromUser(user: User): AuthSession {
+  const meta = user.user_metadata ?? {}
+  const name =
+    (typeof meta.full_name === "string" && meta.full_name) ||
+    (typeof meta.name === "string" && meta.name) ||
+    (typeof meta.user_name === "string" && meta.user_name) ||
+    user.email ||
+    "GitHub user"
+  const picture =
+    (typeof meta.avatar_url === "string" && meta.avatar_url) ||
+    (typeof meta.picture === "string" && meta.picture) ||
+    undefined
+  return {
+    id: user.id,
+    email: user.email ?? "",
+    name,
+    picture,
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const configured = isSupabaseConfigured()
   const [status, setStatus] = useState<AuthStatus>("loading")
-  const [user, setUser] = useState<AuthSession | null>(() => loadAuthSession())
-  const [accessToken, setAccessToken] = useState<string | null>(null)
+  const [user, setUser] = useState<AuthSession | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [signingIn, setSigningIn] = useState(false)
-  const [spreadsheetUrl, setSpreadsheetUrl] = useState<string | null>(null)
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
 
-  const tokenClientRef = useRef<GoogleTokenClient | null>(null)
-  const tokenWaiters = useRef<TokenWaiter[]>([])
-  const accessTokenRef = useRef<string | null>(null)
-  const expiresAtRef = useRef(0)
-  const refreshTimerRef = useRef<number | null>(null)
-  const requestInFlightRef = useRef(false)
-  const configured = isGoogleConfigured()
-
-  accessTokenRef.current = accessToken
-
-  const clearRefreshTimer = useCallback(() => {
-    if (refreshTimerRef.current != null) {
-      window.clearTimeout(refreshTimerRef.current)
-      refreshTimerRef.current = null
-    }
-  }, [])
-
-  const settleToken = useCallback((token: string | null, err?: Error) => {
-    requestInFlightRef.current = false
-    const waiters = tokenWaiters.current
-    tokenWaiters.current = []
-    if (token) waiters.forEach((w) => w.resolve(token))
-    else waiters.forEach((w) => w.reject(err ?? new Error("Google sign-in was cancelled")))
-  }, [])
-
-  const applyToken = useCallback((token: string, expiresInSec: number) => {
-    const lifetimeSec =
-      Number.isFinite(expiresInSec) && expiresInSec > 0 ? expiresInSec : DEFAULT_TOKEN_LIFETIME_SEC
-    const expiresAt = Date.now() + lifetimeSec * 1000
-    expiresAtRef.current = expiresAt
-    setAccessToken(token)
-    accessTokenRef.current = token
-    saveAccessToken({ token, expiresAt })
-    return expiresAt
-  }, [])
-
-  const clearStoredToken = useCallback(() => {
-    clearRefreshTimer()
-    expiresAtRef.current = 0
-    setAccessToken(null)
-    accessTokenRef.current = null
-    saveAccessToken(null)
-  }, [clearRefreshTimer])
-
-  const handleTokenResponse = useCallback(
-    async (response: GoogleTokenResponse) => {
-      setSigningIn(false)
-      if (response.error) {
-        const msg = response.error_description || response.error
-        setError(msg)
-        clearStoredToken()
-        // Keep the cached profile so the UI stays signed in; sync will retry later.
-        if (!loadAuthSession()) {
-          setStatus("signed_out")
-        }
-        settleToken(null, new Error(msg))
-        return
-      }
-
-      const token = response.access_token
-      const expiresAt = applyToken(token, response.expires_in)
-      try {
-        const info = await fetchGoogleUserInfo(token)
-        const session: AuthSession = {
-          id: info.sub,
-          email: info.email,
-          name: info.name,
-          picture: info.picture,
-        }
-        setUser(session)
-        saveAuthSession(session)
-        setError(null)
-        setStatus("signed_in")
-        setShowLoginPrompt(false)
-        dismissLoginPrompt()
-        settleToken(token)
-
-        clearRefreshTimer()
-        const refreshIn = Math.max(5_000, expiresAt - Date.now() - TOKEN_EXPIRY_SKEW_MS)
-        refreshTimerRef.current = window.setTimeout(() => {
-          if (!tokenClientRef.current || requestInFlightRef.current) return
-          requestInFlightRef.current = true
-          tokenClientRef.current.requestAccessToken({ prompt: "" })
-        }, refreshIn)
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : "Could not finish Google sign-in"
-        setError(msg)
-        setStatus("error")
-        settleToken(null, new Error(msg))
-      }
-    },
-    [applyToken, clearRefreshTimer, clearStoredToken, settleToken]
-  )
-
-  const handleTokenResponseRef = useRef(handleTokenResponse)
-  handleTokenResponseRef.current = handleTokenResponse
-
-  const ensureTokenClient = useCallback(async () => {
-    if (!GOOGLE_CLIENT_ID) {
-      throw new Error("Google sign-in is not configured for this site yet.")
-    }
-    await loadGoogleIdentityServices()
-    if (!window.google?.accounts?.oauth2) {
-      throw new Error("Google Identity Services is unavailable")
-    }
-    if (!tokenClientRef.current) {
-      tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
-        client_id: GOOGLE_CLIENT_ID,
-        scope: GOOGLE_SCOPES,
-        callback: (response) => {
-          void handleTokenResponseRef.current(response)
-        },
-        error_callback: (err) => {
-          setSigningIn(false)
-          const msg = err.message || err.type || "Google sign-in failed"
-          setError(msg)
-          // Do not wipe a valid cached session on a silent refresh failure.
-          if (!loadAuthSession()) {
-            setStatus("signed_out")
-          }
-          settleToken(null, new Error(msg))
-        },
-      })
-    }
-    return tokenClientRef.current
-  }, [settleToken])
-
   useEffect(() => {
-    let cancelled = false
     const prompt = loadLoginPromptState()
-    const session = loadAuthSession()
-    const storedToken = loadAccessToken()
+
+    if (!configured) {
+      setStatus("signed_out")
+      setShowLoginPrompt(!prompt.dismissed)
+      return
+    }
+
+    const supabase = getSupabase()
+    let cancelled = false
 
     async function boot() {
-      if (!configured) {
-        if (!cancelled) {
-          setStatus("signed_out")
-          setShowLoginPrompt(!prompt.dismissed && !session)
-        }
-        return
-      }
-
       try {
-        await ensureTokenClient()
+        const { data, error: sessionError } = await supabase.auth.getSession()
         if (cancelled) return
+        if (sessionError) throw sessionError
 
-        if (session && storedToken && isTokenFresh(storedToken.expiresAt)) {
-          setUser(session)
-          expiresAtRef.current = storedToken.expiresAt
-          setAccessToken(storedToken.token)
-          accessTokenRef.current = storedToken.token
+        if (data.session?.user) {
+          setUser(sessionFromUser(data.session.user))
           setStatus("signed_in")
           setShowLoginPrompt(false)
-
-          clearRefreshTimer()
-          const refreshIn = Math.max(
-            5_000,
-            storedToken.expiresAt - Date.now() - TOKEN_EXPIRY_SKEW_MS
-          )
-          refreshTimerRef.current = window.setTimeout(() => {
-            if (!tokenClientRef.current || requestInFlightRef.current) return
-            requestInFlightRef.current = true
-            tokenClientRef.current.requestAccessToken({ prompt: "" })
-          }, refreshIn)
-          return
-        }
-
-        if (session) {
-          // Profile is still known; restore UI without a consent popup.
-          setUser(session)
-          setStatus("signed_in")
-          setShowLoginPrompt(false)
-          if (storedToken && !isTokenFresh(storedToken.expiresAt)) {
-            saveAccessToken(null)
-          }
-          // Quiet background refresh — may no-op if Google blocks silent grant.
-          if (!requestInFlightRef.current) {
-            requestInFlightRef.current = true
-            tokenClientRef.current?.requestAccessToken({ prompt: "" })
-          }
-          return
-        }
-
-        setStatus("signed_out")
-        setShowLoginPrompt(!prompt.dismissed)
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Google auth failed to load")
-          setStatus("error")
+          dismissLoginPrompt()
+        } else {
+          setUser(null)
+          setStatus("signed_out")
           setShowLoginPrompt(!prompt.dismissed)
         }
+      } catch (e) {
+        if (cancelled) return
+        setError(e instanceof Error ? e.message : "Could not restore session")
+        setStatus("error")
+        setShowLoginPrompt(!prompt.dismissed)
       }
     }
 
     void boot()
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (cancelled) return
+      if (session?.user) {
+        setUser(sessionFromUser(session.user))
+        setStatus("signed_in")
+        setShowLoginPrompt(false)
+        setSigningIn(false)
+        setError(null)
+        dismissLoginPrompt()
+      } else {
+        setUser(null)
+        setStatus("signed_out")
+      }
+    })
+
     return () => {
       cancelled = true
-      clearRefreshTimer()
+      sub.subscription.unsubscribe()
     }
-  }, [configured, ensureTokenClient, clearRefreshTimer])
+  }, [configured])
 
   const signIn = useCallback(async () => {
     setError(null)
     if (!configured) {
-      setError("Google sign-in is not configured for this site yet.")
-      throw new Error("Google is not configured")
+      setError("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable sign-in.")
+      throw new Error("Supabase is not configured")
     }
     setSigningIn(true)
     try {
-      const client = await ensureTokenClient()
-      await new Promise<void>((resolve, reject) => {
-        tokenWaiters.current.push({
-          resolve: () => resolve(),
-          reject,
-        })
-        requestInFlightRef.current = true
-        // Opens Google’s account chooser / consent (normal platform flow).
-        client.requestAccessToken({ prompt: "select_account" })
+      const supabase = getSupabase()
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "github",
+        options: {
+          redirectTo: authRedirectTo(),
+        },
       })
+      if (oauthError) throw oauthError
     } catch (e) {
       setSigningIn(false)
+      const msg = e instanceof Error ? e.message : "GitHub sign-in failed"
+      setError(msg)
       throw e
     }
-  }, [configured, ensureTokenClient])
+  }, [configured])
 
-  const getAccessToken = useCallback(
-    async (options?: { force?: boolean }) => {
-      if (
-        !options?.force &&
-        accessTokenRef.current &&
-        isTokenFresh(expiresAtRef.current)
-      ) {
-        return accessTokenRef.current
-      }
-      if (!configured) throw new Error("Google is not configured")
-      if (options?.force) {
-        clearStoredToken()
-      }
-      const client = await ensureTokenClient()
-      return new Promise<string>((resolve, reject) => {
-        tokenWaiters.current.push({ resolve, reject })
-        if (!requestInFlightRef.current) {
-          requestInFlightRef.current = true
-          client.requestAccessToken({ prompt: "" })
-        }
-      })
-    },
-    [configured, ensureTokenClient, clearStoredToken]
-  )
-
-  const signOut = useCallback(() => {
-    const token = accessTokenRef.current
-    if (token && window.google?.accounts?.oauth2) {
-      window.google.accounts.oauth2.revoke(token, () => undefined)
-    }
-    clearStoredToken()
-    setUser(null)
-    saveAuthSession(null)
-    setSpreadsheetUrl(null)
-    setStatus("signed_out")
+  const signOut = useCallback(async () => {
     setError(null)
-  }, [clearStoredToken])
+    if (configured) {
+      try {
+        await getSupabase().auth.signOut()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Sign out failed")
+      }
+    }
+    setUser(null)
+    setStatus("signed_out")
+  }, [configured])
 
   const dismissPrompt = useCallback(() => {
     dismissLoginPrompt()
@@ -343,34 +173,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       status,
       user,
-      accessToken,
       configured,
       error,
       syncing,
       setSyncing,
-      spreadsheetUrl,
-      setSpreadsheetUrl,
       showLoginPrompt,
       signingIn,
       signIn,
       signOut,
-      getAccessToken,
       dismissPrompt,
       continueLocally,
     }),
     [
       status,
       user,
-      accessToken,
       configured,
       error,
       syncing,
-      spreadsheetUrl,
       showLoginPrompt,
       signingIn,
       signIn,
       signOut,
-      getAccessToken,
       dismissPrompt,
       continueLocally,
     ]

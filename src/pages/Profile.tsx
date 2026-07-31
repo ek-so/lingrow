@@ -7,31 +7,22 @@ import {
   ArrowLeft,
   Cloud,
   CloudOff,
-  ExternalLink,
   LoaderCircle,
   LogIn,
   LogOut,
+  RefreshCw,
   UserRound,
 } from "lucide-react"
 
 export default function Profile() {
-  const {
-    status,
-    user,
-    error,
-    syncing,
-    spreadsheetUrl,
-    signingIn,
-    signIn,
-    signOut,
-  } = useAuth()
-  const { settings, setPronounceFirst, syncStatus, syncError } = useCollections()
+  const { user, error, syncing, signingIn, signIn, signOut, configured } = useAuth()
+  const { settings, setPronounceFirst, syncStatus, syncError, refreshFromCloud } = useCollections()
 
   function onPronounceChange(value: PronounceFirst) {
     setPronounceFirst(value)
   }
 
-  const signedIn = status === "signed_in" && user
+  const signedIn = Boolean(user)
   const busy = syncing || syncStatus === "syncing"
   const wordFirst = settings.pronounceFirst === "word"
 
@@ -62,7 +53,7 @@ export default function Profile() {
             Account
           </h2>
           <div className="mt-3 rounded-xl border border-border bg-card p-4">
-            {signedIn ? (
+            {signedIn && user ? (
               <div className="flex items-start gap-3">
                 {user.picture ? (
                   <img
@@ -78,12 +69,14 @@ export default function Profile() {
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{user.name}</p>
-                  <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+                  {user.email ? (
+                    <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+                  ) : null}
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     {busy ? (
                       <span className="inline-flex items-center gap-1 text-primary">
                         <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
-                        Syncing spreadsheet…
+                        Syncing…
                       </span>
                     ) : syncStatus === "error" ? (
                       <span className="inline-flex items-center gap-1 text-destructive">
@@ -93,7 +86,7 @@ export default function Profile() {
                     ) : (
                       <span className="inline-flex items-center gap-1 text-primary">
                         <Cloud className="h-3.5 w-3.5" />
-                        Synced with Google Sheets
+                        Synced to the cloud
                       </span>
                     )}
                   </div>
@@ -103,31 +96,44 @@ export default function Profile() {
               <div>
                 <p className="font-medium">Not signed in</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Sign in so Lingrow can store your collections as a spreadsheet in your Google
-                  account. Without sign-in, data stays in this browser only.
+                  Sign in with GitHub so Lingrow can store your collections in the cloud. Without
+                  sign-in, data stays in this browser only.
                 </p>
               </div>
             )}
 
             {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
             {syncError ? <p className="mt-3 text-sm text-destructive">{syncError}</p> : null}
+            {!configured ? (
+              <p className="mt-3 text-sm text-muted-foreground">
+                Set <code className="rounded bg-secondary px-1 py-0.5 text-xs">VITE_SUPABASE_URL</code>{" "}
+                and{" "}
+                <code className="rounded bg-secondary px-1 py-0.5 text-xs">VITE_SUPABASE_ANON_KEY</code>{" "}
+                to enable GitHub sign-in.
+              </p>
+            ) : null}
 
             <div className="mt-4 flex flex-wrap gap-2">
               {signedIn ? (
                 <>
-                  {spreadsheetUrl ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        window.open(spreadsheetUrl, "_blank", "noopener,noreferrer")
-                      }}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                      Open spreadsheet
-                    </Button>
-                  ) : null}
-                  <Button type="button" variant="ghost" onClick={signOut}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => {
+                      void refreshFromCloud().catch(() => undefined)
+                    }}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Refresh from cloud
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      void signOut()
+                    }}
+                  >
                     <LogOut className="h-4 w-4" />
                     Sign out
                   </Button>
@@ -135,13 +141,13 @@ export default function Profile() {
               ) : (
                 <Button
                   type="button"
-                  disabled={signingIn}
+                  disabled={signingIn || !configured}
                   onClick={() => {
                     void signIn().catch(() => undefined)
                   }}
                 >
                   <LogIn className="h-4 w-4" />
-                  {signingIn ? "Connecting…" : "Sign in with Google"}
+                  {signingIn ? "Connecting…" : "Sign in with GitHub"}
                 </Button>
               )}
             </div>

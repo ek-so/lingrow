@@ -112,7 +112,7 @@ function parseSettings(raw: string | null): AppSettings {
   return { pronounceFirst }
 }
 
-/** Load settings for a Google user (or the anonymous local profile). */
+/** Load settings for a signed-in user (or the anonymous local profile). */
 export function loadSettings(userId?: string | null): AppSettings {
   if (!canUseStorage()) return { ...defaultSettings }
   try {

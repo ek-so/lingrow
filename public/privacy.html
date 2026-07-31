@@ -75,7 +75,7 @@
 
       <p>
         Lingrow (“the App”) is a vocabulary study tool. This policy explains what information
-        is processed when you use the App, including optional Google sign-in and Google Sheets sync.
+        is processed when you use the App, including optional GitHub sign-in and cloud sync.
       </p>
 
       <h2>1. Who is responsible</h2>
@@ -91,59 +91,48 @@
         <li>
           <strong>On your device (browser local storage):</strong> word collections, study
           settings (for example pronunciation order), and small preferences such as whether you
-          dismissed the sign-in suggestion. This stays in your browser unless you clear site data.
+          dismissed the sign-in suggestion.
         </li>
         <li>
-          <strong>If you sign in with Google:</strong> basic Google account profile information
-          needed to identify your session (typically name, email address, and profile picture).
+          <strong>If you sign in with GitHub:</strong> basic profile information needed for your
+          session (typically name, email, and avatar), provided via GitHub OAuth through Supabase Auth.
         </li>
         <li>
-          <strong>If you sign in with Google:</strong> a spreadsheet titled
-          “Lingrow Collections” in <em>your</em> Google Drive / Google Sheets, containing your
-          word lists and settings so they can sync across devices.
+          <strong>If you sign in with GitHub:</strong> your word lists and settings stored in
+          Lingrow’s Supabase database, scoped to your account, so they can sync across devices.
         </li>
       </ul>
 
-      <h2>3. How Google access works</h2>
+      <h2>3. How GitHub / Supabase access works</h2>
       <p>
-        Google sign-in is optional. If you choose it, Lingrow requests access only to:
+        GitHub sign-in is optional. If you choose it, authentication is handled by Supabase using
+        GitHub as the identity provider. Lingrow then reads and writes only your own collections
+        and settings in the database (enforced with row-level security).
       </p>
-      <ul>
-        <li>basic profile identity (OpenID / email / profile),</li>
-        <li>Google Sheets (to create and update the Lingrow spreadsheet),</li>
-        <li>
-          Google Drive file scope limited to files created or opened by Lingrow
-          (not your entire Drive).
-        </li>
-      </ul>
       <p>
-        Authorization uses Google’s normal account chooser and consent screens. You can revoke
-        access at any time in your
-        <a href="https://myaccount.google.com/permissions">Google Account permissions</a>.
+        You can revoke access via your GitHub authorized applications / OAuth apps settings, and
+        sign out from Lingrow Profile.
       </p>
 
       <h2>4. What we do <em>not</em> do</h2>
       <ul>
-        <li>Lingrow does not run its own backend database of your word lists.</li>
         <li>We do not sell your personal information.</li>
         <li>We do not use your vocabulary data for advertising.</li>
-        <li>
-          We do not access Google Drive files unrelated to the spreadsheet Lingrow creates for you.
-        </li>
+        <li>We do not access your GitHub repositories; sign-in is only for identity.</li>
       </ul>
 
       <h2>5. Where data lives</h2>
       <p>
-        Without Google sign-in, data remains in your browser on that device. With Google sign-in,
-        collections and settings are also stored in a spreadsheet you own in Google’s services,
-        under Google’s terms and privacy policy, in addition to a local cache in your browser.
+        Without sign-in, data remains in your browser on that device. With GitHub sign-in,
+        collections and settings are also stored in Supabase (cloud database) under your user id,
+        in addition to a local cache in your browser. Supabase and GitHub process auth data under
+        their own terms and privacy policies.
       </p>
 
       <h2>6. Cookies and similar technologies</h2>
       <p>
-        Lingrow primarily uses browser local storage (and similar web storage) for app data and
-        preferences. Google’s sign-in scripts may set their own cookies or storage as described in
-        Google’s policies.
+        Lingrow uses browser local storage for app data and preferences. Supabase Auth may use
+        local storage / cookies to keep your session signed in.
       </p>
 
       <h2>7. Children’s privacy</h2>
@@ -154,11 +143,11 @@
 
       <h2>8. Your choices</h2>
       <ul>
-        <li>Continue using the App with local storage only (no Google sign-in).</li>
-        <li>Sign in to sync to your Google account, or sign out from Profile.</li>
-        <li>Delete collections in the App, or delete/edit the spreadsheet in Google Drive.</li>
+        <li>Continue using the App with local storage only (no sign-in).</li>
+        <li>Sign in to sync to the cloud, or sign out from Profile.</li>
+        <li>Delete collections in the App.</li>
         <li>Clear site data in your browser to remove local Lingrow storage.</li>
-        <li>Revoke Lingrow’s Google access in your Google Account settings.</li>
+        <li>Revoke Lingrow’s GitHub OAuth access in your GitHub settings.</li>
       </ul>
 
       <h2>9. Changes</h2>
@@ -173,8 +162,8 @@
       </p>
 
       <div class="note">
-        This page describes how Lingrow is designed to work. It is provided to help users and to
-        support Google OAuth / API compliance. It is not formal legal advice.
+        This page describes how Lingrow is designed to work. It is provided to help users.
+        It is not formal legal advice.
       </div>
 
       <nav class="links">

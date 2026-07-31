@@ -2,15 +2,34 @@
 
 Flashcard-style vocabulary collections with pronunciation practice.
 
-## Google sync
+## Cloud sync (Supabase + GitHub)
 
-Sign in with Google to store collections in a **Lingrow Collections** spreadsheet in your Drive. Settings are stored per Google user. Without sign-in, data stays in browser local storage.
+Sign in with **GitHub** to store collections in Supabase. Settings are stored per user. Without sign-in, data stays in browser local storage.
 
-The app ships with a Google OAuth Web client ID. In Google Cloud Console for that client, keep Authorized JavaScript origins updated (`https://ek-so.github.io`, `http://localhost:5173`) and leave **Google Sheets API** + **Google Drive API** enabled. Optional override: `VITE_GOOGLE_CLIENT_ID`.
+### One-time setup
 
-Legal / OAuth consent screen URLs:
+1. Create a free [Supabase](https://supabase.com) project.
+2. In **SQL Editor**, run [`supabase/schema.sql`](./supabase/schema.sql).
+3. Enable **GitHub** under Authentication → Providers.
+4. Create a GitHub OAuth App (GitHub → Settings → Developer settings → OAuth Apps):
+   - Homepage URL: `https://ek-so.github.io/lingrow/`
+   - Authorization callback URL: `https://YOUR_PROJECT.supabase.co/auth/v1/callback`
+5. Paste the GitHub Client ID/Secret into Supabase’s GitHub provider settings.
+6. In Supabase Auth → URL configuration, add redirect URLs:
+   - `https://ek-so.github.io/lingrow/app.html`
+   - `http://localhost:5173/lingrow/app.html` (local)
+7. Copy project URL + anon key into `.env.local`:
 
-- App homepage (for Google verification): https://ek-so.github.io/lingrow/
-- Privacy Policy: https://ek-so.github.io/lingrow/privacy.html
-- Terms of Use: https://ek-so.github.io/lingrow/terms.html
-- Study app: https://ek-so.github.io/lingrow/app.html
+```bash
+VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+VITE_SUPABASE_ANON_KEY=...
+```
+
+8. For GitHub Pages deploy, add the same values as repository secrets `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+
+### Site URLs
+
+- Homepage: https://ek-so.github.io/lingrow/
+- App: https://ek-so.github.io/lingrow/app.html
+- Privacy: https://ek-so.github.io/lingrow/privacy.html
+- Terms: https://ek-so.github.io/lingrow/terms.html

@@ -5,11 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Lingrow is a vocabulary study app for creating word collections, flipping cards, and optionally syncing your lists to Google Sheets in your own Google account."
-    />
-    <meta
-      name="google-site-verification"
-      content="Cqi_TbUoDRc68sgGneVC-CN77bKqOYcTwhYA0o8ZeYM"
+      content="Lingrow is a vocabulary study app for creating word collections, flipping cards, and optionally syncing your lists to the cloud with GitHub sign-in."
     />
     <title>Lingrow</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -120,8 +116,8 @@
       <h1>Lingrow</h1>
       <p class="lede">
         Lingrow is a vocabulary study web app. Create word collections, flip study cards, practice
-        with pronunciation, and keep your lists on this device—or optionally sync them to a
-        spreadsheet in your own Google account.
+        with pronunciation, and keep your lists on this device—or optionally sync them to the cloud
+        with GitHub sign-in.
       </p>
 
       <div class="actions">
@@ -137,30 +133,26 @@
         <li>Store lists locally in your browser by default</li>
       </ul>
 
-      <h2>Why Lingrow uses Google account data</h2>
+      <h2>Why Lingrow uses GitHub sign-in</h2>
       <div class="card">
         <p style="margin-top:0">
-          Google sign-in is <strong>optional</strong>. If you choose “Sign in with Google,” Lingrow
+          GitHub sign-in is <strong>optional</strong>. If you choose “Sign in with GitHub,” Lingrow
           asks for limited access so it can:
         </p>
         <ul>
-          <li>Identify your account (name, email, profile picture)</li>
-          <li>
-            Create and update a spreadsheet named <strong>Lingrow Collections</strong> in
-            <em>your</em> Google Drive / Google Sheets
-          </li>
-          <li>Save your word lists and study settings there so they sync across devices</li>
+          <li>Identify your account (name, email, avatar)</li>
+          <li>Store your word lists and study settings in Lingrow’s cloud database (Supabase)</li>
+          <li>Sync those lists across devices when you sign in again</li>
         </ul>
         <p style="margin-bottom:0">
-          Lingrow does not sell your data, does not use it for ads, and does not access unrelated
-          files in your Drive. You can revoke access anytime in your Google Account permissions, or
+          Lingrow does not sell your data and does not use it for ads. You can sign out anytime, or
           keep using Lingrow with local storage only.
         </p>
       </div>
 
       <h2>Privacy</h2>
       <p>
-        Details about what is stored on your device and in Google Sheets are in the
+        Details about what is stored on your device and in the cloud are in the
         <a href="./privacy.html">Lingrow Privacy Policy</a>. See also the
         <a href="./terms.html">Terms of Use</a>.
       </p>
