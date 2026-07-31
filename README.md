@@ -10,7 +10,7 @@ The app ships with a Google OAuth Web client ID. In Google Cloud Console for tha
 
 Legal / OAuth consent screen URLs:
 
-- App homepage (for Google verification): https://ek-so.github.io/lingrow/about.html
+- App homepage (for Google verification): https://ek-so.github.io/lingrow/
 - Privacy Policy: https://ek-so.github.io/lingrow/privacy.html
 - Terms of Use: https://ek-so.github.io/lingrow/terms.html
-- App itself: https://ek-so.github.io/lingrow/
+- Study app: https://ek-so.github.io/lingrow/app.html

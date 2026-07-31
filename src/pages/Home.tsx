@@ -25,10 +25,13 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       <header className="fixed inset-x-0 top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-5 py-3">
-          <div className="flex items-center gap-2 text-primary">
+          <a
+            href={import.meta.env.BASE_URL}
+            className="flex items-center gap-2 text-primary"
+          >
             <Layers className="h-5 w-5" />
             <span className="text-sm font-medium tracking-wide uppercase">Lingrow</span>
-          </div>
+          </a>
           <button
             type="button"
             aria-label="Profile"
