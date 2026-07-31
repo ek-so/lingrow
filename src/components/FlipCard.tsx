@@ -8,26 +8,20 @@ interface FlipCardProps {
   back: ReactNode
   flipped: boolean
   onFlip: (next: boolean) => void
-  /**
-   * rate — horizontal swipe rates the card (multi-word study)
-   * flip — horizontal swipe toggles sides (single-word study)
-   * Tap always flips in both modes.
-   */
-  swipeMode?: "rate" | "flip"
+  /** Horizontal swipe rates the card; tap flips. */
   onSwipeLeft?: () => void
   onSwipeRight?: () => void
   className?: string
 }
 
 /**
- * Flashcard: tap to flip. Swipe left/right rates (rate mode) or flips (flip mode).
+ * Flashcard: tap to flip (and parent should speak). Swipe left/right rates.
  */
 export function FlipCard({
   front,
   back,
   flipped,
   onFlip,
-  swipeMode = "rate",
   onSwipeLeft,
   onSwipeRight,
   className,
@@ -55,7 +49,6 @@ export function FlipCard({
 
   function onPointerDown(e: PointerEvent<HTMLDivElement>) {
     if (exiting) return
-    // Only primary button / touch.
     if (e.pointerType === "mouse" && e.button !== 0) return
     startX.current = e.clientX
     startY.current = e.clientY
@@ -78,32 +71,23 @@ export function FlipCard({
     dragging.current = false
     startX.current = null
     startY.current = null
-
-    // Always consume the synthetic click that follows pointerup.
     suppressClick.current = true
 
     if (Math.abs(dx) > 72) {
-      if (swipeMode === "rate") {
-        const dir: CardSwipeDirection = dx < 0 ? "left" : "right"
-        setExiting(true)
-        setExitX(dir === "left" ? -420 : 420)
-        window.setTimeout(() => {
-          if (dir === "left") onSwipeLeft?.()
-          else onSwipeRight?.()
-          setDragX(0)
-          setExitX(0)
-          setExiting(false)
-        }, 220)
-        return
-      }
-
-      // Single-word: swipe swaps sides (no fly-away).
-      flip()
-      setDragX(0)
+      const dir: CardSwipeDirection = dx < 0 ? "left" : "right"
+      setExiting(true)
+      setExitX(dir === "left" ? -420 : 420)
+      window.setTimeout(() => {
+        if (dir === "left") onSwipeLeft?.()
+        else onSwipeRight?.()
+        setDragX(0)
+        setExitX(0)
+        setExiting(false)
+      }, 220)
       return
     }
 
-    // Tap / short drag — same flip path for 1-word and multi-word sets.
+    // Tap / short drag — flip (parent voices the new side).
     flip()
     setDragX(0)
   }
@@ -113,7 +97,6 @@ export function FlipCard({
   }
 
   function onLostPointerCapture(e: PointerEvent<HTMLDivElement>) {
-    // iOS can cancel capture without pointerup; still finish the gesture.
     if (dragging.current) finishGesture(e.clientX)
   }
 
@@ -125,7 +108,6 @@ export function FlipCard({
   }
 
   function onClick(e: MouseEvent<HTMLDivElement>) {
-    // Pointer path already flipped; ignore the follow-up click.
     if (suppressClick.current) {
       suppressClick.current = false
       e.preventDefault()
@@ -143,46 +125,40 @@ export function FlipCard({
     }
     if (e.key === "ArrowLeft") {
       e.preventDefault()
-      if (swipeMode === "rate") onSwipeLeft?.()
-      else flip()
+      onSwipeLeft?.()
     }
     if (e.key === "ArrowRight") {
       e.preventDefault()
-      if (swipeMode === "rate") onSwipeRight?.()
-      else flip()
+      onSwipeRight?.()
     }
   }
 
   const shift = exiting ? exitX : dragX
   const rot = Math.max(-14, Math.min(14, shift * 0.06))
-  const knowHint = swipeMode === "rate" && dragX > 28
-  const learnHint = swipeMode === "rate" && dragX < -28
+  const knowHint = dragX > 28
+  const learnHint = dragX < -28
 
   return (
     <div
       className={cn("relative w-full select-none [perspective:1200px]", className)}
       style={{ touchAction: "none" }}
     >
-      {swipeMode === "rate" ? (
-        <>
-          <div
-            className={cn(
-              "pointer-events-none absolute inset-y-6 left-2 flex items-center text-sm font-medium transition-opacity",
-              learnHint ? "opacity-100 text-destructive" : "opacity-0",
-            )}
-          >
-            Still learning
-          </div>
-          <div
-            className={cn(
-              "pointer-events-none absolute inset-y-6 right-2 flex items-center text-sm font-medium transition-opacity",
-              knowHint ? "opacity-100 text-primary" : "opacity-0",
-            )}
-          >
-            I know it
-          </div>
-        </>
-      ) : null}
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-y-6 left-2 flex items-center text-sm font-medium transition-opacity",
+          learnHint ? "opacity-100 text-destructive" : "opacity-0",
+        )}
+      >
+        Still learning
+      </div>
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-y-6 right-2 flex items-center text-sm font-medium transition-opacity",
+          knowHint ? "opacity-100 text-primary" : "opacity-0",
+        )}
+      >
+        I know it
+      </div>
 
       <div
         role="button"

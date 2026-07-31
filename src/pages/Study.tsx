@@ -230,7 +230,8 @@ export default function Study() {
 
   function handleFlip(next: boolean) {
     setFlipped(next)
-    if (playing || view !== "cards") return
+    if (view !== "cards") return
+    // Always voice the side that becomes visible after a flip.
     speakVisibleSide(index, next)
   }
 
@@ -284,7 +285,6 @@ export default function Study() {
   const word = collection.words[index]
   const sides = sidesForWord(collection, word)
   const progressPct = ((index + (playing && phase === "pause" ? 1 : 0)) / collection.words.length) * 100
-  const singleWord = collection.words.length === 1
 
   function togglePlay() {
     if (playing) {
@@ -401,7 +401,6 @@ export default function Study() {
                 }
                 handleFlip(next)
               }}
-              swipeMode={singleWord ? "flip" : "rate"}
               onSwipeLeft={() => rateAndAdvance(word.id, "learning", collection.words.length)}
               onSwipeRight={() => rateAndAdvance(word.id, "known", collection.words.length)}
               front={
@@ -436,11 +435,9 @@ export default function Study() {
               }
             />
             <p className="mt-3 text-center text-xs text-muted-foreground">
-              {singleWord
-                ? "Tap or swipe the card to swap sides · Next finishes"
-                : playing
-                  ? "Auto play — swipe to rate · Tap to flip"
-                  : "Tap to flip · Swipe right if you know it · Left if still learning"}
+              {playing
+                ? "Auto play — swipe to rate · Tap to flip"
+                : "Tap to flip · Swipe right if you know it · Left if still learning"}
             </p>
           </div>
         </div>

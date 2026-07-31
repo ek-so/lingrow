@@ -87,7 +87,7 @@ export default function Profile() {
                 </div>
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="destructive"
                   className="shrink-0"
                   onClick={() => {
                     void signOut()
