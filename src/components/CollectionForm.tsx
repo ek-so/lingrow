@@ -383,7 +383,7 @@ function WordRow({
             autoExamples.current = null
             onChange("examplesText", e.target.value)
           }}
-          rows={2}
+          rows={4}
           placeholder="Example sentences (optional, one per line)"
           className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
         />
