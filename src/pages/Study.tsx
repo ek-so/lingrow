@@ -5,11 +5,22 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { FlipCard } from "@/components/FlipCard"
 import { OverflowMenu } from "@/components/OverflowMenu"
+import { MoveToFolderSheet } from "@/components/MoveToFolderSheet"
 import { StudyStats, type StudyRating } from "@/components/StudyStats"
 import { playClingSound } from "@/lib/cling"
 import { downloadCollectionExcel } from "@/lib/export-collection"
 import { LANGS, langLabel, pairLabel } from "@/lib/languages"
-import { ArrowLeft, Download, Pause, Pencil, Play, SkipBack, SkipForward, Trash2 } from "lucide-react"
+import {
+  ArrowLeft,
+  Download,
+  FolderInput,
+  Pause,
+  Pencil,
+  Play,
+  SkipBack,
+  SkipForward,
+  Trash2,
+} from "lucide-react"
 import type { Collection, PronounceFirst, Word } from "@/types"
 
 type SpeakPhase = "first" | "second" | "pause"
@@ -25,14 +36,19 @@ const BETWEEN_CARDS_MS = 900
 export default function Study() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { getCollection, settings, deleteCollection } = useCollections()
+  const { getCollection, getFolder, folders, settings, deleteCollection, moveCollection } =
+    useCollections()
   const collection = id ? getCollection(id) : undefined
   const pronounceFirst: PronounceFirst = settings.pronounceFirst
+  const parentFolder = collection?.folderId ? getFolder(collection.folderId) : undefined
+  const backTo = parentFolder ? `/folder/${parentFolder.id}` : "/"
+  const backLabel = parentFolder?.name ?? "My sets"
 
   const [index, setIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [phase, setPhase] = useState<SpeakPhase>("first")
   const [flipped, setFlipped] = useState(false)
+  const [moveOpen, setMoveOpen] = useState(false)
   const [view, setView] = useState<StudyView>("cards")
   const [ratings, setRatings] = useState<Record<string, StudyRating>>({})
   const voicesRef = useRef<SpeechSynthesisVoice[]>([])
@@ -276,7 +292,7 @@ export default function Study() {
         learning={learning}
         listened={listened}
         skipped={skipped}
-        onFinish={() => navigate("/")}
+        onFinish={() => navigate(backTo)}
         onRestart={resetSession}
       />
     )
@@ -335,7 +351,7 @@ export default function Study() {
     if (!window.confirm(`Delete “${collection.name}”? This can’t be undone.`)) return
     stopSpeech()
     deleteCollection(collection.id)
-    navigate("/")
+    navigate(backTo)
   }
 
   function onExport() {
@@ -347,9 +363,9 @@ export default function Study() {
     <div className="h-dvh overflow-hidden bg-background">
       <header className="fixed inset-x-0 top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-2xl w-full items-center justify-between gap-3 px-5 py-3">
-          <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <Link to={backTo} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-4 w-4" />
-            My sets
+            {backLabel}
           </Link>
           <OverflowMenu
             label={`Actions for ${collection.name}`}
@@ -360,6 +376,15 @@ export default function Study() {
                 onSelect: () => {
                   stopSpeech()
                   navigate(`/edit/${collection.id}`)
+                },
+              },
+              {
+                label: "Move to…",
+                icon: <FolderInput />,
+                onSelect: () => {
+                  stopSpeech()
+                  setPlaying(false)
+                  setMoveOpen(true)
                 },
               },
               {
@@ -470,6 +495,18 @@ export default function Study() {
           </Button>
         </div>
       </div>
+
+      <MoveToFolderSheet
+        open={moveOpen}
+        title={`Move “${collection.name}”`}
+        folders={folders}
+        currentFolderId={collection.folderId ?? null}
+        onCancel={() => setMoveOpen(false)}
+        onSelect={(folderId) => {
+          moveCollection(collection.id, folderId)
+          setMoveOpen(false)
+        }}
+      />
     </div>
   )
 }

@@ -7,16 +7,17 @@ import {
   useState,
   type ReactNode,
 } from "react"
-import type { AppSettings, Collection, LangCode, PronounceFirst, Word } from "@/types"
+import type { AppSettings, Collection, Folder, LangCode, Library, PronounceFirst, Word } from "@/types"
 import {
-  loadCollections,
+  loadLibrary,
   loadSettings,
   newId,
-  saveCollections,
+  saveLibrary,
   saveSettings,
 } from "@/lib/storage"
 import type { WordPair } from "@/lib/collection-form"
 import { normalizeExamples } from "@/lib/examples"
+import { wouldCreateFolderCycle } from "@/lib/folders"
 import { useAuth } from "@/lib/auth-context"
 import { cloudHasData, loadCloudBundle, saveCloudBundle } from "@/lib/cloud-sync"
 
@@ -26,19 +27,27 @@ interface CollectionFields {
   wordLang: LangCode
   translationLang: LangCode
   words: WordPair[]
+  folderId?: string | null
 }
 
 export type SyncStatus = "local" | "idle" | "syncing" | "error"
 
 interface CollectionsContextValue {
   collections: Collection[]
+  folders: Folder[]
   settings: AppSettings
   syncStatus: SyncStatus
   syncError: string | null
   getCollection: (id: string) => Collection | undefined
+  getFolder: (id: string) => Folder | undefined
   addCollection: (input: CollectionFields) => Collection
   updateCollection: (id: string, input: CollectionFields) => Collection | undefined
   deleteCollection: (id: string) => void
+  moveCollection: (id: string, folderId: string | null) => void
+  addFolder: (name: string, parentId?: string | null) => Folder
+  renameFolder: (id: string, name: string) => void
+  moveFolder: (id: string, parentId: string | null) => void
+  deleteFolder: (id: string) => void
   setPronounceFirst: (value: PronounceFirst) => void
   refreshFromCloud: () => Promise<void>
   pushToCloudNow: () => Promise<void>
@@ -66,7 +75,7 @@ function normalizeWords(words: WordPair[], previous?: Word[]): Word[] {
 }
 
 type PushPayload = {
-  collections: Collection[]
+  library: Library
   settings: AppSettings
 }
 
@@ -74,14 +83,17 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
   const { status: authStatus, user, setSyncing } = useAuth()
 
   const userId = user?.id ?? null
-  const [collections, setCollections] = useState<Collection[]>(() => loadCollections())
+  const [collections, setCollections] = useState<Collection[]>(() => loadLibrary(userId).collections)
+  const [folders, setFolders] = useState<Folder[]>(() => loadLibrary(userId).folders)
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings(userId))
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("local")
   const [syncError, setSyncError] = useState<string | null>(null)
 
   const collectionsRef = useRef(collections)
+  const foldersRef = useRef(folders)
   const settingsRef = useRef(settings)
   collectionsRef.current = collections
+  foldersRef.current = folders
   settingsRef.current = settings
 
   const pushTimer = useRef<number | null>(null)
@@ -90,7 +102,19 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
   const queuedPush = useRef<PushPayload | null>(null)
   const suppressAutoPush = useRef(false)
 
+  const persistLibrary = useCallback(
+    (nextCollections: Collection[], nextFolders: Folder[]) => {
+      saveLibrary({ collections: nextCollections, folders: nextFolders }, userId)
+    },
+    [userId]
+  )
+
   useEffect(() => {
+    const library = loadLibrary(userId)
+    setCollections(library.collections)
+    setFolders(library.folders)
+    collectionsRef.current = library.collections
+    foldersRef.current = library.folders
     setSettings(loadSettings(userId))
   }, [userId])
 
@@ -101,7 +125,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
       setSyncing(true)
       setSyncError(null)
       try {
-        await saveCloudBundle(user.id, payload.collections, payload.settings)
+        await saveCloudBundle(user.id, payload.library, payload.settings)
         setSyncStatus("idle")
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Cloud sync failed"
@@ -139,10 +163,13 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
   }, [authStatus, user, runPush])
 
   const schedulePush = useCallback(
-    (nextCollections: Collection[], nextSettings: AppSettings) => {
+    (nextCollections: Collection[], nextFolders: Folder[], nextSettings: AppSettings) => {
       if (authStatus !== "signed_in" || !user || !cloudReady.current) return
       if (suppressAutoPush.current) return
-      queuedPush.current = { collections: nextCollections, settings: nextSettings }
+      queuedPush.current = {
+        library: { collections: nextCollections, folders: nextFolders },
+        settings: nextSettings,
+      }
       if (pushTimer.current) window.clearTimeout(pushTimer.current)
       pushTimer.current = window.setTimeout(() => {
         void flushPushQueue()
@@ -158,7 +185,10 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
       pushTimer.current = null
     }
     queuedPush.current = {
-      collections: collectionsRef.current,
+      library: {
+        collections: collectionsRef.current,
+        folders: foldersRef.current,
+      },
       settings: settingsRef.current,
     }
     cloudReady.current = true
@@ -176,17 +206,25 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
 
       if (cloudHasData(bundle)) {
         setCollections(bundle.collections)
+        setFolders(bundle.folders)
         collectionsRef.current = bundle.collections
-        saveCollections(bundle.collections)
+        foldersRef.current = bundle.folders
+        saveLibrary(
+          { collections: bundle.collections, folders: bundle.folders },
+          user.id
+        )
         if (bundle.settings) {
           setSettings(bundle.settings)
           settingsRef.current = bundle.settings
           saveSettings(bundle.settings, user.id)
         }
       } else {
-        const localCollections = collectionsRef.current
+        const localLibrary: Library = {
+          collections: collectionsRef.current,
+          folders: foldersRef.current,
+        }
         const localSettings = settingsRef.current
-        await saveCloudBundle(user.id, localCollections, localSettings)
+        await saveCloudBundle(user.id, localLibrary, localSettings)
       }
       cloudReady.current = true
       setSyncStatus("idle")
@@ -236,19 +274,32 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
     return collections.find((c) => c.id === id)
   }
 
+  function getFolder(id: string) {
+    return folders.find((f) => f.id === id)
+  }
+
+  function commitLibrary(nextCollections: Collection[], nextFolders: Folder[]) {
+    persistLibrary(nextCollections, nextFolders)
+    schedulePush(nextCollections, nextFolders, settingsRef.current)
+  }
+
   function addCollection(input: CollectionFields) {
+    const folderId =
+      typeof input.folderId === "string" && foldersRef.current.some((f) => f.id === input.folderId)
+        ? input.folderId
+        : null
     const collection: Collection = {
       id: newId("list"),
       name: input.name.trim(),
       description: (input.description ?? "").trim(),
       wordLang: input.wordLang,
       translationLang: input.translationLang,
+      folderId,
       words: normalizeWords(input.words),
     }
     setCollections((prev) => {
       const next = [collection, ...prev]
-      saveCollections(next)
-      schedulePush(next, settingsRef.current)
+      commitLibrary(next, foldersRef.current)
       return next
     })
     return collection
@@ -259,18 +310,25 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
     setCollections((prev) => {
       const next = prev.map((c) => {
         if (c.id !== id) return c
+        const folderId =
+          input.folderId === undefined
+            ? (c.folderId ?? null)
+            : typeof input.folderId === "string" &&
+                foldersRef.current.some((f) => f.id === input.folderId)
+              ? input.folderId
+              : null
         updated = {
           ...c,
           name: input.name.trim(),
           description: (input.description ?? "").trim(),
           wordLang: input.wordLang,
           translationLang: input.translationLang,
+          folderId,
           words: normalizeWords(input.words, c.words),
         }
         return updated
       })
-      saveCollections(next)
-      schedulePush(next, settingsRef.current)
+      commitLibrary(next, foldersRef.current)
       return next
     })
     return updated
@@ -279,17 +337,86 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
   function deleteCollection(id: string) {
     setCollections((prev) => {
       const next = prev.filter((c) => c.id !== id)
-      saveCollections(next)
-      schedulePush(next, settingsRef.current)
+      commitLibrary(next, foldersRef.current)
       return next
     })
+  }
+
+  function moveCollection(id: string, folderId: string | null) {
+    const target =
+      folderId == null || foldersRef.current.some((f) => f.id === folderId) ? folderId : null
+    setCollections((prev) => {
+      const next = prev.map((c) => (c.id === id ? { ...c, folderId: target } : c))
+      commitLibrary(next, foldersRef.current)
+      return next
+    })
+  }
+
+  function addFolder(name: string, parentId: string | null = null) {
+    const trimmed = name.trim() || "Untitled folder"
+    const parent =
+      parentId != null && foldersRef.current.some((f) => f.id === parentId) ? parentId : null
+    const folder: Folder = {
+      id: newId("folder"),
+      name: trimmed,
+      parentId: parent,
+    }
+    setFolders((prev) => {
+      const next = [folder, ...prev]
+      foldersRef.current = next
+      commitLibrary(collectionsRef.current, next)
+      return next
+    })
+    return folder
+  }
+
+  function renameFolder(id: string, name: string) {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setFolders((prev) => {
+      const next = prev.map((f) => (f.id === id ? { ...f, name: trimmed } : f))
+      foldersRef.current = next
+      commitLibrary(collectionsRef.current, next)
+      return next
+    })
+  }
+
+  function moveFolder(id: string, parentId: string | null) {
+    if (wouldCreateFolderCycle(foldersRef.current, id, parentId)) return
+    const target =
+      parentId == null || foldersRef.current.some((f) => f.id === parentId) ? parentId : null
+    setFolders((prev) => {
+      const next = prev.map((f) => (f.id === id ? { ...f, parentId: target } : f))
+      foldersRef.current = next
+      commitLibrary(collectionsRef.current, next)
+      return next
+    })
+  }
+
+  function deleteFolder(id: string) {
+    const folder = foldersRef.current.find((f) => f.id === id)
+    if (!folder) return
+    const parentId = folder.parentId
+
+    // Unwrap: move immediate child folders/sets to the parent, then remove the folder.
+    const nextFolders = foldersRef.current
+      .filter((f) => f.id !== id)
+      .map((f) => (f.parentId === id ? { ...f, parentId } : f))
+    const nextCollections = collectionsRef.current.map((c) =>
+      c.folderId === id ? { ...c, folderId: parentId } : c
+    )
+    foldersRef.current = nextFolders
+    collectionsRef.current = nextCollections
+    setFolders(nextFolders)
+    setCollections(nextCollections)
+    commitLibrary(nextCollections, nextFolders)
   }
 
   function setPronounceFirst(pronounceFirst: PronounceFirst) {
     setSettings((prev) => {
       const next = { ...prev, pronounceFirst }
       saveSettings(next, userId)
-      schedulePush(collectionsRef.current, next)
+      schedulePush(collectionsRef.current, foldersRef.current, next)
       return next
     })
   }
@@ -298,13 +425,20 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
     <CollectionsContext.Provider
       value={{
         collections,
+        folders,
         settings,
         syncStatus,
         syncError,
         getCollection,
+        getFolder,
         addCollection,
         updateCollection,
         deleteCollection,
+        moveCollection,
+        addFolder,
+        renameFolder,
+        moveFolder,
+        deleteFolder,
         setPronounceFirst,
         refreshFromCloud,
         pushToCloudNow,

@@ -1,30 +1,136 @@
-import { Link, useNavigate } from "react-router-dom"
+import { useMemo, useState } from "react"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { useCollections } from "@/lib/collections-context"
 import { useAuth } from "@/lib/auth-context"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { OverflowMenu } from "@/components/OverflowMenu"
+import { CreateItemSheet } from "@/components/CreateItemSheet"
+import { MoveToFolderSheet } from "@/components/MoveToFolderSheet"
+import { NameFolderSheet } from "@/components/NameFolderSheet"
 import { downloadCollectionExcel } from "@/lib/export-collection"
+import { countItemsInFolder, descendantFolderIds, folderAncestors } from "@/lib/folders"
 import { pairLabel } from "@/lib/languages"
-import { Layers, Pencil, Plus, Trash2, Download, UserRound } from "lucide-react"
-import type { Collection } from "@/types"
+import {
+  ArrowLeft,
+  Folder as FolderIcon,
+  FolderInput,
+  Layers,
+  Pencil,
+  Plus,
+  Trash2,
+  Download,
+  UserRound,
+} from "lucide-react"
+import type { Collection, Folder } from "@/types"
+
+type MoveTarget =
+  | { kind: "collection"; id: string; name: string; folderId: string | null }
+  | { kind: "folder"; id: string; name: string; parentId: string | null }
 
 export default function Home() {
   const navigate = useNavigate()
-  const { collections, deleteCollection } = useCollections()
+  const { folderId: routeFolderId } = useParams()
+  const {
+    collections,
+    folders,
+    deleteCollection,
+    moveCollection,
+    addFolder,
+    renameFolder,
+    moveFolder,
+    deleteFolder,
+    getFolder,
+  } = useCollections()
   const { user, status } = useAuth()
 
-  function onDelete(id: string, name: string) {
+  const currentFolderId = routeFolderId ?? null
+  const currentFolder = currentFolderId ? getFolder(currentFolderId) : undefined
+
+  const [createOpen, setCreateOpen] = useState(false)
+  const [nameFolderOpen, setNameFolderOpen] = useState(false)
+  const [renameTarget, setRenameTarget] = useState<Folder | null>(null)
+  const [moveTarget, setMoveTarget] = useState<MoveTarget | null>(null)
+
+  const breadcrumbs = useMemo(
+    () => folderAncestors(folders, currentFolderId),
+    [folders, currentFolderId],
+  )
+
+  const childFolders = useMemo(
+    () =>
+      folders
+        .filter((f) => f.parentId === currentFolderId)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [folders, currentFolderId],
+  )
+
+  const childCollections = useMemo(
+    () =>
+      collections.filter((c) => (c.folderId ?? null) === currentFolderId),
+    [collections, currentFolderId],
+  )
+
+  // Invalid deep link → treat as root.
+  const folderMissing = Boolean(currentFolderId && !currentFolder)
+
+  function onDeleteSet(id: string, name: string) {
     if (!window.confirm(`Delete “${name}”? This can’t be undone.`)) return
     deleteCollection(id)
+  }
+
+  function onDeleteFolder(folder: Folder) {
+    if (
+      !window.confirm(
+        `Delete folder “${folder.name}”? Sets and folders inside move up one level.`,
+      )
+    ) {
+      return
+    }
+    deleteFolder(folder.id)
+    if (currentFolderId === folder.id) {
+      navigate(folder.parentId ? `/folder/${folder.parentId}` : "/")
+    }
   }
 
   function onExport(collection: Collection) {
     void downloadCollectionExcel(collection)
   }
 
-  function goNew() {
-    navigate("/new")
+  function goNewSet() {
+    setCreateOpen(false)
+    const q = currentFolderId ? `?folder=${encodeURIComponent(currentFolderId)}` : ""
+    navigate(`/new${q}`)
+  }
+
+  function openCreateFolder() {
+    setCreateOpen(false)
+    setNameFolderOpen(true)
+  }
+
+  function parentPath() {
+    if (!currentFolder) return "/"
+    return currentFolder.parentId ? `/folder/${currentFolder.parentId}` : "/"
+  }
+
+  const moveDisabledIds = useMemo(() => {
+    if (!moveTarget || moveTarget.kind !== "folder") return undefined
+    const ids = descendantFolderIds(folders, moveTarget.id)
+    ids.add(moveTarget.id)
+    return ids
+  }, [moveTarget, folders])
+
+  if (folderMissing) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="mx-auto max-w-2xl px-5 pb-8 pt-16">
+          <p className="text-muted-foreground">This folder no longer exists.</p>
+          <Button type="button" className="mt-4" onClick={() => navigate("/")}>
+            Back to Home
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -59,21 +165,115 @@ export default function Home() {
       </header>
 
       <div className="mx-auto max-w-2xl px-5 pb-8 pt-[4.75rem]">
+        {currentFolder ? (
+          <div className="mb-4">
+            <Link
+              to={parentPath()}
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              {currentFolder.parentId
+                ? (getFolder(currentFolder.parentId)?.name ?? "Back")
+                : "My sets"}
+            </Link>
+            {breadcrumbs.length > 1 ? (
+              <nav aria-label="Breadcrumb" className="mt-2 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                <Link to="/" className="hover:text-foreground">
+                  Home
+                </Link>
+                {breadcrumbs.map((crumb) => (
+                  <span key={crumb.id} className="inline-flex items-center gap-1">
+                    <span aria-hidden>/</span>
+                    {crumb.id === currentFolder.id ? (
+                      <span className="text-foreground">{crumb.name}</span>
+                    ) : (
+                      <Link to={`/folder/${crumb.id}`} className="hover:text-foreground">
+                        {crumb.name}
+                      </Link>
+                    )}
+                  </span>
+                ))}
+              </nav>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="mb-6 flex items-center justify-between gap-3">
-          <h1 className="text-3xl font-semibold tracking-tight">My sets</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {currentFolder ? currentFolder.name : "My sets"}
+          </h1>
           <Button
             type="button"
             variant="secondary"
             size="icon"
-            aria-label="New set"
-            onClick={goNew}
+            aria-label="Create"
+            onClick={() => setCreateOpen(true)}
           >
             <Plus className="h-4 w-4" />
           </Button>
         </div>
 
         <div className="flex flex-col gap-3">
-          {collections.map((c) => (
+          {childFolders.map((folder) => {
+            const counts = countItemsInFolder(
+              folders,
+              collections.map((c) => c.folderId),
+              folder.id,
+            )
+            const itemLabel = [
+              counts.folders > 0
+                ? `${counts.folders} folder${counts.folders === 1 ? "" : "s"}`
+                : null,
+              `${counts.sets} set${counts.sets === 1 ? "" : "s"}`,
+            ]
+              .filter(Boolean)
+              .join(" · ")
+
+            return (
+              <Card key={folder.id} className="transition-colors hover:border-primary/50">
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-3">
+                    <Link to={`/folder/${folder.id}`} className="min-w-0 flex-1">
+                      <CardTitle className="flex items-center gap-2">
+                        <FolderIcon className="h-5 w-5 shrink-0 text-primary" />
+                        <span className="truncate">{folder.name}</span>
+                      </CardTitle>
+                      <CardDescription className="mt-1">{itemLabel}</CardDescription>
+                    </Link>
+                    <OverflowMenu
+                      label={`Actions for ${folder.name}`}
+                      items={[
+                        {
+                          label: "Rename",
+                          icon: <Pencil />,
+                          onSelect: () => setRenameTarget(folder),
+                        },
+                        {
+                          label: "Move to…",
+                          icon: <FolderInput />,
+                          onSelect: () =>
+                            setMoveTarget({
+                              kind: "folder",
+                              id: folder.id,
+                              name: folder.name,
+                              parentId: folder.parentId,
+                            }),
+                        },
+                        {
+                          label: "Delete",
+                          icon: <Trash2 />,
+                          destructive: true,
+                          onSelect: () => onDeleteFolder(folder),
+                        },
+                      ]}
+                    />
+                  </div>
+                </CardHeader>
+              </Card>
+            )
+          })}
+
+          {childCollections.map((c) => (
             <Card key={c.id} className="transition-colors hover:border-primary/50">
               <CardHeader>
                 <div className="flex items-start justify-between gap-3">
@@ -92,6 +292,17 @@ export default function Home() {
                         onSelect: () => navigate(`/edit/${c.id}`),
                       },
                       {
+                        label: "Move to…",
+                        icon: <FolderInput />,
+                        onSelect: () =>
+                          setMoveTarget({
+                            kind: "collection",
+                            id: c.id,
+                            name: c.name,
+                            folderId: c.folderId ?? null,
+                          }),
+                      },
+                      {
                         label: "Export",
                         icon: <Download />,
                         onSelect: () => onExport(c),
@@ -100,7 +311,7 @@ export default function Home() {
                         label: "Delete",
                         icon: <Trash2 />,
                         destructive: true,
-                        onSelect: () => onDelete(c.id, c.name),
+                        onSelect: () => onDeleteSet(c.id, c.name),
                       },
                     ]}
                   />
@@ -121,16 +332,79 @@ export default function Home() {
             </Card>
           ))}
 
+          {childFolders.length === 0 && childCollections.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+              {currentFolder
+                ? "This folder is empty. Create a set or another folder."
+                : "No sets yet. Create a set or a folder to get started."}
+            </p>
+          ) : null}
+
           <button
             type="button"
-            onClick={goNew}
+            onClick={() => setCreateOpen(true)}
             className="flex h-14 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-card text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-secondary hover:text-foreground"
           >
             <Plus className="h-4 w-4" />
-            New set
+            New set or folder
           </button>
         </div>
       </div>
+
+      <CreateItemSheet
+        open={createOpen}
+        onCancel={() => setCreateOpen(false)}
+        onNewSet={goNewSet}
+        onNewFolder={openCreateFolder}
+      />
+
+      <NameFolderSheet
+        open={nameFolderOpen}
+        title="New folder"
+        confirmLabel="Create folder"
+        onCancel={() => setNameFolderOpen(false)}
+        onConfirm={(name) => {
+          const created = addFolder(name, currentFolderId)
+          setNameFolderOpen(false)
+          navigate(`/folder/${created.id}`)
+        }}
+      />
+
+      <NameFolderSheet
+        open={renameTarget != null}
+        title="Rename folder"
+        initialName={renameTarget?.name ?? ""}
+        confirmLabel="Save"
+        onCancel={() => setRenameTarget(null)}
+        onConfirm={(name) => {
+          if (renameTarget) renameFolder(renameTarget.id, name)
+          setRenameTarget(null)
+        }}
+      />
+
+      <MoveToFolderSheet
+        open={moveTarget != null}
+        title={moveTarget ? `Move “${moveTarget.name}”` : "Move"}
+        folders={folders}
+        currentFolderId={
+          moveTarget?.kind === "collection"
+            ? moveTarget.folderId
+            : moveTarget?.kind === "folder"
+              ? moveTarget.parentId
+              : null
+        }
+        disabledFolderIds={moveDisabledIds}
+        onCancel={() => setMoveTarget(null)}
+        onSelect={(folderId) => {
+          if (!moveTarget) return
+          if (moveTarget.kind === "collection") {
+            moveCollection(moveTarget.id, folderId)
+          } else {
+            moveFolder(moveTarget.id, folderId)
+          }
+          setMoveTarget(null)
+        }}
+      />
     </div>
   )
 }

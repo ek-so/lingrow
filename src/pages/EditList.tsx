@@ -7,8 +7,11 @@ import { ArrowLeft } from "lucide-react"
 export default function EditList() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { getCollection, updateCollection } = useCollections()
+  const { getCollection, getFolder, updateCollection } = useCollections()
   const collection = id ? getCollection(id) : undefined
+  const parentFolder = collection?.folderId ? getFolder(collection.folderId) : undefined
+  const backTo = parentFolder ? `/folder/${parentFolder.id}` : "/"
+  const backLabel = parentFolder?.name ?? "My sets"
 
   if (!collection) {
     return (
@@ -28,11 +31,11 @@ export default function EditList() {
       <header className="fixed inset-x-0 top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-2xl items-center px-5 py-3">
           <Link
-            to="/"
+            to={backTo}
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
-            My sets
+            {backLabel}
           </Link>
         </div>
       </header>

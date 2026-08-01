@@ -1,9 +1,10 @@
-import type { AppSettings, Collection, LangCode, PronounceFirst, Word } from "@/types"
+import type { AppSettings, Collection, Folder, LangCode, Library, PronounceFirst, Word } from "@/types"
 import { seedCollections } from "@/data/collections"
 import { normalizeExamples } from "@/lib/examples"
 import { isLangCode } from "@/lib/languages"
 
-const COLLECTIONS_KEY = "lingrow.collections.v2"
+const LIBRARY_KEY = "lingrow.library.v3"
+const COLLECTIONS_KEY_V2 = "lingrow.collections.v2"
 const COLLECTIONS_KEY_V1 = "lingrow.collections.v1"
 const SETTINGS_KEY = "lingrow.settings.v1"
 
@@ -52,6 +53,9 @@ function migrateCollection(raw: unknown): Collection | null {
     translationLang = c.translationLang
   }
 
+  const folderId =
+    typeof c.folderId === "string" && c.folderId.length > 0 ? c.folderId : null
+
   return {
     id: c.id,
     name: c.name,
@@ -60,44 +64,144 @@ function migrateCollection(raw: unknown): Collection | null {
     translationLang,
     level: c.level as Collection["level"],
     theme: typeof c.theme === "string" ? c.theme : undefined,
+    folderId,
     words,
   }
 }
 
-function migrateList(raw: unknown): Collection[] {
+function migrateFolder(raw: unknown): Folder | null {
+  if (!raw || typeof raw !== "object") return null
+  const f = raw as Record<string, unknown>
+  if (typeof f.id !== "string" || typeof f.name !== "string") return null
+  const parentId =
+    typeof f.parentId === "string" && f.parentId.length > 0 ? f.parentId : null
+  return { id: f.id, name: f.name, parentId }
+}
+
+function migrateCollectionsList(raw: unknown): Collection[] {
   if (!Array.isArray(raw)) return structuredClone(seedCollections)
   const migrated = raw.map(migrateCollection).filter((c): c is Collection => c != null)
   return migrated.length > 0 ? migrated : structuredClone(seedCollections)
 }
 
-export function loadCollections(): Collection[] {
-  if (!canUseStorage()) return structuredClone(seedCollections)
-  try {
-    const rawV2 = localStorage.getItem(COLLECTIONS_KEY)
-    if (rawV2) {
-      const collections = migrateList(JSON.parse(rawV2))
-      saveCollections(collections)
-      return collections
-    }
+function migrateFoldersList(raw: unknown): Folder[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map(migrateFolder).filter((f): f is Folder => f != null)
+}
 
-    const rawV1 = localStorage.getItem(COLLECTIONS_KEY_V1)
-    if (rawV1) {
-      const collections = migrateList(JSON.parse(rawV1))
-      saveCollections(collections)
-      return collections
-    }
+function sanitizeLibrary(library: Library): Library {
+  const folderIds = new Set(library.folders.map((f) => f.id))
+  const folders = library.folders.map((f) => ({
+    ...f,
+    parentId: f.parentId && folderIds.has(f.parentId) ? f.parentId : null,
+  }))
+  const validFolderIds = new Set(folders.map((f) => f.id))
+  const collections = library.collections.map((c) => ({
+    ...c,
+    folderId: c.folderId && validFolderIds.has(c.folderId) ? c.folderId : null,
+  }))
+  return { collections, folders }
+}
 
-    const seed = structuredClone(seedCollections)
-    saveCollections(seed)
-    return seed
-  } catch {
-    return structuredClone(seedCollections)
+function emptySeedLibrary(): Library {
+  return {
+    collections: structuredClone(seedCollections).map((c) => ({ ...c, folderId: null })),
+    folders: [],
   }
 }
 
-export function saveCollections(collections: Collection[]) {
+function parseLibraryJson(raw: string): Library | null {
+  const parsed = JSON.parse(raw) as unknown
+  if (Array.isArray(parsed)) {
+    return sanitizeLibrary({
+      collections: migrateCollectionsList(parsed),
+      folders: [],
+    })
+  }
+  if (!parsed || typeof parsed !== "object") return null
+  const obj = parsed as Record<string, unknown>
+  return sanitizeLibrary({
+    collections: migrateCollectionsList(obj.collections),
+    folders: migrateFoldersList(obj.folders),
+  })
+}
+
+function libraryKeyForUser(userId?: string | null) {
+  return userId ? `${LIBRARY_KEY}.${userId}` : LIBRARY_KEY
+}
+
+function readLegacyCollections(): Library | null {
+  const rawV2 = localStorage.getItem(COLLECTIONS_KEY_V2)
+  if (rawV2) {
+    return sanitizeLibrary({
+      collections: migrateCollectionsList(JSON.parse(rawV2)),
+      folders: [],
+    })
+  }
+  const rawV1 = localStorage.getItem(COLLECTIONS_KEY_V1)
+  if (rawV1) {
+    return sanitizeLibrary({
+      collections: migrateCollectionsList(JSON.parse(rawV1)),
+      folders: [],
+    })
+  }
+  return null
+}
+
+/** Load library for a signed-in user (or the anonymous local profile). */
+export function loadLibrary(userId?: string | null): Library {
+  if (!canUseStorage()) return emptySeedLibrary()
+  try {
+    const keyed = localStorage.getItem(libraryKeyForUser(userId))
+    if (keyed) {
+      const library = parseLibraryJson(keyed)
+      if (library) {
+        saveLibrary(library, userId)
+        return library
+      }
+    }
+
+    // Fall back to anonymous library when a user first signs in.
+    if (userId) {
+      const anon = localStorage.getItem(LIBRARY_KEY)
+      if (anon) {
+        const library = parseLibraryJson(anon)
+        if (library) {
+          saveLibrary(library, userId)
+          return library
+        }
+      }
+    }
+
+    const legacy = readLegacyCollections()
+    if (legacy) {
+      saveLibrary(legacy, userId)
+      return legacy
+    }
+
+    const seed = emptySeedLibrary()
+    saveLibrary(seed, userId)
+    return seed
+  } catch {
+    return emptySeedLibrary()
+  }
+}
+
+export function saveLibrary(library: Library, userId?: string | null) {
   if (!canUseStorage()) return
-  localStorage.setItem(COLLECTIONS_KEY, JSON.stringify(collections))
+  const clean = sanitizeLibrary(library)
+  localStorage.setItem(libraryKeyForUser(userId), JSON.stringify(clean))
+}
+
+/** @deprecated Prefer loadLibrary — kept for any external callers. */
+export function loadCollections(): Collection[] {
+  return loadLibrary().collections
+}
+
+/** @deprecated Prefer saveLibrary — kept for any external callers. */
+export function saveCollections(collections: Collection[]) {
+  const existing = canUseStorage() ? loadLibrary() : emptySeedLibrary()
+  saveLibrary({ ...existing, collections })
 }
 
 function settingsKeyForUser(userId?: string | null) {

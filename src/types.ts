@@ -20,7 +20,22 @@ export interface Collection {
   translationLang: LangCode
   level?: Level
   theme?: string
+  /** Folder containing this set; null/undefined means Home (root). */
+  folderId?: string | null
   words: Word[]
+}
+
+/** Nested folder for organizing sets. `parentId` null means Home (root). */
+export interface Folder {
+  id: string
+  name: string
+  parentId: string | null
+}
+
+/** Local + cloud library bundle (sets and folders). */
+export interface Library {
+  collections: Collection[]
+  folders: Folder[]
 }
 
 /** What speechSynthesis says first during study playback. */

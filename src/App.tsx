@@ -16,6 +16,7 @@ function App() {
         <HashRouter>
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/folder/:folderId" element={<Home />} />
             <Route path="/new" element={<NewList />} />
             <Route path="/edit/:id" element={<EditList />} />
             <Route path="/import" element={<ImportWords />} />
