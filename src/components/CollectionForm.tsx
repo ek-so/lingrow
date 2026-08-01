@@ -512,8 +512,10 @@ export function CollectionForm({ initial, submitLabel, onSubmit }: CollectionFor
       </label>
 
       <div className="flex flex-col gap-4">
-        <LangSelect id="from-lang" label="Translates from" value={wordLang} onChange={setWordLang} />
-        <LangSelect id="into-lang" label="Into" value={translationLang} onChange={setTranslationLang} />
+        <div className="grid grid-cols-2 gap-3">
+          <LangSelect id="from-lang" label="Translates from" value={wordLang} onChange={setWordLang} />
+          <LangSelect id="into-lang" label="Into" value={translationLang} onChange={setTranslationLang} />
+        </div>
         {sameLanguage ? (
           <p className="flex items-start gap-2 text-xs text-muted-foreground">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
