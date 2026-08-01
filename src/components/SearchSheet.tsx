@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom"
 import { searchLibrary, type LibrarySearchResult } from "@/lib/library-search"
 import { loadRecentItems, type RecentItem } from "@/lib/recent"
 import type { Collection, Folder } from "@/types"
+import { cn } from "@/lib/utils"
 import { Folder as FolderIcon, Layers, Search, X } from "lucide-react"
 
 interface SearchSheetProps {
@@ -184,8 +185,24 @@ export function SearchSheet({ open, collections, folders, onClose }: SearchSheet
               autoComplete="off"
               autoCorrect="off"
               spellCheck={false}
-              className="h-11 w-full rounded-md border border-border bg-background py-2 pl-9 pr-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+              className={cn(
+                "h-11 w-full rounded-md border border-border bg-background py-2 pl-9 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring",
+                query ? "pr-10" : "pr-3",
+              )}
             />
+            {query ? (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => {
+                  setQuery("")
+                  inputRef.current?.focus()
+                }}
+                className="absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
           </div>
           <button
             type="button"
