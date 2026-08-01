@@ -1,5 +1,14 @@
 import type { LangCode } from "@/types"
 import { otherLangs } from "@/lib/languages"
+import {
+  bareGermanLemma,
+  fetchGermanNounInfo,
+  formatGermanNoun,
+  genderFromArticle,
+  guessGenderFromTexts,
+  guessPluralFromTexts,
+  type GermanGender,
+} from "@/lib/german-noun"
 
 export interface WordSuggestion {
   /** Best single translation for the “into” field. */
@@ -8,6 +17,11 @@ export interface WordSuggestion {
   alternatives: string[]
   /** Usage examples in the word language. */
   examples: string[]
+  /**
+   * Optional enriched form for the word field itself
+   * (German “der Apfel, die Äpfel” or English “to run”).
+   */
+  wordForm?: string
 }
 
 const MAX_ALTERNATIVES = 6
@@ -18,7 +32,18 @@ const CACHE_LIMIT = 80
 const cache = new Map<string, WordSuggestion>()
 
 function cacheKey(text: string, from: LangCode, to: LangCode) {
-  return `${from}|${to}|${text.trim().toLowerCase()}`
+  return `${from}|${to}|${normalizeLookupQuery(text, from).toLowerCase()}`
+}
+
+/** Strip articles / “to” / plural tails so lookups stay stable after enrichment. */
+export function normalizeLookupQuery(text: string, lang: LangCode): string {
+  let s = text.trim()
+  if (!s) return ""
+  if (lang === "de") return bareGermanLemma(s)
+  if (lang === "en") {
+    s = s.replace(/^to\s+/i, "").trim()
+  }
+  return s
 }
 
 function stripTags(s: string) {
@@ -30,10 +55,8 @@ function normalizeExample(raw: string): string | null {
     .replace(/\s+/g, " ")
     .trim()
   if (!s) return null
-  // Drop bare dictionary fragments that are just the headword-ish gloss.
   if (s.length < 8) return null
   if (s.length > 140) s = `${s.slice(0, 137).trimEnd()}…`
-  // Capitalize first letter when the source starts lower (common for Google DE examples).
   if (/^[a-zäöüа-яё]/.test(s)) {
     s = s[0]!.toUpperCase() + s.slice(1)
   }
@@ -47,7 +70,6 @@ function pushUnique(list: string[], value: string, limit: number) {
   const key = value.toLowerCase()
   const idx = list.findIndex((v) => v.toLowerCase() === key)
   if (idx >= 0) {
-    // Prefer lowercase lemma spelling when MT returns Title Case and the dict has lower.
     const existing = list[idx]!
     if (existing !== existing.toLowerCase() && value === value.toLowerCase()) {
       list[idx] = value
@@ -64,23 +86,100 @@ function preferLemmaCase(primary: string, candidates: string[]): string {
   const looksTitleCase =
     trimmed[0] === trimmed[0]!.toUpperCase() && /[a-zäöü]/.test(trimmed.slice(1))
   if (!looksTitleCase) return trimmed
-  // Prefer dictionary lemma casing (usually lowercase) over title-case MT output.
   const lowerMatch = candidates.find(
     (a) => a.toLowerCase() === trimmed.toLowerCase() && a === a.toLowerCase(),
   )
   return lowerMatch ?? trimmed
 }
 
-/** Parse Google Translate `client=gtx` JSON into translations + examples. */
-export function parseGoogleSuggest(
-  data: unknown,
-  opts: { wantTranslation: boolean },
-): WordSuggestion {
+function analyzePos(data: unknown[], primary: string): { isVerb: boolean; isNoun: boolean } {
+  const dict = data[1]
+  if (!Array.isArray(dict)) return { isVerb: false, isNoun: false }
+
+  let verb = false
+  let noun = false
+  let primaryInVerb = false
+  let primaryInNoun = false
+  const primaryKey = primary.trim().toLowerCase()
+
+  for (const block of dict) {
+    if (!Array.isArray(block)) continue
+    const label = typeof block[0] === "string" ? block[0].toLowerCase() : ""
+    const words = Array.isArray(block[1])
+      ? block[1].filter((w): w is string => typeof w === "string")
+      : []
+    const hit = !!primaryKey && words.some((w) => w.toLowerCase() === primaryKey)
+    if (/\bverb\b/.test(label)) {
+      verb = true
+      if (hit) primaryInVerb = true
+    }
+    if (/\b(noun|substantiv)\b/.test(label)) {
+      noun = true
+      if (hit) primaryInNoun = true
+    }
+  }
+
+  const germanInfinitive = /(?:en|eln|ern)$/i.test(primary.trim())
+  const isVerb =
+    primaryInVerb || (verb && !primaryInNoun) || (verb && germanInfinitive && !primaryInNoun)
+  const isNoun =
+    primaryInNoun || (noun && !isVerb) || (noun && !verb)
+
+  return { isVerb, isNoun }
+}
+
+/** Learner-style English infinitive: “run” → “to run”. */
+export function withEnglishTo(text: string): string {
+  const t = text.trim()
+  if (!t) return ""
+  if (/^to\s+/i.test(t)) return t
+  return `to ${t}`
+}
+
+function articleFromDictEntry(entry: unknown): string | null {
+  if (!Array.isArray(entry)) return null
+  const art = entry[4]
+  return typeof art === "string" && art.trim() ? art.trim().toLowerCase() : null
+}
+
+/** When translating into German, Google often attaches der/die/das on dict rows. */
+function germanArticleForLemma(data: unknown[], lemma: string): string | null {
+  const dict = data[1]
+  if (!Array.isArray(dict)) return null
+  const target = lemma.trim().toLowerCase()
+  for (const block of dict) {
+    if (!Array.isArray(block) || !Array.isArray(block[2])) continue
+    for (const entry of block[2]) {
+      if (!Array.isArray(entry) || typeof entry[0] !== "string") continue
+      if (entry[0].trim().toLowerCase() !== target) continue
+      const art = articleFromDictEntry(entry)
+      if (art) return art
+    }
+  }
+  // Fall back to the first noun entry’s article.
+  for (const block of dict) {
+    if (!Array.isArray(block)) continue
+    const pos = typeof block[0] === "string" ? block[0].toLowerCase() : ""
+    if (!/\b(noun|substantiv)\b/.test(pos)) continue
+    if (!Array.isArray(block[2]) || !Array.isArray(block[2][0])) continue
+    const art = articleFromDictEntry(block[2][0])
+    if (art) return art
+  }
+  return null
+}
+
+interface ParsedCore {
+  translations: string[]
+  examples: string[]
+  germanArticle: string | null
+  raw: unknown[] | null
+}
+
+function parseGoogleCore(data: unknown, opts: { wantTranslation: boolean; to: LangCode }): ParsedCore {
   const translations: string[] = []
   const examples: string[] = []
-
   if (!Array.isArray(data)) {
-    return { translation: "", alternatives: [], examples: [] }
+    return { translations, examples, germanArticle: null, raw: null }
   }
 
   if (opts.wantTranslation) {
@@ -110,7 +209,9 @@ export function parseGoogleSuggest(
         if (!Array.isArray(item) || !Array.isArray(item[2])) continue
         for (const alt of item[2]) {
           if (Array.isArray(alt) && typeof alt[0] === "string" && alt[0].trim()) {
-            pushUnique(translations, alt[0].trim(), MAX_ALTERNATIVES + 1)
+            // Prefer bare lemmas over “das Fenster” duplicates in the alt list.
+            const raw = alt[0].trim().replace(/^(der|die|das)\s+/i, "")
+            if (raw) pushUnique(translations, raw, MAX_ALTERNATIVES + 1)
           }
         }
       }
@@ -126,7 +227,6 @@ export function parseGoogleSuggest(
     }
   }
 
-  // Definition snippets sometimes carry short usage phrases (index 12).
   if (examples.length < MAX_EXAMPLES) {
     const defs = data[12]
     if (Array.isArray(defs)) {
@@ -142,12 +242,20 @@ export function parseGoogleSuggest(
   }
 
   const primary = preferLemmaCase(translations[0] ?? "", translations)
-  const alternatives = translations.filter((t) => t.toLowerCase() !== primary.toLowerCase())
+  const ordered = primary
+    ? [primary, ...translations.filter((t) => t.toLowerCase() !== primary.toLowerCase())]
+    : translations
+
+  const germanArticle =
+    opts.wantTranslation && opts.to === "de" && primary
+      ? germanArticleForLemma(data, primary)
+      : null
 
   return {
-    translation: primary,
-    alternatives: alternatives.slice(0, MAX_ALTERNATIVES),
+    translations: ordered,
     examples,
+    germanArticle,
+    raw: data,
   }
 }
 
@@ -157,7 +265,6 @@ async function fetchGoogleRaw(
   to: LangCode,
   signal?: AbortSignal,
 ): Promise<unknown> {
-  // Repeat dt params manually — URLSearchParams would collapse duplicates.
   const url =
     `https://translate.googleapis.com/translate_a/single?client=gtx` +
     `&sl=${encodeURIComponent(from)}` +
@@ -170,9 +277,58 @@ async function fetchGoogleRaw(
   return res.json()
 }
 
+function formatEnglishSide(text: string, verb: boolean): string {
+  return verb ? withEnglishTo(text) : text
+}
+
+async function enrichGermanNounForm(
+  lemma: string,
+  genderHint: GermanGender | null,
+  texts: string[],
+  signal?: AbortSignal,
+): Promise<{ form: string | null; resolved: boolean }> {
+  const info = await fetchGermanNounInfo(lemma, signal)
+  if (info?.plural || info?.gender) {
+    return {
+      form: formatGermanNoun(
+        info.singular || lemma,
+        info.gender ?? genderHint,
+        info.plural,
+      ),
+      // Retry later if Wiktionary gave gender but no plural.
+      resolved: !!info.plural,
+    }
+  }
+
+  let gender = genderHint ?? guessGenderFromTexts(lemma, texts)
+  let plural = guessPluralFromTexts(lemma, texts)
+
+  // When translating into German, examples are often English — pull German
+  // usage snippets for the lemma so we can spot the plural.
+  if (!plural) {
+    try {
+      const raw = await fetchGoogleRaw(lemma, "de", "en", signal)
+      const scraped = parseGoogleCore(raw, { wantTranslation: false, to: "en" })
+      const pool = [...texts, ...scraped.examples]
+      plural = guessPluralFromTexts(lemma, pool)
+      gender = gender ?? guessGenderFromTexts(lemma, pool)
+    } catch {
+      // optional enrichment
+    }
+  }
+
+  if (!gender && !plural) return { form: null, resolved: false }
+
+  return {
+    form: formatGermanNoun(lemma, gender, plural),
+    resolved: !!plural,
+  }
+}
+
 /**
  * Look up a translation + usage examples for a typed word.
- * Uses Google Translate’s public gtx endpoint (no API key).
+ * Uses Google Translate’s public gtx endpoint (no API key),
+ * plus de.wiktionary for German noun plurals.
  */
 export async function suggestForWord(
   text: string,
@@ -180,7 +336,7 @@ export async function suggestForWord(
   to: LangCode,
   signal?: AbortSignal,
 ): Promise<WordSuggestion | null> {
-  const query = text.trim()
+  const query = normalizeLookupQuery(text, from)
   if (query.length < MIN_QUERY_LEN) return null
 
   const key = cacheKey(query, from, to)
@@ -190,33 +346,73 @@ export async function suggestForWord(
   const sameLanguage = from === to
   const requestTo = sameLanguage ? otherLangs(from)[0]! : to
   const data = await fetchGoogleRaw(query, from, requestTo, signal)
-  const parsed = parseGoogleSuggest(data, { wantTranslation: !sameLanguage })
+  const core = parseGoogleCore(data, {
+    wantTranslation: !sameLanguage,
+    to: sameLanguage ? requestTo : to,
+  })
 
-  // Ignore identity / empty junk.
-  if (
-    !parsed.translation &&
-    parsed.alternatives.length === 0 &&
-    parsed.examples.length === 0
-  ) {
+  let translation = core.translations[0] ?? ""
+  let alternatives = core.translations.slice(1, MAX_ALTERNATIVES + 1)
+  let wordForm: string | undefined
+  let nounResolved = true
+
+  const { isVerb, isNoun } = analyzePos(core.raw ?? [], translation)
+  const hintTexts = core.examples
+
+  if (!sameLanguage && translation) {
+    if (to === "en" && isVerb) {
+      translation = formatEnglishSide(translation, true)
+      alternatives = alternatives.map((a) => formatEnglishSide(a, true))
+    } else if (to === "de" && isNoun) {
+      const genderHint = genderFromArticle(core.germanArticle)
+      const lemma = bareGermanLemma(translation) || translation
+      const enriched = await enrichGermanNounForm(lemma, genderHint, hintTexts, signal)
+      if (enriched.form) translation = enriched.form
+      nounResolved = enriched.resolved
+    }
+  }
+
+  // Source-side enrichment (the field the user is typing into).
+  if (from === "en" && isVerb) {
+    wordForm = formatEnglishSide(query, true)
+  } else if (from === "de" && isNoun) {
+    const enriched = await enrichGermanNounForm(query, null, hintTexts, signal)
+    if (enriched.form) wordForm = enriched.form
+    nounResolved = nounResolved && enriched.resolved
+  }
+
+  const parsed: WordSuggestion = {
+    translation,
+    alternatives: alternatives.filter((a) => a.toLowerCase() !== translation.toLowerCase()),
+    examples: core.examples,
+    wordForm,
+  }
+
+  if (!parsed.translation && parsed.alternatives.length === 0 && parsed.examples.length === 0 && !parsed.wordForm) {
     return null
   }
   if (
     parsed.translation &&
     parsed.translation.toLowerCase() === query.toLowerCase() &&
     parsed.alternatives.length === 0 &&
-    parsed.examples.length === 0
+    parsed.examples.length === 0 &&
+    !parsed.wordForm
   ) {
     return null
   }
 
-  cache.set(key, parsed)
-  if (cache.size > CACHE_LIMIT) {
-    const oldest = cache.keys().next().value
-    if (oldest !== undefined) cache.delete(oldest)
+  // Avoid caching incomplete noun enrichments (e.g. Wiktionary rate limit).
+  if (nounResolved) {
+    cache.set(key, parsed)
+    if (cache.size > CACHE_LIMIT) {
+      const oldest = cache.keys().next().value
+      if (oldest !== undefined) cache.delete(oldest)
+    }
   }
   return parsed
 }
 
-export function isSuggestableQuery(text: string) {
-  return text.trim().length >= MIN_QUERY_LEN
+export function isSuggestableQuery(text: string, lang: LangCode = "en") {
+  return normalizeLookupQuery(text, lang).length >= MIN_QUERY_LEN
 }
+

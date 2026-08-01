@@ -99,6 +99,7 @@ function WordRow({
 
   // Values we last auto-filled — kept so a new lookup can replace them without
   // overwriting anything the user typed by hand.
+  const autoWord = useRef<string | null>(null)
   const autoTranslation = useRef<string | null>(null)
   const autoExamples = useRef<string | null>(null)
   const draftRef = useRef(draft)
@@ -110,6 +111,20 @@ function WordRow({
     if (!suggestion) return
     const currentDraft = draftRef.current
     const change = onChangeRef.current
+
+    if (suggestion.wordForm) {
+      const current = currentDraft.word.trim()
+      const canFill =
+        !current ||
+        current === autoWord.current ||
+        // Allow replacing the bare typed lemma with the enriched form.
+        current.toLowerCase() === suggestion.wordForm.toLowerCase() ||
+        suggestion.wordForm.toLowerCase().includes(current.toLowerCase())
+      if (canFill && current !== suggestion.wordForm) {
+        autoWord.current = suggestion.wordForm
+        change("word", suggestion.wordForm)
+      }
+    }
 
     if (!sameLanguage && suggestion.translation) {
       const current = currentDraft.translation.trim()
@@ -173,7 +188,10 @@ function WordRow({
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <input
             value={draft.word}
-            onChange={(e) => onChange("word", e.target.value)}
+            onChange={(e) => {
+              autoWord.current = null
+              onChange("word", e.target.value)
+            }}
             placeholder={langLabel(wordLang)}
             aria-label={langLabel(wordLang)}
             className={inputClassName}
@@ -425,8 +443,8 @@ export function CollectionForm({ initial, submitLabel, onSubmit }: CollectionFor
       <div>
         <span className="text-sm font-medium">Words</span>
         <p className="mt-1 text-xs text-muted-foreground">
-          Type a word and we’ll suggest a translation and example sentences. Edit anything before
-          saving.
+          Type a word and we’ll suggest a translation and examples. German nouns get article +
+          plural (e.g. der Apfel, die Äpfel); English verbs get “to”. Edit anything before saving.
         </p>
         <div className="mt-3 flex flex-col gap-4">
           {words.map((w) => (

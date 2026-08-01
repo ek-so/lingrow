@@ -20,8 +20,7 @@ export function useWordSuggest(
   const requestId = useRef(0)
 
   useEffect(() => {
-    const query = word.trim()
-    if (!isSuggestableQuery(query)) {
+    if (!isSuggestableQuery(word, wordLang)) {
       setStatus("idle")
       setSuggestion(null)
       return
@@ -31,7 +30,7 @@ export function useWordSuggest(
     setStatus("loading")
     const controller = new AbortController()
     const timer = window.setTimeout(() => {
-      suggestForWord(query, wordLang, translationLang, controller.signal)
+      suggestForWord(word, wordLang, translationLang, controller.signal)
         .then((result) => {
           if (id !== requestId.current) return
           setSuggestion(result)
