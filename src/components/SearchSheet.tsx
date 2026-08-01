@@ -20,11 +20,9 @@ interface SearchSheetProps {
   onClose: () => void
 }
 
-type RecentDisplayItem = {
-  recent: RecentItem
-  folder?: Folder
-  collection?: Collection
-}
+type BrowseItem =
+  | { kind: "folder"; id: string; name: string }
+  | { kind: "collection"; id: string; name: string; description: string }
 
 export function SearchSheet({ open, collections, folders, onClose }: SearchSheetProps) {
   const navigate = useNavigate()
@@ -50,15 +48,26 @@ export function SearchSheet({ open, collections, folders, onClose }: SearchSheet
       if (e.key === "Escape") onClose()
     }
     document.addEventListener("keydown", onKeyDown)
-    const focusTimer = window.setTimeout(() => {
-      inputRef.current?.focus()
-    }, 30)
     return () => {
       document.body.style.overflow = prev
       document.removeEventListener("keydown", onKeyDown)
-      window.clearTimeout(focusTimer)
     }
   }, [open, onClose])
+
+  // Focus as soon as the input mounts (and again after the sheet animation starts).
+  useEffect(() => {
+    if (!open) return
+    const focus = () => inputRef.current?.focus({ preventScroll: true })
+    focus()
+    const raf = requestAnimationFrame(focus)
+    const t0 = window.setTimeout(focus, 0)
+    const t1 = window.setTimeout(focus, 50)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.clearTimeout(t0)
+      window.clearTimeout(t1)
+    }
+  }, [open])
 
   const results = useMemo(
     () => searchLibrary(deferredQuery, collections, folders),
@@ -68,21 +77,49 @@ export function SearchSheet({ open, collections, folders, onClose }: SearchSheet
   const trimmed = query.trim()
   const searching = trimmed.length > 0
 
-  const recentItems = useMemo(() => {
-    const items: RecentDisplayItem[] = []
+  const recentBrowse = useMemo(() => {
+    const items: BrowseItem[] = []
     for (const item of recent) {
       if (item.kind === "folder") {
         const folder = folderById.get(item.id)
         if (!folder) continue
-        items.push({ recent: item, folder })
+        items.push({ kind: "folder", id: folder.id, name: folder.name })
       } else {
         const collection = collectionById.get(item.id)
         if (!collection) continue
-        items.push({ recent: item, collection })
+        items.push({
+          kind: "collection",
+          id: collection.id,
+          name: collection.name,
+          description: collection.description,
+        })
       }
     }
     return items
   }, [recent, folderById, collectionById])
+
+  const allBrowse = useMemo(() => {
+    const folderItems: BrowseItem[] = [...folders]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((folder) => ({ kind: "folder" as const, id: folder.id, name: folder.name }))
+    const setItems: BrowseItem[] = [...collections]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((collection) => ({
+        kind: "collection" as const,
+        id: collection.id,
+        name: collection.name,
+        description: collection.description,
+      }))
+    return [...folderItems, ...setItems]
+  }, [folders, collections])
+
+  const restBrowse = useMemo(() => {
+    if (recentBrowse.length === 0) return allBrowse
+    const seen = new Set(recentBrowse.map((item) => `${item.kind}:${item.id}`))
+    return allBrowse.filter((item) => !seen.has(`${item.kind}:${item.id}`))
+  }, [recentBrowse, allBrowse])
+
+  const hasBrowseItems = recentBrowse.length > 0 || restBrowse.length > 0
 
   if (!open) return null
 
@@ -99,14 +136,12 @@ export function SearchSheet({ open, collections, folders, onClose }: SearchSheet
     go(`/study/${result.kind === "word" ? result.collectionId : result.id}`)
   }
 
-  function onSelectRecent(item: RecentDisplayItem) {
-    if (item.recent.kind === "folder" && item.folder) {
-      go(`/folder/${item.folder.id}`)
+  function onSelectBrowse(item: BrowseItem) {
+    if (item.kind === "folder") {
+      go(`/folder/${item.id}`)
       return
     }
-    if (item.collection) {
-      go(`/study/${item.collection.id}`)
-    }
+    go(`/study/${item.id}`)
   }
 
   const folderResults = results.filter((r) => r.kind === "folder")
@@ -142,6 +177,7 @@ export function SearchSheet({ open, collections, folders, onClose }: SearchSheet
             <input
               ref={inputRef}
               id={inputId}
+              autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search sets, folders, words…"
@@ -163,57 +199,37 @@ export function SearchSheet({ open, collections, folders, onClose }: SearchSheet
 
         <div className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
           {!searching ? (
-            recentItems.length > 0 ? (
-              <section>
-                <p className="px-3 pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Recently opened
-                </p>
-                <ul className="flex flex-col">
-                  {recentItems.map((item) => {
-                    const key = `${item.recent.kind}-${item.recent.id}`
-                    if (item.recent.kind === "folder" && item.folder) {
-                      return (
-                        <li key={key}>
-                          <button
-                            type="button"
-                            onClick={() => onSelectRecent(item)}
-                            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-secondary"
-                          >
-                            <FolderIcon className="h-4 w-4 shrink-0 text-primary" />
-                            <span className="min-w-0">
-                              <span className="block truncate text-sm font-medium">
-                                {item.folder.name}
-                              </span>
-                              <span className="block text-xs text-muted-foreground">Folder</span>
-                            </span>
-                          </button>
-                        </li>
-                      )
-                    }
-                    if (!item.collection) return null
-                    return (
-                      <li key={key}>
-                        <button
-                          type="button"
-                          onClick={() => onSelectRecent(item)}
-                          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-secondary"
-                        >
-                          <Layers className="h-4 w-4 shrink-0 text-primary" />
-                          <span className="min-w-0">
-                            <span className="block truncate text-sm font-medium">
-                              {item.collection.name}
-                            </span>
-                            <span className="block text-xs text-muted-foreground">Set</span>
-                          </span>
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-              </section>
+            hasBrowseItems ? (
+              <div className="flex flex-col gap-4">
+                {recentBrowse.length > 0 ? (
+                  <ResultGroup title="Recently opened">
+                    {recentBrowse.map((item) => (
+                      <BrowseRow
+                        key={`recent-${item.kind}-${item.id}`}
+                        item={item}
+                        onSelect={onSelectBrowse}
+                      />
+                    ))}
+                  </ResultGroup>
+                ) : null}
+
+                {restBrowse.length > 0 ? (
+                  <ResultGroup
+                    title={recentBrowse.length > 0 ? "Everything else" : "All sets & folders"}
+                  >
+                    {restBrowse.map((item) => (
+                      <BrowseRow
+                        key={`all-${item.kind}-${item.id}`}
+                        item={item}
+                        onSelect={onSelectBrowse}
+                      />
+                    ))}
+                  </ResultGroup>
+                ) : null}
+              </div>
             ) : (
               <p className="px-3 py-8 text-center text-sm text-muted-foreground">
-                Recently opened sets and folders will show up here.
+                No sets or folders yet.
               </p>
             )
           ) : results.length === 0 ? (
@@ -268,6 +284,33 @@ export function SearchSheet({ open, collections, folders, onClose }: SearchSheet
         </div>
       </div>
     </div>
+  )
+}
+
+function BrowseRow({
+  item,
+  onSelect,
+}: {
+  item: BrowseItem
+  onSelect: (item: BrowseItem) => void
+}) {
+  if (item.kind === "folder") {
+    return (
+      <ResultRow
+        icon={<FolderIcon className="h-4 w-4 shrink-0 text-primary" />}
+        title={item.name}
+        subtitle="Folder"
+        onClick={() => onSelect(item)}
+      />
+    )
+  }
+  return (
+    <ResultRow
+      icon={<Layers className="h-4 w-4 shrink-0 text-primary" />}
+      title={item.name}
+      subtitle={item.description || "Set"}
+      onClick={() => onSelect(item)}
+    />
   )
 }
 
