@@ -9,7 +9,7 @@ import { CreateItemSheet } from "@/components/CreateItemSheet"
 import { MoveToFolderSheet } from "@/components/MoveToFolderSheet"
 import { NameFolderSheet } from "@/components/NameFolderSheet"
 import { downloadCollectionExcel } from "@/lib/export-collection"
-import { countItemsInFolder, descendantFolderIds, folderAncestors } from "@/lib/folders"
+import { countItemsInFolder, descendantFolderIds } from "@/lib/folders"
 import { pairLabel } from "@/lib/languages"
 import {
   ArrowLeft,
@@ -52,11 +52,6 @@ export default function Home() {
   const [nameFolderOpen, setNameFolderOpen] = useState(false)
   const [renameTarget, setRenameTarget] = useState<Folder | null>(null)
   const [moveTarget, setMoveTarget] = useState<MoveTarget | null>(null)
-
-  const breadcrumbs = useMemo(
-    () => folderAncestors(folders, currentFolderId),
-    [folders, currentFolderId],
-  )
 
   const childFolders = useMemo(
     () =>
@@ -177,25 +172,6 @@ export default function Home() {
                 ? (getFolder(currentFolder.parentId)?.name ?? "Back")
                 : "My sets"}
             </Link>
-            {breadcrumbs.length > 1 ? (
-              <nav aria-label="Breadcrumb" className="mt-2 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                <Link to="/" className="hover:text-foreground">
-                  Home
-                </Link>
-                {breadcrumbs.map((crumb) => (
-                  <span key={crumb.id} className="inline-flex items-center gap-1">
-                    <span aria-hidden>/</span>
-                    {crumb.id === currentFolder.id ? (
-                      <span className="text-foreground">{crumb.name}</span>
-                    ) : (
-                      <Link to={`/folder/${crumb.id}`} className="hover:text-foreground">
-                        {crumb.name}
-                      </Link>
-                    )}
-                  </span>
-                ))}
-              </nav>
-            ) : null}
           </div>
         ) : null}
 
