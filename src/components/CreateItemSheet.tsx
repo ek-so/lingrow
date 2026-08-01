@@ -1,11 +1,12 @@
 import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { FolderPlus, Plus } from "lucide-react"
+import { FolderInput, FolderPlus, Plus } from "lucide-react"
 
 interface CreateItemSheetProps {
   open: boolean
   onNewSet: () => void
   onNewFolder: () => void
+  onMoveHere: () => void
   onCancel: () => void
 }
 
@@ -13,6 +14,7 @@ export function CreateItemSheet({
   open,
   onNewSet,
   onNewFolder,
+  onMoveHere,
   onCancel,
 }: CreateItemSheetProps) {
   useEffect(() => {
@@ -48,36 +50,33 @@ export function CreateItemSheet({
       >
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-border sm:hidden" />
         <h2 id="create-item-title" className="text-lg font-semibold tracking-tight">
-          Create
+          Add
         </h2>
-        <p className="mt-1 text-sm text-muted-foreground">What would you like to add?</p>
 
         <div className="mt-4 flex flex-col gap-2">
           <button
             type="button"
             onClick={onNewSet}
-            className="flex items-center gap-3 rounded-lg border border-border px-3 py-3 text-left text-sm transition-colors hover:bg-secondary"
+            className="flex items-center gap-3 rounded-lg border border-border px-3 py-3 text-left text-sm font-medium transition-colors hover:bg-secondary"
           >
             <Plus className="h-4 w-4 shrink-0" />
-            <span>
-              <span className="block font-medium">New set</span>
-              <span className="mt-0.5 block text-xs text-muted-foreground">
-                A word list you can study
-              </span>
-            </span>
+            New set
           </button>
           <button
             type="button"
             onClick={onNewFolder}
-            className="flex items-center gap-3 rounded-lg border border-border px-3 py-3 text-left text-sm transition-colors hover:bg-secondary"
+            className="flex items-center gap-3 rounded-lg border border-border px-3 py-3 text-left text-sm font-medium transition-colors hover:bg-secondary"
           >
             <FolderPlus className="h-4 w-4 shrink-0" />
-            <span>
-              <span className="block font-medium">New folder</span>
-              <span className="mt-0.5 block text-xs text-muted-foreground">
-                Group sets at any nesting level
-              </span>
-            </span>
+            New folder
+          </button>
+          <button
+            type="button"
+            onClick={onMoveHere}
+            className="flex items-center gap-3 rounded-lg border border-border px-3 py-3 text-left text-sm font-medium transition-colors hover:bg-secondary"
+          >
+            <FolderInput className="h-4 w-4 shrink-0" />
+            Move here
           </button>
         </div>
 
