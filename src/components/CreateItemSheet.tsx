@@ -1,5 +1,6 @@
 import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock"
 import { FolderInput, FolderPlus, Plus } from "lucide-react"
 
 interface CreateItemSheetProps {
@@ -17,24 +18,21 @@ export function CreateItemSheet({
   onMoveHere,
   onCancel,
 }: CreateItemSheetProps) {
+  useBodyScrollLock(open)
+
   useEffect(() => {
     if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = "hidden"
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onCancel()
     }
     document.addEventListener("keydown", onKeyDown)
-    return () => {
-      document.body.style.overflow = prev
-      document.removeEventListener("keydown", onKeyDown)
-    }
+    return () => document.removeEventListener("keydown", onKeyDown)
   }, [open, onCancel])
 
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center overflow-hidden sm:items-center">
       <button
         type="button"
         aria-label="Dismiss"

@@ -1,5 +1,6 @@
-import { useEffect, useId, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock"
 
 interface NameFolderSheetProps {
   open: boolean
@@ -19,22 +20,27 @@ export function NameFolderSheet({
   onCancel,
 }: NameFolderSheetProps) {
   const inputId = useId()
+  const inputRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState(initialName)
+
+  useBodyScrollLock(open)
 
   useEffect(() => {
     if (!open) return
     setName(initialName)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = "hidden"
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onCancel()
     }
     document.addEventListener("keydown", onKeyDown)
-    return () => {
-      document.body.style.overflow = prev
-      document.removeEventListener("keydown", onKeyDown)
-    }
+    return () => document.removeEventListener("keydown", onKeyDown)
   }, [open, initialName, onCancel])
+
+  useEffect(() => {
+    if (!open) return
+    const focus = () => inputRef.current?.focus({ preventScroll: true })
+    const raf = requestAnimationFrame(focus)
+    return () => cancelAnimationFrame(raf)
+  }, [open])
 
   if (!open) return null
 
@@ -45,7 +51,7 @@ export function NameFolderSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center overflow-hidden sm:items-center">
       <button
         type="button"
         aria-label="Dismiss"
@@ -67,8 +73,8 @@ export function NameFolderSheet({
           Name
         </label>
         <input
+          ref={inputRef}
           id={inputId}
-          autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {

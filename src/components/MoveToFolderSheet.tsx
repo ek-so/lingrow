@@ -1,6 +1,7 @@
 import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { flattenFolderTree } from "@/lib/folders"
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock"
 import type { Folder } from "@/types"
 import { Folder as FolderIcon, Home } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -26,18 +27,15 @@ export function MoveToFolderSheet({
   onSelect,
   onCancel,
 }: MoveToFolderSheetProps) {
+  useBodyScrollLock(open)
+
   useEffect(() => {
     if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = "hidden"
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onCancel()
     }
     document.addEventListener("keydown", onKeyDown)
-    return () => {
-      document.body.style.overflow = prev
-      document.removeEventListener("keydown", onKeyDown)
-    }
+    return () => document.removeEventListener("keydown", onKeyDown)
   }, [open, onCancel])
 
   if (!open) return null
@@ -45,7 +43,7 @@ export function MoveToFolderSheet({
   const tree = flattenFolderTree(folders)
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center overflow-hidden sm:items-center">
       <button
         type="button"
         aria-label="Dismiss"
@@ -56,7 +54,7 @@ export function MoveToFolderSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby="move-folder-title"
-        className="relative z-10 flex max-h-[85dvh] w-full max-w-lg flex-col rounded-t-2xl border border-border bg-card p-5 shadow-xl sm:rounded-2xl"
+        className="relative z-10 flex w-full max-w-lg flex-col rounded-t-2xl border border-border bg-card p-5 shadow-xl sm:rounded-2xl"
         style={{ animation: "lingrow-sheet-up 280ms cubic-bezier(0.22, 1, 0.36, 1)" }}
       >
         <div className="mx-auto mb-4 h-1 w-10 shrink-0 rounded-full bg-border sm:hidden" />
@@ -65,7 +63,7 @@ export function MoveToFolderSheet({
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">Choose a destination folder.</p>
 
-        <div className="mt-4 min-h-0 flex-1 overflow-auto rounded-lg border border-border">
+        <div className="mt-4 max-h-[min(50dvh,24rem)] overflow-y-auto overscroll-contain rounded-lg border border-border">
           <button
             type="button"
             disabled={currentFolderId == null}

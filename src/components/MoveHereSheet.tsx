@@ -1,8 +1,9 @@
-import { useEffect, useMemo } from "react"
-import { Button } from "@/components/ui/button"
+import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { flattenFolderTree, folderAncestors } from "@/lib/folders"
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock"
 import type { Collection, Folder } from "@/types"
-import { Folder as FolderIcon, Layers } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Folder as FolderIcon, Layers, Search, X } from "lucide-react"
 
 type MoveHereItem =
   | { kind: "folder"; id: string; name: string }
@@ -26,25 +27,32 @@ export function MoveHereSheet({
   onSelect,
   onCancel,
 }: MoveHereSheetProps) {
+  const searchId = useId()
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [query, setQuery] = useState("")
+
+  useBodyScrollLock(open)
+
   useEffect(() => {
     if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = "hidden"
+    setQuery("")
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onCancel()
     }
     document.addEventListener("keydown", onKeyDown)
-    return () => {
-      document.body.style.overflow = prev
-      document.removeEventListener("keydown", onKeyDown)
-    }
+    return () => document.removeEventListener("keydown", onKeyDown)
   }, [open, onCancel])
+
+  useEffect(() => {
+    if (!open) return
+    const focus = () => inputRef.current?.focus({ preventScroll: true })
+    const raf = requestAnimationFrame(focus)
+    return () => cancelAnimationFrame(raf)
+  }, [open])
 
   const blockedFolderIds = useMemo(() => {
     const ids = new Set<string>()
-    // Cannot move the destination folder into itself.
     if (destinationFolderId) ids.add(destinationFolderId)
-    // Moving an ancestor into a descendant would create a cycle.
     for (const ancestor of folderAncestors(folders, destinationFolderId)) {
       ids.add(ancestor.id)
     }
@@ -54,7 +62,6 @@ export function MoveHereSheet({
   const movableFolders = useMemo(() => {
     return flattenFolderTree(folders).filter(({ folder }) => {
       if (blockedFolderIds.has(folder.id)) return false
-      // Already in this location.
       if (folder.parentId === destinationFolderId) return false
       return true
     })
@@ -67,67 +74,120 @@ export function MoveHereSheet({
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [collections, destinationFolderId])
 
+  const normalizedQuery = query.trim().toLowerCase()
+
+  const filteredFolders = useMemo(() => {
+    if (!normalizedQuery) return movableFolders
+    return movableFolders.filter(({ folder }) =>
+      folder.name.toLowerCase().includes(normalizedQuery),
+    )
+  }, [movableFolders, normalizedQuery])
+
+  const filteredSets = useMemo(() => {
+    if (!normalizedQuery) return movableSets
+    return movableSets.filter((c) => c.name.toLowerCase().includes(normalizedQuery))
+  }, [movableSets, normalizedQuery])
+
   if (!open) return null
 
-  const empty = movableFolders.length === 0 && movableSets.length === 0
+  const empty = filteredFolders.length === 0 && filteredSets.length === 0
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center">
-      <button
-        type="button"
-        aria-label="Dismiss"
-        className="absolute inset-0 bg-black/40"
-        onClick={onCancel}
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="move-here-title"
-        className="relative z-10 flex max-h-[85dvh] w-full max-w-lg flex-col rounded-t-2xl border border-border bg-card p-5 shadow-xl sm:rounded-2xl"
-        style={{ animation: "lingrow-sheet-up 280ms cubic-bezier(0.22, 1, 0.36, 1)" }}
-      >
-        <div className="mx-auto mb-4 h-1 w-10 shrink-0 rounded-full bg-border sm:hidden" />
-        <h2 id="move-here-title" className="text-lg font-semibold tracking-tight">
-          Move here
-        </h2>
-
-        <div className="mt-4 min-h-0 flex-1 overflow-auto rounded-lg border border-border">
-          {empty ? (
-            <p className="px-3 py-3 text-sm text-muted-foreground">
-              Nothing else to move here.
-            </p>
-          ) : null}
-
-          {movableFolders.map(({ folder, depth }) => (
-            <button
-              key={`folder-${folder.id}`}
-              type="button"
-              onClick={() => onSelect({ kind: "folder", id: folder.id, name: folder.name })}
-              className="flex w-full items-center gap-2.5 border-b border-border px-3 py-3 text-left text-sm transition-colors hover:bg-secondary last:border-b-0"
-              style={{ paddingLeft: `${12 + depth * 16}px` }}
-            >
-              <FolderIcon className="h-4 w-4 shrink-0" />
-              <span className="min-w-0 truncate font-medium">{folder.name}</span>
-            </button>
-          ))}
-
-          {movableSets.map((c) => (
-            <button
-              key={`set-${c.id}`}
-              type="button"
-              onClick={() => onSelect({ kind: "collection", id: c.id, name: c.name })}
-              className="flex w-full items-center gap-2.5 border-b border-border px-3 py-3 text-left text-sm transition-colors hover:bg-secondary last:border-b-0"
-            >
-              <Layers className="h-4 w-4 shrink-0" />
-              <span className="min-w-0 truncate font-medium">{c.name}</span>
-            </button>
-          ))}
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="move-here-title"
+      className="fixed inset-0 z-[100] flex flex-col bg-background"
+    >
+      <header className="shrink-0 border-b border-border/80">
+        <div className="mx-auto flex max-w-2xl items-center gap-2 px-4 py-3">
+          <h2 id="move-here-title" className="sr-only">
+            Move here
+          </h2>
+          <label htmlFor={searchId} className="sr-only">
+            Search
+          </label>
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              ref={inputRef}
+              id={searchId}
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search sets and folders"
+              autoComplete="off"
+              className={cn(
+                "h-11 w-full rounded-md border border-input bg-card py-2 pl-9 text-base outline-none focus:ring-2 focus:ring-ring",
+                query ? "pr-10" : "pr-3",
+              )}
+            />
+            {query ? (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => {
+                  setQuery("")
+                  inputRef.current?.focus({ preventScroll: true })
+                }}
+                className="absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onCancel}
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
+      </header>
 
-        <div className="mt-5 shrink-0">
-          <Button type="button" variant="ghost" className="w-full" onClick={onCancel}>
-            Cancel
-          </Button>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="mx-auto max-w-2xl px-5 py-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          {empty ? (
+            <p className="px-1 py-6 text-sm text-muted-foreground">
+              {normalizedQuery ? "No matches." : "Nothing else to move here."}
+            </p>
+          ) : (
+            <ul className="divide-y divide-border rounded-xl border border-border bg-card">
+              {filteredFolders.map(({ folder, depth }) => (
+                <li key={`folder-${folder.id}`}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onSelect({ kind: "folder", id: folder.id, name: folder.name })
+                    }
+                    className="flex w-full items-center gap-2.5 px-3 py-3.5 text-left text-sm transition-colors hover:bg-secondary"
+                    style={{
+                      paddingLeft: normalizedQuery ? undefined : `${12 + depth * 16}px`,
+                    }}
+                  >
+                    <FolderIcon className="h-4 w-4 shrink-0" />
+                    <span className="min-w-0 truncate font-medium">{folder.name}</span>
+                  </button>
+                </li>
+              ))}
+              {filteredSets.map((c) => (
+                <li key={`set-${c.id}`}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onSelect({ kind: "collection", id: c.id, name: c.name })
+                    }
+                    className="flex w-full items-center gap-2.5 px-3 py-3.5 text-left text-sm transition-colors hover:bg-secondary"
+                  >
+                    <Layers className="h-4 w-4 shrink-0" />
+                    <span className="min-w-0 truncate font-medium">{c.name}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </div>

@@ -10,6 +10,7 @@ import {
 import { useNavigate } from "react-router-dom"
 import { searchLibrary, type LibrarySearchResult } from "@/lib/library-search"
 import { loadRecentItems, type RecentItem } from "@/lib/recent"
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock"
 import type { Collection, Folder } from "@/types"
 import { cn } from "@/lib/utils"
 import { Folder as FolderIcon, Layers, Search, X } from "lucide-react"
@@ -39,35 +40,24 @@ export function SearchSheet({ open, collections, folders, onClose }: SearchSheet
     [collections],
   )
 
+  useBodyScrollLock(open)
+
   useEffect(() => {
     if (!open) return
     setQuery("")
     setRecent(loadRecentItems())
-    const prev = document.body.style.overflow
-    document.body.style.overflow = "hidden"
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose()
     }
     document.addEventListener("keydown", onKeyDown)
-    return () => {
-      document.body.style.overflow = prev
-      document.removeEventListener("keydown", onKeyDown)
-    }
+    return () => document.removeEventListener("keydown", onKeyDown)
   }, [open, onClose])
 
-  // Focus as soon as the input mounts (and again after the sheet animation starts).
   useEffect(() => {
     if (!open) return
     const focus = () => inputRef.current?.focus({ preventScroll: true })
-    focus()
     const raf = requestAnimationFrame(focus)
-    const t0 = window.setTimeout(focus, 0)
-    const t1 = window.setTimeout(focus, 50)
-    return () => {
-      cancelAnimationFrame(raf)
-      window.clearTimeout(t0)
-      window.clearTimeout(t1)
-    }
+    return () => cancelAnimationFrame(raf)
   }, [open])
 
   const results = useMemo(
@@ -150,23 +140,14 @@ export function SearchSheet({ open, collections, folders, onClose }: SearchSheet
   const wordResults = results.filter((r) => r.kind === "word")
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center sm:p-6">
-      <button
-        type="button"
-        aria-label="Dismiss"
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="library-search-title"
-        className="relative z-10 flex h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:h-[min(36rem,85dvh)] sm:rounded-2xl"
-        style={{ animation: "lingrow-sheet-up 280ms cubic-bezier(0.22, 1, 0.36, 1)" }}
-      >
-        <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-border sm:hidden" />
-
-        <div className="flex items-center gap-2 border-b border-border px-4 pb-3 pt-3 sm:pt-4">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="library-search-title"
+      className="fixed inset-0 z-[100] flex flex-col bg-background"
+    >
+      <header className="shrink-0 border-b border-border/80">
+        <div className="mx-auto flex max-w-2xl items-center gap-2 px-4 py-3">
           <h2 id="library-search-title" className="sr-only">
             Search library
           </h2>
@@ -178,7 +159,6 @@ export function SearchSheet({ open, collections, folders, onClose }: SearchSheet
             <input
               ref={inputRef}
               id={inputId}
-              autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search sets, folders, words…"
@@ -186,7 +166,7 @@ export function SearchSheet({ open, collections, folders, onClose }: SearchSheet
               autoCorrect="off"
               spellCheck={false}
               className={cn(
-                "h-11 w-full rounded-md border border-border bg-background py-2 pl-9 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring",
+                "h-11 w-full rounded-md border border-border bg-card py-2 pl-9 text-base outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring",
                 query ? "pr-10" : "pr-3",
               )}
             />
@@ -196,7 +176,7 @@ export function SearchSheet({ open, collections, folders, onClose }: SearchSheet
                 aria-label="Clear search"
                 onClick={() => {
                   setQuery("")
-                  inputRef.current?.focus()
+                  inputRef.current?.focus({ preventScroll: true })
                 }}
                 className="absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               >
@@ -208,13 +188,15 @@ export function SearchSheet({ open, collections, folders, onClose }: SearchSheet
             type="button"
             aria-label="Close search"
             onClick={onClose}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
+      </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="mx-auto max-w-2xl px-2 py-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           {!searching ? (
             hasBrowseItems ? (
               <div className="flex flex-col gap-4">

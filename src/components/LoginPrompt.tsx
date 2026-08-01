@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock"
 import { Cloud, HardDrive, Mail } from "lucide-react"
 
 export function LoginPrompt() {
@@ -16,24 +17,21 @@ export function LoginPrompt() {
   } = useAuth()
   const [email, setEmail] = useState("")
 
+  useBodyScrollLock(showLoginPrompt)
+
   useEffect(() => {
     if (!showLoginPrompt) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = "hidden"
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") continueLocally()
     }
     document.addEventListener("keydown", onKeyDown)
-    return () => {
-      document.body.style.overflow = prev
-      document.removeEventListener("keydown", onKeyDown)
-    }
+    return () => document.removeEventListener("keydown", onKeyDown)
   }, [showLoginPrompt, continueLocally])
 
   if (!showLoginPrompt) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center overflow-hidden sm:items-center">
       <button
         type="button"
         aria-label="Dismiss"
