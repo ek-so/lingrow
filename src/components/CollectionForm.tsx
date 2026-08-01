@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react"
+import { useEffect, useRef, useState, type FormEvent } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { LANG_CODES, LANGS, langLabel } from "@/lib/languages"
@@ -15,8 +15,10 @@ import {
   loadImportDraft,
   saveImportDraft,
 } from "@/lib/import-bridge"
+import { examplesFromTextarea } from "@/lib/examples"
+import { useWordSuggest } from "@/lib/use-word-suggest"
 import type { LangCode } from "@/types"
-import { Info, Plus, Trash2, Upload } from "lucide-react"
+import { Info, Loader2, Plus, Sparkles, Trash2, Upload } from "lucide-react"
 
 const selectClassName =
   "h-10 w-full rounded-md border border-input bg-card px-3 text-base outline-none focus:ring-2 focus:ring-ring"
@@ -50,6 +52,243 @@ function LangSelect({
         ))}
       </select>
     </label>
+  )
+}
+
+function Chip({
+  label,
+  onClick,
+  active,
+}: {
+  label: string
+  onClick: () => void
+  active?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        active
+          ? "rounded-md bg-accent px-2.5 py-1 text-left text-xs font-medium text-accent-foreground"
+          : "rounded-md border border-border bg-card px-2.5 py-1 text-left text-xs text-foreground hover:bg-secondary"
+      }
+    >
+      {label}
+    </button>
+  )
+}
+
+function WordRow({
+  draft,
+  wordLang,
+  translationLang,
+  canRemove,
+  onChange,
+  onRemove,
+}: {
+  draft: DraftWord
+  wordLang: LangCode
+  translationLang: LangCode
+  canRemove: boolean
+  onChange: (field: "word" | "translation" | "examplesText", value: string) => void
+  onRemove: () => void
+}) {
+  const { status, suggestion } = useWordSuggest(draft.word, wordLang, translationLang)
+  const sameLanguage = wordLang === translationLang
+
+  // Values we last auto-filled — kept so a new lookup can replace them without
+  // overwriting anything the user typed by hand.
+  const autoTranslation = useRef<string | null>(null)
+  const autoExamples = useRef<string | null>(null)
+  const draftRef = useRef(draft)
+  draftRef.current = draft
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
+
+  useEffect(() => {
+    if (!suggestion) return
+    const currentDraft = draftRef.current
+    const change = onChangeRef.current
+
+    if (!sameLanguage && suggestion.translation) {
+      const current = currentDraft.translation.trim()
+      const canFill = !current || current === autoTranslation.current
+      if (canFill && current !== suggestion.translation) {
+        autoTranslation.current = suggestion.translation
+        change("translation", suggestion.translation)
+      }
+    }
+
+    if (suggestion.examples.length > 0) {
+      const current = currentDraft.examplesText
+      const canFill = !current.trim() || current === autoExamples.current
+      if (canFill) {
+        const next = suggestion.examples.join("\n")
+        if (next !== current) {
+          autoExamples.current = next
+          change("examplesText", next)
+        }
+      }
+    }
+  }, [suggestion, sameLanguage])
+
+  function applyTranslation(value: string) {
+    // Still treat chip picks as auto-sourced so a later word edit can replace them.
+    autoTranslation.current = value
+    onChange("translation", value)
+  }
+
+  function addExample(example: string) {
+    const existing = examplesFromTextarea(draft.examplesText) ?? []
+    if (existing.some((e) => e.toLowerCase() === example.toLowerCase())) return
+    const next = [...existing, example].join("\n")
+    autoExamples.current = null
+    onChange("examplesText", next)
+  }
+
+  function applyAllExamples() {
+    if (!suggestion?.examples.length) return
+    autoExamples.current = suggestion.examples.join("\n")
+    onChange("examplesText", autoExamples.current)
+  }
+
+  const unusedExamples =
+    suggestion?.examples.filter((ex) => {
+      const have = examplesFromTextarea(draft.examplesText) ?? []
+      return !have.some((h) => h.toLowerCase() === ex.toLowerCase())
+    }) ?? []
+
+  const showSuggestChrome =
+    status === "loading" ||
+    status === "error" ||
+    (suggestion &&
+      ((suggestion.translation && !sameLanguage) ||
+        suggestion.alternatives.length > 0 ||
+        suggestion.examples.length > 0))
+
+  return (
+    <div className="rounded-lg border border-border p-3">
+      <div className="flex items-start gap-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <input
+            value={draft.word}
+            onChange={(e) => onChange("word", e.target.value)}
+            placeholder={langLabel(wordLang)}
+            aria-label={langLabel(wordLang)}
+            className={inputClassName}
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+          />
+          <input
+            value={draft.translation}
+            onChange={(e) => {
+              autoTranslation.current = null
+              onChange("translation", e.target.value)
+            }}
+            placeholder={langLabel(translationLang)}
+            aria-label={langLabel(translationLang)}
+            className={inputClassName}
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+          />
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Remove word"
+          onClick={onRemove}
+          disabled={!canRemove}
+          className="mt-0 h-10 w-10 shrink-0"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {showSuggestChrome ? (
+        <div className="mt-2 flex flex-col gap-2 rounded-md bg-secondary/60 px-2.5 py-2">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            {status === "loading" ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Looking up translation…</span>
+              </>
+            ) : status === "error" ? (
+              <span>Couldn’t fetch suggestions — type them in yourself.</span>
+            ) : (
+              <>
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Suggestions</span>
+              </>
+            )}
+          </div>
+
+          {suggestion && !sameLanguage && (suggestion.translation || suggestion.alternatives.length) ? (
+            <div className="flex flex-wrap gap-1.5">
+              {suggestion.translation ? (
+                <Chip
+                  label={suggestion.translation}
+                  active={draft.translation.trim() === suggestion.translation}
+                  onClick={() => applyTranslation(suggestion.translation)}
+                />
+              ) : null}
+              {suggestion.alternatives.map((alt) => (
+                <Chip
+                  key={alt}
+                  label={alt}
+                  active={draft.translation.trim() === alt}
+                  onClick={() => applyTranslation(alt)}
+                />
+              ))}
+            </div>
+          ) : null}
+
+          {suggestion && unusedExamples.length > 0 ? (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-muted-foreground">Examples</span>
+                <button
+                  type="button"
+                  onClick={applyAllExamples}
+                  className="text-xs font-medium text-primary"
+                >
+                  Use all
+                </button>
+              </div>
+              <div className="flex flex-col gap-1">
+                {unusedExamples.map((ex) => (
+                  <button
+                    key={ex}
+                    type="button"
+                    onClick={() => addExample(ex)}
+                    className="rounded-md border border-border bg-card px-2.5 py-1.5 text-left text-xs leading-snug text-foreground hover:bg-accent"
+                  >
+                    {ex}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <label className="mt-2 flex flex-col gap-1">
+        <span className="sr-only">Examples for {draft.word || "word"}</span>
+        <textarea
+          value={draft.examplesText}
+          onChange={(e) => {
+            autoExamples.current = null
+            onChange("examplesText", e.target.value)
+          }}
+          rows={2}
+          placeholder="Example sentences (optional, one per line)"
+          className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+        />
+      </label>
+    </div>
   )
 }
 
@@ -186,51 +425,20 @@ export function CollectionForm({ initial, submitLabel, onSubmit }: CollectionFor
       <div>
         <span className="text-sm font-medium">Words</span>
         <p className="mt-1 text-xs text-muted-foreground">
-          Optional: add example sentences (word language) under each pair — one per line.
+          Type a word and we’ll suggest a translation and example sentences. Edit anything before
+          saving.
         </p>
         <div className="mt-3 flex flex-col gap-4">
           {words.map((w) => (
-            <div key={w.key} className="rounded-lg border border-border p-3">
-              <div className="flex items-start gap-2">
-                <div className="flex min-w-0 flex-1 flex-col gap-2">
-                  <input
-                    value={w.word}
-                    onChange={(e) => updateWord(w.key, "word", e.target.value)}
-                    placeholder={langLabel(wordLang)}
-                    aria-label={langLabel(wordLang)}
-                    className={inputClassName}
-                  />
-                  <input
-                    value={w.translation}
-                    onChange={(e) => updateWord(w.key, "translation", e.target.value)}
-                    placeholder={langLabel(translationLang)}
-                    aria-label={langLabel(translationLang)}
-                    className={inputClassName}
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Remove word"
-                  onClick={() => removeWord(w.key)}
-                  disabled={words.length <= 1}
-                  className="mt-0 h-10 w-10 shrink-0"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-              <label className="mt-2 flex flex-col gap-1">
-                <span className="sr-only">Examples for {w.word || "word"}</span>
-                <textarea
-                  value={w.examplesText}
-                  onChange={(e) => updateWord(w.key, "examplesText", e.target.value)}
-                  rows={2}
-                  placeholder="Example sentences (optional, one per line)"
-                  className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-                />
-              </label>
-            </div>
+            <WordRow
+              key={w.key}
+              draft={w}
+              wordLang={wordLang}
+              translationLang={translationLang}
+              canRemove={words.length > 1}
+              onChange={(field, value) => updateWord(w.key, field, value)}
+              onRemove={() => removeWord(w.key)}
+            />
           ))}
         </div>
       </div>
