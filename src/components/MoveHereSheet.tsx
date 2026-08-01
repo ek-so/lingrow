@@ -1,5 +1,13 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react"
-import { flattenFolderTree, folderAncestors } from "@/lib/folders"
+import {
+  useDeferredValue,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react"
+import { folderAncestors } from "@/lib/folders"
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock"
 import type { Collection, Folder } from "@/types"
 import { cn } from "@/lib/utils"
@@ -7,7 +15,7 @@ import { Folder as FolderIcon, Layers, Search, X } from "lucide-react"
 
 type MoveHereItem =
   | { kind: "folder"; id: string; name: string }
-  | { kind: "collection"; id: string; name: string }
+  | { kind: "collection"; id: string; name: string; description?: string }
 
 interface MoveHereSheetProps {
   open: boolean
@@ -27,9 +35,10 @@ export function MoveHereSheet({
   onSelect,
   onCancel,
 }: MoveHereSheetProps) {
-  const searchId = useId()
+  const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState("")
+  const deferredQuery = useDeferredValue(query)
 
   useBodyScrollLock(open)
 
@@ -59,38 +68,42 @@ export function MoveHereSheet({
     return ids
   }, [folders, destinationFolderId])
 
-  const movableFolders = useMemo(() => {
-    return flattenFolderTree(folders).filter(({ folder }) => {
-      if (blockedFolderIds.has(folder.id)) return false
-      if (folder.parentId === destinationFolderId) return false
-      return true
-    })
-  }, [folders, blockedFolderIds, destinationFolderId])
-
-  const movableSets = useMemo(() => {
-    return collections
-      .filter((c) => (c.folderId ?? null) !== destinationFolderId)
-      .slice()
+  const movableItems = useMemo(() => {
+    const folderItems: MoveHereItem[] = folders
+      .filter((folder) => {
+        if (blockedFolderIds.has(folder.id)) return false
+        if (folder.parentId === destinationFolderId) return false
+        return true
+      })
       .sort((a, b) => a.name.localeCompare(b.name))
-  }, [collections, destinationFolderId])
+      .map((folder) => ({ kind: "folder" as const, id: folder.id, name: folder.name }))
 
-  const normalizedQuery = query.trim().toLowerCase()
+    const setItems: MoveHereItem[] = collections
+      .filter((c) => (c.folderId ?? null) !== destinationFolderId)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((collection) => ({
+        kind: "collection" as const,
+        id: collection.id,
+        name: collection.name,
+        description: collection.description,
+      }))
 
-  const filteredFolders = useMemo(() => {
-    if (!normalizedQuery) return movableFolders
-    return movableFolders.filter(({ folder }) =>
-      folder.name.toLowerCase().includes(normalizedQuery),
-    )
-  }, [movableFolders, normalizedQuery])
+    return [...folderItems, ...setItems]
+  }, [folders, collections, blockedFolderIds, destinationFolderId])
 
-  const filteredSets = useMemo(() => {
-    if (!normalizedQuery) return movableSets
-    return movableSets.filter((c) => c.name.toLowerCase().includes(normalizedQuery))
-  }, [movableSets, normalizedQuery])
+  const trimmed = query.trim()
+  const searching = trimmed.length > 0
+  const normalizedQuery = deferredQuery.trim().toLowerCase()
+
+  const filteredItems = useMemo(() => {
+    if (!normalizedQuery) return movableItems
+    return movableItems.filter((item) => item.name.toLowerCase().includes(normalizedQuery))
+  }, [movableItems, normalizedQuery])
+
+  const folderResults = filteredItems.filter((item) => item.kind === "folder")
+  const setResults = filteredItems.filter((item) => item.kind === "collection")
 
   if (!open) return null
-
-  const empty = filteredFolders.length === 0 && filteredSets.length === 0
 
   return (
     <div
@@ -104,21 +117,22 @@ export function MoveHereSheet({
           <h2 id="move-here-title" className="sr-only">
             Move here
           </h2>
-          <label htmlFor={searchId} className="sr-only">
-            Search
+          <label htmlFor={inputId} className="sr-only">
+            Move here set or folder
           </label>
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               ref={inputRef}
-              id={searchId}
-              type="search"
+              id={inputId}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search sets and folders"
+              placeholder="Move here set or folder…"
               autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
               className={cn(
-                "h-11 w-full rounded-md border border-input bg-card py-2 pl-9 text-base outline-none focus:ring-2 focus:ring-ring",
+                "h-11 w-full rounded-md border border-border bg-card py-2 pl-9 text-base outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring",
                 query ? "pr-10" : "pr-3",
               )}
             />
@@ -148,48 +162,128 @@ export function MoveHereSheet({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <div className="mx-auto max-w-2xl px-5 py-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-          {empty ? (
-            <p className="px-1 py-6 text-sm text-muted-foreground">
-              {normalizedQuery ? "No matches." : "Nothing else to move here."}
+        <div className="mx-auto max-w-2xl px-2 py-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          {!searching ? (
+            movableItems.length > 0 ? (
+              <ResultGroup title="Available sets & folders">
+                {movableItems.map((item) => (
+                  <BrowseRow
+                    key={`${item.kind}-${item.id}`}
+                    item={item}
+                    onSelect={onSelect}
+                  />
+                ))}
+              </ResultGroup>
+            ) : (
+              <p className="px-3 py-8 text-center text-sm text-muted-foreground">
+                Nothing else to move here.
+              </p>
+            )
+          ) : filteredItems.length === 0 ? (
+            <p className="px-3 py-8 text-center text-sm text-muted-foreground">
+              No matches for “{trimmed}”.
             </p>
           ) : (
-            <ul className="divide-y divide-border rounded-xl border border-border bg-card">
-              {filteredFolders.map(({ folder, depth }) => (
-                <li key={`folder-${folder.id}`}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onSelect({ kind: "folder", id: folder.id, name: folder.name })
-                    }
-                    className="flex w-full items-center gap-2.5 px-3 py-3.5 text-left text-sm transition-colors hover:bg-secondary"
-                    style={{
-                      paddingLeft: normalizedQuery ? undefined : `${12 + depth * 16}px`,
-                    }}
-                  >
-                    <FolderIcon className="h-4 w-4 shrink-0" />
-                    <span className="min-w-0 truncate font-medium">{folder.name}</span>
-                  </button>
-                </li>
-              ))}
-              {filteredSets.map((c) => (
-                <li key={`set-${c.id}`}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onSelect({ kind: "collection", id: c.id, name: c.name })
-                    }
-                    className="flex w-full items-center gap-2.5 px-3 py-3.5 text-left text-sm transition-colors hover:bg-secondary"
-                  >
-                    <Layers className="h-4 w-4 shrink-0" />
-                    <span className="min-w-0 truncate font-medium">{c.name}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <div className="flex flex-col gap-4">
+              {folderResults.length > 0 ? (
+                <ResultGroup title="Folders">
+                  {folderResults.map((item) => (
+                    <ResultRow
+                      key={`folder-${item.id}`}
+                      icon={<FolderIcon className="h-4 w-4 shrink-0 text-primary" />}
+                      title={item.name}
+                      subtitle="Folder"
+                      onClick={() => onSelect(item)}
+                    />
+                  ))}
+                </ResultGroup>
+              ) : null}
+
+              {setResults.length > 0 ? (
+                <ResultGroup title="Sets">
+                  {setResults.map((item) => (
+                    <ResultRow
+                      key={`set-${item.id}`}
+                      icon={<Layers className="h-4 w-4 shrink-0 text-primary" />}
+                      title={item.name}
+                      subtitle={
+                        item.kind === "collection" ? item.description || "Set" : "Set"
+                      }
+                      onClick={() => onSelect(item)}
+                    />
+                  ))}
+                </ResultGroup>
+              ) : null}
+            </div>
           )}
         </div>
       </div>
     </div>
+  )
+}
+
+function BrowseRow({
+  item,
+  onSelect,
+}: {
+  item: MoveHereItem
+  onSelect: (item: MoveHereItem) => void
+}) {
+  if (item.kind === "folder") {
+    return (
+      <ResultRow
+        icon={<FolderIcon className="h-4 w-4 shrink-0 text-primary" />}
+        title={item.name}
+        subtitle="Folder"
+        onClick={() => onSelect(item)}
+      />
+    )
+  }
+  return (
+    <ResultRow
+      icon={<Layers className="h-4 w-4 shrink-0 text-primary" />}
+      title={item.name}
+      subtitle={item.description || "Set"}
+      onClick={() => onSelect(item)}
+    />
+  )
+}
+
+function ResultGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section>
+      <p className="px-3 pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {title}
+      </p>
+      <ul className="flex flex-col">{children}</ul>
+    </section>
+  )
+}
+
+function ResultRow({
+  icon,
+  title,
+  subtitle,
+  onClick,
+}: {
+  icon: ReactNode
+  title: string
+  subtitle: string
+  onClick: () => void
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-secondary"
+      >
+        {icon}
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-medium">{title}</span>
+          <span className="block truncate text-xs text-muted-foreground">{subtitle}</span>
+        </span>
+      </button>
+    </li>
   )
 }
