@@ -186,11 +186,10 @@ export function SearchSheet({ open, collections, folders, onClose }: SearchSheet
           </div>
           <button
             type="button"
-            aria-label="Close search"
             onClick={onClose}
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            className="inline-flex h-11 shrink-0 items-center justify-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
-            <X className="h-5 w-5" />
+            Cancel
           </button>
         </div>
       </header>
