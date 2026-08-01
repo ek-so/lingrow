@@ -53,7 +53,7 @@ export function bareGermanLemma(text: string): string {
   return s
 }
 
-export function articleForGender(gender: GermanGender | null): string | null {
+export function articleForGender(gender: GermanGender | null): "der" | "die" | "das" | null {
   if (gender === "m") return "der"
   if (gender === "f") return "die"
   if (gender === "n") return "das"

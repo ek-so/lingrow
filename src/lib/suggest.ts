@@ -1,27 +1,31 @@
 import type { LangCode } from "@/types"
 import { otherLangs } from "@/lib/languages"
 import {
+  articleForGender,
   bareGermanLemma,
   fetchGermanNounInfo,
-  formatGermanNoun,
   genderFromArticle,
   guessGenderFromTexts,
   guessPluralFromTexts,
   type GermanGender,
 } from "@/lib/german-noun"
+import type { PrefixHint } from "@/lib/suggest-format"
 
 export interface WordSuggestion {
-  /** Best single translation for the “into” field. */
+  /** Best single translation lemma for the “into” field (no article / “to”). */
   translation: string
-  /** Alternative translations (excludes the primary). */
+  /** Alternative translation lemmas (excludes the primary). */
   alternatives: string[]
-  /** Usage examples in the word language. */
+  /** Usage examples in the word language (from Google Translate). */
   examples: string[]
-  /**
-   * Optional enriched form for the word field itself
-   * (German “der Apfel, die Äpfel” or English “to run”).
-   */
-  wordForm?: string
+  /** Light accept chip for the word field: der / die / das / to. */
+  wordPrefix?: PrefixHint
+  /** German plural lemma to append after a comma on the word field. */
+  wordPlural?: string
+  /** Light accept chip for the translation field: der / die / das / to. */
+  translationPrefix?: PrefixHint
+  /** German plural lemma to append after a comma on the translation field. */
+  translationPlural?: string
 }
 
 const MAX_ALTERNATIVES = 6
@@ -126,14 +130,6 @@ function analyzePos(data: unknown[], primary: string): { isVerb: boolean; isNoun
     primaryInNoun || (noun && !isVerb) || (noun && !verb)
 
   return { isVerb, isNoun }
-}
-
-/** Learner-style English infinitive: “run” → “to run”. */
-export function withEnglishTo(text: string): string {
-  const t = text.trim()
-  if (!t) return ""
-  if (/^to\s+/i.test(t)) return t
-  return `to ${t}`
 }
 
 function articleFromDictEntry(entry: unknown): string | null {
@@ -277,31 +273,31 @@ async function fetchGoogleRaw(
   return res.json()
 }
 
-function formatEnglishSide(text: string, verb: boolean): string {
-  return verb ? withEnglishTo(text) : text
+interface NounHints {
+  prefix?: PrefixHint
+  plural?: string
+  resolved: boolean
 }
 
-async function enrichGermanNounForm(
+async function resolveGermanNounHints(
   lemma: string,
   genderHint: GermanGender | null,
   texts: string[],
   signal?: AbortSignal,
-): Promise<{ form: string | null; resolved: boolean }> {
+): Promise<NounHints> {
   const info = await fetchGermanNounInfo(lemma, signal)
   if (info?.plural || info?.gender) {
+    const gender = info.gender ?? genderHint
+    const prefix = articleForGender(gender) ?? undefined
     return {
-      form: formatGermanNoun(
-        info.singular || lemma,
-        info.gender ?? genderHint,
-        info.plural,
-      ),
-      // Retry later if Wiktionary gave gender but no plural.
+      prefix,
+      plural: info.plural ?? undefined,
       resolved: !!info.plural,
     }
   }
 
   let gender = genderHint ?? guessGenderFromTexts(lemma, texts)
-  let plural = guessPluralFromTexts(lemma, texts)
+  let plural = guessPluralFromTexts(lemma, texts) ?? undefined
 
   // When translating into German, examples are often English — pull German
   // usage snippets for the lemma so we can spot the plural.
@@ -310,17 +306,18 @@ async function enrichGermanNounForm(
       const raw = await fetchGoogleRaw(lemma, "de", "en", signal)
       const scraped = parseGoogleCore(raw, { wantTranslation: false, to: "en" })
       const pool = [...texts, ...scraped.examples]
-      plural = guessPluralFromTexts(lemma, pool)
+      plural = guessPluralFromTexts(lemma, pool) ?? undefined
       gender = gender ?? guessGenderFromTexts(lemma, pool)
     } catch {
       // optional enrichment
     }
   }
 
-  if (!gender && !plural) return { form: null, resolved: false }
+  if (!gender && !plural) return { resolved: false }
 
   return {
-    form: formatGermanNoun(lemma, gender, plural),
+    prefix: articleForGender(gender) ?? undefined,
+    plural,
     resolved: !!plural,
   }
 }
@@ -351,9 +348,17 @@ export async function suggestForWord(
     to: sameLanguage ? requestTo : to,
   })
 
-  let translation = core.translations[0] ?? ""
-  let alternatives = core.translations.slice(1, MAX_ALTERNATIVES + 1)
-  let wordForm: string | undefined
+  // Keep lemmas bare — prefixes (der/die/das/to) are offered as accept chips.
+  const translation = (core.translations[0] ?? "").replace(/^to\s+/i, "").trim()
+  const alternatives = core.translations
+    .slice(1, MAX_ALTERNATIVES + 1)
+    .map((a) => a.replace(/^to\s+/i, "").trim())
+    .filter((a) => a && a.toLowerCase() !== translation.toLowerCase())
+
+  let wordPrefix: PrefixHint | undefined
+  let wordPlural: string | undefined
+  let translationPrefix: PrefixHint | undefined
+  let translationPlural: string | undefined
   let nounResolved = true
 
   const { isVerb, isNoun } = analyzePos(core.raw ?? [], translation)
@@ -361,34 +366,38 @@ export async function suggestForWord(
 
   if (!sameLanguage && translation) {
     if (to === "en" && isVerb) {
-      translation = formatEnglishSide(translation, true)
-      alternatives = alternatives.map((a) => formatEnglishSide(a, true))
+      translationPrefix = "to"
     } else if (to === "de" && isNoun) {
       const genderHint = genderFromArticle(core.germanArticle)
       const lemma = bareGermanLemma(translation) || translation
-      const enriched = await enrichGermanNounForm(lemma, genderHint, hintTexts, signal)
-      if (enriched.form) translation = enriched.form
-      nounResolved = enriched.resolved
+      const hints = await resolveGermanNounHints(lemma, genderHint, hintTexts, signal)
+      translationPrefix = hints.prefix
+      translationPlural = hints.plural
+      nounResolved = hints.resolved
     }
   }
 
-  // Source-side enrichment (the field the user is typing into).
   if (from === "en" && isVerb) {
-    wordForm = formatEnglishSide(query, true)
+    wordPrefix = "to"
   } else if (from === "de" && isNoun) {
-    const enriched = await enrichGermanNounForm(query, null, hintTexts, signal)
-    if (enriched.form) wordForm = enriched.form
-    nounResolved = nounResolved && enriched.resolved
+    const hints = await resolveGermanNounHints(query, null, hintTexts, signal)
+    wordPrefix = hints.prefix
+    wordPlural = hints.plural
+    nounResolved = nounResolved && hints.resolved
   }
 
   const parsed: WordSuggestion = {
     translation,
-    alternatives: alternatives.filter((a) => a.toLowerCase() !== translation.toLowerCase()),
+    alternatives,
     examples: core.examples,
-    wordForm,
+    wordPrefix,
+    wordPlural,
+    translationPrefix,
+    translationPlural,
   }
 
-  if (!parsed.translation && parsed.alternatives.length === 0 && parsed.examples.length === 0 && !parsed.wordForm) {
+  const hasHints = !!(wordPrefix || wordPlural || translationPrefix || translationPlural)
+  if (!parsed.translation && parsed.alternatives.length === 0 && parsed.examples.length === 0 && !hasHints) {
     return null
   }
   if (
@@ -396,7 +405,7 @@ export async function suggestForWord(
     parsed.translation.toLowerCase() === query.toLowerCase() &&
     parsed.alternatives.length === 0 &&
     parsed.examples.length === 0 &&
-    !parsed.wordForm
+    !hasHints
   ) {
     return null
   }
