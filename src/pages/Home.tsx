@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button"
 import { OverflowMenu } from "@/components/OverflowMenu"
 import { CreateItemSheet } from "@/components/CreateItemSheet"
+import { MoveHereSheet } from "@/components/MoveHereSheet"
 import { MoveToFolderSheet } from "@/components/MoveToFolderSheet"
 import { NameFolderSheet } from "@/components/NameFolderSheet"
 import { downloadCollectionExcel } from "@/lib/export-collection"
@@ -49,6 +50,7 @@ export default function Home() {
   const currentFolder = currentFolderId ? getFolder(currentFolderId) : undefined
 
   const [createOpen, setCreateOpen] = useState(false)
+  const [moveHereOpen, setMoveHereOpen] = useState(false)
   const [nameFolderOpen, setNameFolderOpen] = useState(false)
   const [renameTarget, setRenameTarget] = useState<Folder | null>(null)
   const [moveTarget, setMoveTarget] = useState<MoveTarget | null>(null)
@@ -102,6 +104,11 @@ export default function Home() {
   function openCreateFolder() {
     setCreateOpen(false)
     setNameFolderOpen(true)
+  }
+
+  function openMoveHere() {
+    setCreateOpen(false)
+    setMoveHereOpen(true)
   }
 
   function parentPath() {
@@ -344,6 +351,23 @@ export default function Home() {
         onCancel={() => setCreateOpen(false)}
         onNewSet={goNewSet}
         onNewFolder={openCreateFolder}
+        onMoveHere={openMoveHere}
+      />
+
+      <MoveHereSheet
+        open={moveHereOpen}
+        destinationFolderId={currentFolderId}
+        folders={folders}
+        collections={collections}
+        onCancel={() => setMoveHereOpen(false)}
+        onSelect={(item) => {
+          if (item.kind === "collection") {
+            moveCollection(item.id, currentFolderId)
+          } else {
+            moveFolder(item.id, currentFolderId)
+          }
+          setMoveHereOpen(false)
+        }}
       />
 
       <NameFolderSheet
