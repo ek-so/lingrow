@@ -15,6 +15,7 @@ import {
   ArrowLeft,
   Folder as FolderIcon,
   FolderInput,
+  FolderPlus,
   Layers,
   Pencil,
   Plus,
@@ -340,14 +341,25 @@ export default function Home() {
             </p>
           ) : null}
 
-          <button
-            type="button"
-            onClick={() => setCreateOpen(true)}
-            className="flex h-14 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-card text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-secondary hover:text-foreground"
-          >
-            <Plus className="h-4 w-4" />
-            New set or folder
-          </button>
+          <div className="flex h-14 w-full overflow-hidden rounded-xl border border-dashed border-border bg-card text-sm font-medium text-muted-foreground">
+            <button
+              type="button"
+              onClick={goNewSet}
+              className="flex min-w-0 flex-1 items-center justify-center gap-2 transition-colors hover:border-primary/40 hover:bg-secondary hover:text-foreground"
+            >
+              <Plus className="h-4 w-4 shrink-0" />
+              New set
+            </button>
+            <div className="w-px self-stretch bg-border" aria-hidden />
+            <button
+              type="button"
+              onClick={openCreateFolder}
+              className="flex min-w-0 flex-1 items-center justify-center gap-2 transition-colors hover:border-primary/40 hover:bg-secondary hover:text-foreground"
+            >
+              <FolderPlus className="h-4 w-4 shrink-0" />
+              New folder
+            </button>
+          </div>
         </div>
       </div>
 
