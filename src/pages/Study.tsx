@@ -10,6 +10,7 @@ import { StudyStats, type StudyRating } from "@/components/StudyStats"
 import { playClingSound } from "@/lib/cling"
 import { downloadCollectionExcel } from "@/lib/export-collection"
 import { LANGS, langLabel, pairLabel } from "@/lib/languages"
+import { recordRecentOpen } from "@/lib/recent"
 import {
   ArrowLeft,
   Download,
@@ -71,6 +72,14 @@ export default function Study() {
     resetSession()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, pronounceFirst])
+
+  useEffect(() => {
+    if (id && collection) {
+      recordRecentOpen("collection", id)
+    }
+    // Record once per set id when the set exists.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
 
   useEffect(() => {
     function loadVoices() {

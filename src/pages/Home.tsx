@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { useCollections } from "@/lib/collections-context"
 import { useAuth } from "@/lib/auth-context"
@@ -8,9 +8,11 @@ import { OverflowMenu } from "@/components/OverflowMenu"
 import { CreateItemSheet } from "@/components/CreateItemSheet"
 import { MoveToFolderSheet } from "@/components/MoveToFolderSheet"
 import { NameFolderSheet } from "@/components/NameFolderSheet"
+import { SearchSheet } from "@/components/SearchSheet"
 import { downloadCollectionExcel } from "@/lib/export-collection"
 import { countItemsInFolder, descendantFolderIds } from "@/lib/folders"
 import { pairLabel } from "@/lib/languages"
+import { recordRecentOpen } from "@/lib/recent"
 import {
   ArrowLeft,
   Folder as FolderIcon,
@@ -19,6 +21,7 @@ import {
   Layers,
   Pencil,
   Plus,
+  Search,
   Trash2,
   Download,
   UserRound,
@@ -49,9 +52,18 @@ export default function Home() {
   const currentFolder = currentFolderId ? getFolder(currentFolderId) : undefined
 
   const [createOpen, setCreateOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const [nameFolderOpen, setNameFolderOpen] = useState(false)
   const [renameTarget, setRenameTarget] = useState<Folder | null>(null)
   const [moveTarget, setMoveTarget] = useState<MoveTarget | null>(null)
+
+  useEffect(() => {
+    if (currentFolderId && currentFolder) {
+      recordRecentOpen("folder", currentFolderId)
+    }
+    // Record once per folder id when the folder exists.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentFolderId])
 
   const childFolders = useMemo(
     () =>
@@ -179,15 +191,26 @@ export default function Home() {
           <h1 className="text-3xl font-semibold tracking-tight">
             {currentFolder ? currentFolder.name : "My sets"}
           </h1>
-          <Button
-            type="button"
-            variant="secondary"
-            size="icon"
-            aria-label="Create"
-            onClick={() => setCreateOpen(true)}
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              aria-label="Search"
+              onClick={() => setSearchOpen(true)}
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              aria-label="Create"
+              onClick={() => setCreateOpen(true)}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-col gap-3">
@@ -338,6 +361,13 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      <SearchSheet
+        open={searchOpen}
+        collections={collections}
+        folders={folders}
+        onClose={() => setSearchOpen(false)}
+      />
 
       <CreateItemSheet
         open={createOpen}
