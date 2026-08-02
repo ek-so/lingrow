@@ -54,6 +54,8 @@ export type FolderTrailItem = {
   id: string | null
   label: string
   to: string
+  /** Defaults to `home` when `id` is null, otherwise `folder`. */
+  kind?: "folder" | "home" | "set"
 }
 
 /**

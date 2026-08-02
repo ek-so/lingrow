@@ -83,9 +83,12 @@ function BreadcrumbTrailMenu({
           className="absolute left-0 z-50 mt-1 min-w-44 overflow-hidden rounded-xl border border-border bg-card py-1 shadow-lg"
         >
           {trail.map((item) => {
+            const kind = item.kind ?? (item.id == null ? "home" : "folder")
             const icon =
-              item.id == null ? (
+              kind === "home" ? (
                 <Home className="h-4 w-4" />
+              ) : kind === "set" ? (
+                <Layers className="h-4 w-4" />
               ) : (
                 <Folder className="h-4 w-4" />
               )
