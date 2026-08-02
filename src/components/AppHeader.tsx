@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { ArrowLeft, ChevronDown, Folder, Home, Layers } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { FolderTrailItem } from "@/lib/folders"
@@ -36,6 +36,7 @@ function BreadcrumbTrailMenu({
   trail: FolderTrailItem[]
   onTrailSelect?: (to: string) => void
 }) {
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -88,44 +89,26 @@ function BreadcrumbTrailMenu({
               ) : (
                 <Folder className="h-4 w-4" />
               )
-            const className =
-              "flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm text-foreground transition-colors hover:bg-secondary"
-
-            if (onTrailSelect) {
-              return (
-                <button
-                  key={item.to}
-                  type="button"
-                  role="menuitem"
-                  className={className}
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    setOpen(false)
-                    onTrailSelect(item.to)
-                  }}
-                >
-                  <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground">
-                    {icon}
-                  </span>
-                  <span className="truncate">{item.label}</span>
-                </button>
-              )
-            }
 
             return (
-              <Link
+              <button
                 key={item.to}
-                to={item.to}
+                type="button"
                 role="menuitem"
-                className={className}
-                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm text-foreground transition-colors hover:bg-secondary"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setOpen(false)
+                  if (onTrailSelect) onTrailSelect(item.to)
+                  else navigate(item.to)
+                }}
               >
                 <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground">
                   {icon}
                 </span>
                 <span className="truncate">{item.label}</span>
-              </Link>
+              </button>
             )
           })}
         </div>
