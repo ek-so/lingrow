@@ -138,8 +138,9 @@ export function FlipCard({
 
   const shift = exiting ? exitX : dragX
   const rot = Math.max(-14, Math.min(14, shift * 0.06))
-  const knowHint = dragX > 28
-  const learnHint = dragX < -28
+  // Hints sit on the opposite side of the swipe so they appear behind the card.
+  const knowHint = shift > 28
+  const learnHint = shift < -28
 
   return (
     <div
@@ -148,19 +149,19 @@ export function FlipCard({
     >
       <div
         className={cn(
-          "pointer-events-none absolute inset-y-6 left-2 flex items-center text-sm font-medium transition-opacity",
-          learnHint ? "opacity-100 text-destructive" : "opacity-0",
-        )}
-      >
-        Still learning
-      </div>
-      <div
-        className={cn(
-          "pointer-events-none absolute inset-y-6 right-2 flex items-center text-sm font-medium transition-opacity",
+          "pointer-events-none absolute inset-y-6 left-2 z-0 flex items-center text-sm font-medium transition-opacity",
           knowHint ? "opacity-100 text-primary" : "opacity-0",
         )}
       >
-        I know it
+        I know
+      </div>
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-y-6 right-2 z-0 flex items-center text-sm font-medium transition-opacity",
+          learnHint ? "opacity-100 text-destructive" : "opacity-0",
+        )}
+      >
+        I don’t know
       </div>
 
       <div

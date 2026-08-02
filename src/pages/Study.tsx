@@ -605,7 +605,7 @@ export default function Study() {
             <p className="mt-3 text-center text-xs text-muted-foreground">
               {playing
                 ? "Auto play — swipe to rate · Tap to flip"
-                : "Tap to flip · Swipe right if you know it · Left if still learning"}
+                : "Tap to flip · Swipe right if you know it · Left if you don’t"}
             </p>
           </div>
         </div>
