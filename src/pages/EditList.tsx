@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { useCollections } from "@/lib/collections-context"
 import { AppHeader } from "@/components/AppHeader"
+import { AppShell } from "@/components/AppShell"
 import { CollectionForm } from "@/components/CollectionForm"
 import { ConfirmSaveProgressSheet } from "@/components/ConfirmSaveProgressSheet"
 import { PageBody, PageTitle } from "@/components/PageTitle"
@@ -36,7 +37,7 @@ export default function EditList() {
 
   if (!collection) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex h-dvh items-center justify-center bg-background">
         <div className="text-center">
           <p className="text-muted-foreground">Set not found.</p>
           <Link to="/" className="mt-2 inline-block text-primary underline">
@@ -48,39 +49,43 @@ export default function EditList() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader
-        leading={{
-          kind: "back",
-          label: backLabel,
-          onBack: () => requestLeave(backTo),
-        }}
-      />
-
-      <PageBody>
-        <PageTitle description="Update languages, name, or word pairs.">Edit set</PageTitle>
-
-        <div className="mt-8">
-          <CollectionForm
-            key={collection.id}
-            initial={{
-              name: collection.name,
-              description: collection.description,
-              wordLang: collection.wordLang,
-              translationLang: collection.translationLang,
-              words: draftFromWords(collection.words),
-            }}
-            submitLabel="Save changes"
-            onDirtyChange={onDirtyChange}
-            submitRef={submitRef}
-            onSubmit={(values) => {
-              allowNextNavigation()
-              updateCollection(collection.id, values)
-              navigate(`/study/${collection.id}`)
+    <>
+      <AppShell
+        header={
+          <AppHeader
+            leading={{
+              kind: "back",
+              label: backLabel,
+              onBack: () => requestLeave(backTo),
             }}
           />
-        </div>
-      </PageBody>
+        }
+      >
+        <PageBody>
+          <PageTitle description="Update languages, name, or word pairs.">Edit set</PageTitle>
+
+          <div className="mt-8">
+            <CollectionForm
+              key={collection.id}
+              initial={{
+                name: collection.name,
+                description: collection.description,
+                wordLang: collection.wordLang,
+                translationLang: collection.translationLang,
+                words: draftFromWords(collection.words),
+              }}
+              submitLabel="Save changes"
+              onDirtyChange={onDirtyChange}
+              submitRef={submitRef}
+              onSubmit={(values) => {
+                allowNextNavigation()
+                updateCollection(collection.id, values)
+                navigate(`/study/${collection.id}`)
+              }}
+            />
+          </div>
+        </PageBody>
+      </AppShell>
 
       <ConfirmSaveProgressSheet
         open={leaveOpen}
@@ -88,6 +93,6 @@ export default function EditList() {
         onNo={discardAndLeave}
         onYes={saveAndLeave}
       />
-    </div>
+    </>
   )
 }

@@ -22,18 +22,19 @@ interface AppHeaderProps {
 }
 
 /**
- * Fixed top app bar — brand on the home root, back + label on inner pages,
- * optional actions on the right.
+ * Top app bar for AppShell — brand on the home root, back + label on inner
+ * pages, optional actions on the right. Stays pinned via the shell layout
+ * (not document `position: fixed`).
  */
 export function AppHeader({ leading, actions, className }: AppHeaderProps) {
   return (
     <header
       className={cn(
-        "fixed inset-x-0 top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md",
+        "border-b border-border/80 bg-background/90 backdrop-blur-md",
         className,
       )}
     >
-      <div className="mx-auto flex h-14 max-w-2xl items-center justify-between gap-3 px-5">
+      <div className="mx-auto flex h-14 w-full max-w-2xl items-center justify-between gap-3 px-5">
         <div className="min-w-0 flex-1">
           {leading.kind === "brand" ? (
             <a

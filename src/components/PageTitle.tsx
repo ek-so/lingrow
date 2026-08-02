@@ -1,12 +1,12 @@
 import type { ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
-/** Viewport offset below the fixed AppHeader (h-14) before page titles. */
-export const PAGE_CONTENT_TOP = "pt-[4.5rem]"
+/** Top padding for content directly under AppHeader inside AppShell. */
+export const PAGE_CONTENT_TOP = "pt-5"
 
 /**
  * Shared page heading. Uses a fixed title-row height so the distance from the
- * sticky header to the title stays the same with or without right-side actions.
+ * app header to the title stays the same with or without right-side actions.
  */
 export function PageTitle({
   children,
@@ -32,7 +32,7 @@ export function PageTitle({
   )
 }
 
-/** Standard content column under the sticky app header. */
+/** Standard content column under the app header. */
 export function PageBody({
   children,
   className,

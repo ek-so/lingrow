@@ -4,13 +4,13 @@ import { useCollections } from "@/lib/collections-context"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { AppHeader } from "@/components/AppHeader"
+import { AppShell } from "@/components/AppShell"
 import { FlipCard } from "@/components/FlipCard"
 import { OverflowMenu } from "@/components/OverflowMenu"
 import { MoveToFolderSheet } from "@/components/MoveToFolderSheet"
-import { PAGE_CONTENT_TOP, PageTitle } from "@/components/PageTitle"
+import { PageTitle } from "@/components/PageTitle"
 import { StudyStats, type StudyRating } from "@/components/StudyStats"
 import { playClingSound } from "@/lib/cling"
-import { cn } from "@/lib/utils"
 import { downloadCollectionExcel } from "@/lib/export-collection"
 import { LANGS, langLabel, pairLabel } from "@/lib/languages"
 import { loadQuietMode, saveQuietMode } from "@/lib/prefs"
@@ -383,10 +383,10 @@ export default function Study() {
 
   if (!collection) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="flex h-dvh items-center justify-center bg-background">
         <div className="text-center">
           <p className="text-muted-foreground">Collection not found.</p>
-          <Link to="/" className="text-primary underline mt-2 inline-block">
+          <Link to="/" className="mt-2 inline-block text-primary underline">
             Back home
           </Link>
         </div>
@@ -396,10 +396,10 @@ export default function Study() {
 
   if (collection.words.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center px-5">
+      <div className="flex h-dvh items-center justify-center bg-background px-5">
+        <div className="text-center">
           <p className="text-muted-foreground">This list has no words yet.</p>
-          <Link to="/" className="text-primary underline mt-2 inline-block">
+          <Link to="/" className="mt-2 inline-block text-primary underline">
             Back home
           </Link>
         </div>
@@ -491,176 +491,181 @@ export default function Study() {
   }
 
   return (
-    <div className="h-dvh overflow-hidden bg-background">
-      <AppHeader
-        leading={{ kind: "back", label: backLabel, to: backTo }}
-        actions={
-          <>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Edit set"
-              onClick={() => {
-                stopSpeech()
-                navigate(`/edit/${collection.id}`)
-              }}
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <OverflowMenu
-              label={`Actions for ${collection.name}`}
-              items={[
-                {
-                  label: "Move to…",
-                  icon: <FolderInput />,
-                  onSelect: () => {
+    <>
+      <AppShell
+        scroll={false}
+        header={
+          <AppHeader
+            leading={{ kind: "back", label: backLabel, to: backTo }}
+            actions={
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Edit set"
+                  onClick={() => {
+                    stopSpeech()
+                    navigate(`/edit/${collection.id}`)
+                  }}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <OverflowMenu
+                  label={`Actions for ${collection.name}`}
+                  items={[
+                    {
+                      label: "Move to…",
+                      icon: <FolderInput />,
+                      onSelect: () => {
+                        stopSpeech()
+                        setPlaying(false)
+                        setMoveOpen(true)
+                      },
+                    },
+                    {
+                      label: "Export",
+                      icon: <Download />,
+                      onSelect: onExport,
+                    },
+                    {
+                      label: "Delete",
+                      icon: <Trash2 />,
+                      destructive: true,
+                      onSelect: onDelete,
+                    },
+                  ]}
+                />
+              </>
+            }
+          />
+        }
+        footer={
+          <div className="border-t border-border/80 bg-background/90 backdrop-blur-md">
+            <div className="mx-auto flex max-w-2xl items-center justify-center gap-2 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:gap-3">
+              <Button
+                variant={quiet ? "secondary" : "outline"}
+                size="icon"
+                aria-label={quiet ? "Sound on" : "Quiet mode"}
+                aria-pressed={quiet}
+                onClick={toggleQuiet}
+              >
+                {quiet ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Previous"
+                onClick={() => goTo(index - 1)}
+                disabled={index === 0}
+              >
+                <SkipBack className="h-4 w-4" />
+              </Button>
+              <Button size="lg" onClick={togglePlay} className="w-28 sm:w-32">
+                {playing ? (
+                  <>
+                    <Pause className="h-4 w-4" /> Pause
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4" /> Play
+                  </>
+                )}
+              </Button>
+              <Button variant="outline" size="icon" aria-label="Next" onClick={goNext}>
+                <SkipForward className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Reset to first word"
+                onClick={resetToFirstWord}
+                disabled={index === 0 && !playing && !flipped}
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        <div className="flex h-full flex-col overflow-hidden">
+          <div className="mx-auto w-full max-w-2xl shrink-0 px-5 pt-5">
+            <PageTitle className="mb-3">{collection.name}</PageTitle>
+            <Progress value={progressPct} className="mb-2" />
+            <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+              <span>{pairLabel(collection.wordLang, collection.translationLang)}</span>
+              <span>
+                {index + 1} / {collection.words.length}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-5">
+            <div className="w-full max-w-2xl">
+              <FlipCard
+                key={word.id}
+                flipped={flipped}
+                onFlip={(next) => {
+                  if (playing) {
                     stopSpeech()
                     setPlaying(false)
-                    setMoveOpen(true)
-                  },
-                },
-                {
-                  label: "Export",
-                  icon: <Download />,
-                  onSelect: onExport,
-                },
-                {
-                  label: "Delete",
-                  icon: <Trash2 />,
-                  destructive: true,
-                  onSelect: onDelete,
-                },
-              ]}
-            />
-          </>
-        }
-      />
-
-      <div
-        className={cn(
-          "absolute inset-x-0 top-0 bottom-[4.75rem] flex flex-col overflow-hidden",
-          PAGE_CONTENT_TOP,
-        )}
-      >
-        <div className="mx-auto w-full max-w-2xl shrink-0 px-5">
-          <PageTitle className="mb-3">{collection.name}</PageTitle>
-          <Progress value={progressPct} className="mb-2" />
-          <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-            <span>{pairLabel(collection.wordLang, collection.translationLang)}</span>
-            <span>
-              {index + 1} / {collection.words.length}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-5">
-          <div className="w-full max-w-2xl">
-            <FlipCard
-              key={word.id}
-              flipped={flipped}
-              onFlip={(next) => {
-                if (playing) {
-                  stopSpeech()
-                  setPlaying(false)
+                  }
+                  handleFlip(next)
+                }}
+                onSwipeLeft={() => rateAndAdvance(word.id, "learning", collection.words.length)}
+                onSwipeRight={() => rateAndAdvance(word.id, "known", collection.words.length)}
+                corner={
+                  <div className="pointer-events-auto">
+                    <CardSidePlay
+                      label={`Play ${flipped ? sides.backText : sides.frontText}`}
+                      onPlay={() => playCardSide(flipped)}
+                    />
+                  </div>
                 }
-                handleFlip(next)
-              }}
-              onSwipeLeft={() => rateAndAdvance(word.id, "learning", collection.words.length)}
-              onSwipeRight={() => rateAndAdvance(word.id, "known", collection.words.length)}
-              corner={
-                <div className="pointer-events-auto">
-                  <CardSidePlay
-                    label={`Play ${flipped ? sides.backText : sides.frontText}`}
-                    onPlay={() => playCardSide(flipped)}
-                  />
-                </div>
-              }
-              front={
-                <>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{sides.frontHint}</p>
-                  <p className="mt-3 text-3xl font-semibold tracking-tight">{sides.frontText}</p>
-                  {sides.frontExamples?.length ? (
-                    <ul className="mt-4 w-full space-y-1.5 text-left text-sm leading-snug text-muted-foreground">
-                      {sides.frontExamples.map((ex) => (
-                        <li key={ex} className="border-l-2 border-border pl-2.5">
-                          {ex}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </>
-              }
-              back={
-                <>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{sides.backHint}</p>
-                  <p className="mt-3 text-3xl font-semibold tracking-tight">{sides.backText}</p>
-                  {sides.backExamples?.length ? (
-                    <ul className="mt-4 w-full space-y-1.5 text-left text-sm leading-snug text-muted-foreground">
-                      {sides.backExamples.map((ex) => (
-                        <li key={ex} className="border-l-2 border-border pl-2.5">
-                          {ex}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </>
-              }
-            />
-            <p className="mt-3 text-center text-xs text-muted-foreground">
-              {playing
-                ? "Auto play — swipe to rate · Tap to flip"
-                : "Tap to flip · Swipe right if you know it · Left if you don’t"}
-            </p>
+                front={
+                  <>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {sides.frontHint}
+                    </p>
+                    <p className="mt-3 text-3xl font-semibold tracking-tight">{sides.frontText}</p>
+                    {sides.frontExamples?.length ? (
+                      <ul className="mt-4 w-full space-y-1.5 text-left text-sm leading-snug text-muted-foreground">
+                        {sides.frontExamples.map((ex) => (
+                          <li key={ex} className="border-l-2 border-border pl-2.5">
+                            {ex}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </>
+                }
+                back={
+                  <>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {sides.backHint}
+                    </p>
+                    <p className="mt-3 text-3xl font-semibold tracking-tight">{sides.backText}</p>
+                    {sides.backExamples?.length ? (
+                      <ul className="mt-4 w-full space-y-1.5 text-left text-sm leading-snug text-muted-foreground">
+                        {sides.backExamples.map((ex) => (
+                          <li key={ex} className="border-l-2 border-border pl-2.5">
+                            {ex}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </>
+                }
+              />
+              <p className="mt-3 text-center text-xs text-muted-foreground">
+                {playing
+                  ? "Auto play — swipe to rate · Tap to flip"
+                  : "Tap to flip · Swipe right if you know it · Left if you don’t"}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border/80 bg-background/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-2xl items-center justify-center gap-2 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:gap-3">
-          <Button
-            variant={quiet ? "secondary" : "outline"}
-            size="icon"
-            aria-label={quiet ? "Sound on" : "Quiet mode"}
-            aria-pressed={quiet}
-            onClick={toggleQuiet}
-          >
-            {quiet ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label="Previous"
-            onClick={() => goTo(index - 1)}
-            disabled={index === 0}
-          >
-            <SkipBack className="h-4 w-4" />
-          </Button>
-          <Button size="lg" onClick={togglePlay} className="w-28 sm:w-32">
-            {playing ? (
-              <>
-                <Pause className="h-4 w-4" /> Pause
-              </>
-            ) : (
-              <>
-                <Play className="h-4 w-4" /> Play
-              </>
-            )}
-          </Button>
-          <Button variant="outline" size="icon" aria-label="Next" onClick={goNext}>
-            <SkipForward className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label="Reset to first word"
-            onClick={resetToFirstWord}
-            disabled={index === 0 && !playing && !flipped}
-          >
-            <RotateCcw className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      </AppShell>
 
       <MoveToFolderSheet
         open={moveOpen}
@@ -673,6 +678,6 @@ export default function Study() {
           setMoveOpen(false)
         }}
       />
-    </div>
+    </>
   )
 }

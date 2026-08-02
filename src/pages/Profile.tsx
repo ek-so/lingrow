@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { AppHeader } from "@/components/AppHeader"
+import { AppShell } from "@/components/AppShell"
 import { PageBody, PageTitle } from "@/components/PageTitle"
 import { useAuth } from "@/lib/auth-context"
 import { useCollections } from "@/lib/collections-context"
@@ -44,9 +45,7 @@ export default function Profile() {
   const wordFirst = settings.pronounceFirst === "word"
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader leading={{ kind: "back", label: "My sets", to: "/" }} />
-
+    <AppShell header={<AppHeader leading={{ kind: "back", label: "My sets", to: "/" }} />}>
       <PageBody className="pb-8">
         <PageTitle
           className="mb-8"
@@ -236,6 +235,6 @@ export default function Profile() {
           </p>
         </section>
       </PageBody>
-    </div>
+    </AppShell>
   )
 }

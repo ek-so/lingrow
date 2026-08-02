@@ -7,6 +7,7 @@ import {
 } from "@/components/DuplicateImportSheet"
 import { ConfirmLeaveImportSheet } from "@/components/ConfirmLeaveImportSheet"
 import { AppHeader } from "@/components/AppHeader"
+import { AppShell } from "@/components/AppShell"
 import { PageBody, PageTitle } from "@/components/PageTitle"
 import { langLabel } from "@/lib/languages"
 import { classifyImport, loadImportDraft, saveImportResult } from "@/lib/import-bridge"
@@ -149,37 +150,40 @@ export default function ImportText() {
       : "Back"
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader
-        leading={{ kind: "back", label: backLabel, onBack: requestBack }}
-        actions={
-          <>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Paste from clipboard"
-              onClick={() => void onPasteClipboard()}
-            >
-              <ClipboardPaste className="h-5 w-5" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Clear text and preview"
-              disabled={!canClear}
-              onClick={clearAll}
-              className="text-destructive hover:bg-transparent hover:text-destructive disabled:text-destructive/40"
-            >
-              <Trash2 className="h-5 w-5" />
-            </Button>
-          </>
+    <>
+      <AppShell
+        header={
+          <AppHeader
+            leading={{ kind: "back", label: backLabel, onBack: requestBack }}
+            actions={
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Paste from clipboard"
+                  onClick={() => void onPasteClipboard()}
+                >
+                  <ClipboardPaste className="h-5 w-5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Clear text and preview"
+                  disabled={!canClear}
+                  onClick={clearAll}
+                  className="text-destructive hover:bg-transparent hover:text-destructive disabled:text-destructive/40"
+                >
+                  <Trash2 className="h-5 w-5" />
+                </Button>
+              </>
+            }
+          />
         }
-      />
-
-      <PageBody>
-        <PageTitle>Paste text</PageTitle>
+      >
+        <PageBody>
+          <PageTitle>Paste text</PageTitle>
 
         <div className="mt-6 flex flex-col gap-3">
           <label className="flex flex-col gap-1.5">
@@ -242,22 +246,23 @@ export default function ImportText() {
 
         {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
 
-        <Button
-          type="button"
-          size="lg"
-          className="mt-6 w-full"
-          disabled={pairs.length === 0}
-          onClick={() => {
-            if (pairs.length === 0) {
-              setError("Paste or parse at least one word pair first.")
-              return
-            }
-            tryCommit(pairs)
-          }}
-        >
-          Add {pairs.length > 0 ? `${pairs.length} ` : ""}to list
-        </Button>
-      </PageBody>
+          <Button
+            type="button"
+            size="lg"
+            className="mt-6 w-full"
+            disabled={pairs.length === 0}
+            onClick={() => {
+              if (pairs.length === 0) {
+                setError("Paste or parse at least one word pair first.")
+                return
+              }
+              tryCommit(pairs)
+            }}
+          >
+            Add {pairs.length > 0 ? `${pairs.length} ` : ""}to list
+          </Button>
+        </PageBody>
+      </AppShell>
 
       <DuplicateImportSheet
         open={pendingDuplicates != null}
@@ -289,6 +294,6 @@ export default function ImportText() {
           else navigate(returnTo)
         }}
       />
-    </div>
+    </>
   )
 }

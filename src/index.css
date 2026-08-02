@@ -76,8 +76,10 @@
 
 html {
   width: 100%;
+  height: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow: hidden;
+  overscroll-behavior: none;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -87,14 +89,17 @@ body {
   color: hsl(var(--foreground));
   margin: 0;
   width: 100%;
+  height: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 #root {
   width: 100%;
+  height: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 /* Keep ≥16px so iOS doesn’t zoom the layout when focusing form fields. */

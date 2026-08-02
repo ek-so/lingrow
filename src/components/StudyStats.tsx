@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import { AppShell } from "@/components/AppShell"
 import { Button } from "@/components/ui/button"
 import { Check, CircleHelp, Headphones, RotateCcw, SkipForward } from "lucide-react"
 
@@ -64,8 +65,23 @@ export function StudyStats({
   ].filter((row) => row.value > 0)
 
   return (
-    <div className="h-dvh overflow-hidden bg-background">
-      <div className="absolute inset-x-0 top-0 bottom-[5.5rem] flex items-center justify-center overflow-hidden px-5">
+    <AppShell
+      scroll={false}
+      footer={
+        <div className="border-t border-border/80 bg-background/90 backdrop-blur-md">
+          <div className="mx-auto flex max-w-2xl flex-col gap-2 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <Button size="lg" onClick={onFinish}>
+              Finish
+            </Button>
+            <Button size="lg" variant="outline" onClick={onRestart}>
+              <RotateCcw className="h-4 w-4" />
+              Restart
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <div className="flex h-full items-center justify-center overflow-hidden px-5">
         <div className="w-full max-w-2xl">
           <p className="text-sm font-medium uppercase tracking-wide text-primary">Results</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">{headline}</h1>
@@ -97,19 +113,7 @@ export function StudyStats({
           </div>
         </div>
       </div>
-
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border/80 bg-background/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-2xl flex-col gap-2 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <Button size="lg" onClick={onFinish}>
-            Finish
-          </Button>
-          <Button size="lg" variant="outline" onClick={onRestart}>
-            <RotateCcw className="h-4 w-4" />
-            Restart
-          </Button>
-        </div>
-      </div>
-    </div>
+    </AppShell>
   )
 }
 

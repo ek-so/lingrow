@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useCollections } from "@/lib/collections-context"
 import { AppHeader } from "@/components/AppHeader"
+import { AppShell } from "@/components/AppShell"
 import { CollectionForm } from "@/components/CollectionForm"
 import { ConfirmSaveProgressSheet } from "@/components/ConfirmSaveProgressSheet"
 import { PageBody, PageTitle } from "@/components/PageTitle"
@@ -38,54 +39,58 @@ export default function NewList() {
   })
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader
-        leading={{
-          kind: "back",
-          label: folder ? folder.name : "My sets",
-          onBack: () => requestLeave(backTo),
-        }}
-      />
-
-      <PageBody>
-        <PageTitle
-          description={
-            <>
-              Choose languages, then add word pairs — or import from a file or bullet list.
-              {folder ? (
-                <>
-                  {" "}
-                  Saving into <span className="font-medium text-foreground">{folder.name}</span>.
-                </>
-              ) : null}
-            </>
-          }
-        >
-          New set
-        </PageTitle>
-
-        <div className="mt-8">
-          <CollectionForm
-            initial={{
-              name: "",
-              description: "",
-              wordLang: "de",
-              translationLang: "en",
-              words: [emptyDraftWord(), emptyDraftWord(), emptyDraftWord()],
-            }}
-            submitLabel="Save set"
-            persistDraftKey={draftKey}
-            onDirtyChange={onDirtyChange}
-            submitRef={submitRef}
-            onSubmit={(values) => {
-              clearNewSetDraft(draftKey)
-              allowNextNavigation()
-              const created = addCollection({ ...values, folderId })
-              navigate(`/study/${created.id}`)
+    <>
+      <AppShell
+        header={
+          <AppHeader
+            leading={{
+              kind: "back",
+              label: folder ? folder.name : "My sets",
+              onBack: () => requestLeave(backTo),
             }}
           />
-        </div>
-      </PageBody>
+        }
+      >
+        <PageBody>
+          <PageTitle
+            description={
+              <>
+                Choose languages, then add word pairs — or import from a file or bullet list.
+                {folder ? (
+                  <>
+                    {" "}
+                    Saving into <span className="font-medium text-foreground">{folder.name}</span>.
+                  </>
+                ) : null}
+              </>
+            }
+          >
+            New set
+          </PageTitle>
+
+          <div className="mt-8">
+            <CollectionForm
+              initial={{
+                name: "",
+                description: "",
+                wordLang: "de",
+                translationLang: "en",
+                words: [emptyDraftWord(), emptyDraftWord(), emptyDraftWord()],
+              }}
+              submitLabel="Save set"
+              persistDraftKey={draftKey}
+              onDirtyChange={onDirtyChange}
+              submitRef={submitRef}
+              onSubmit={(values) => {
+                clearNewSetDraft(draftKey)
+                allowNextNavigation()
+                const created = addCollection({ ...values, folderId })
+                navigate(`/study/${created.id}`)
+              }}
+            />
+          </div>
+        </PageBody>
+      </AppShell>
 
       <ConfirmSaveProgressSheet
         open={leaveOpen}
@@ -93,6 +98,6 @@ export default function NewList() {
         onNo={discardAndLeave}
         onYes={saveAndLeave}
       />
-    </div>
+    </>
   )
 }

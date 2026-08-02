@@ -7,6 +7,7 @@ import {
 } from "@/components/DuplicateImportSheet"
 import { ConfirmLeaveImportSheet } from "@/components/ConfirmLeaveImportSheet"
 import { AppHeader } from "@/components/AppHeader"
+import { AppShell } from "@/components/AppShell"
 import { PageBody, PageTitle } from "@/components/PageTitle"
 import { langLabel } from "@/lib/languages"
 import {
@@ -161,112 +162,116 @@ export default function ImportFile() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader
-        leading={{ kind: "back", label: backLabel, onBack: requestBack }}
-        actions={
+    <>
+      <AppShell
+        header={
+          <AppHeader
+            leading={{ kind: "back", label: backLabel, onBack: requestBack }}
+            actions={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Clear import"
+                disabled={pairs.length === 0 && !fileLabel}
+                onClick={clearAll}
+                className="text-destructive hover:bg-transparent hover:text-destructive disabled:text-destructive/40"
+              >
+                <Trash2 className="h-5 w-5" />
+              </Button>
+            }
+          />
+        }
+      >
+        <PageBody>
+          <PageTitle description="Spreadsheet columns: word, translation, optional examples. Header optional.">
+            Import file
+          </PageTitle>
+
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+            className="hidden"
+            onChange={(e) => void onFileChange(e)}
+          />
+
           <Button
             type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Clear import"
-            disabled={pairs.length === 0 && !fileLabel}
-            onClick={clearAll}
-            className="text-destructive hover:bg-transparent hover:text-destructive disabled:text-destructive/40"
+            variant="outline"
+            className="mt-6"
+            disabled={busy}
+            onClick={() => fileRef.current?.click()}
           >
-            <Trash2 className="h-5 w-5" />
+            <Upload className="h-4 w-4" />
+            {busy ? "Reading…" : pairs.length > 0 ? "Choose another file" : "Choose file"}
           </Button>
-        }
-      />
+          {fileLabel ? <p className="mt-2 text-xs text-muted-foreground">{fileLabel}</p> : null}
 
-      <PageBody>
-        <PageTitle description="Spreadsheet columns: word, translation, optional examples. Header optional.">
-          Import file
-        </PageTitle>
-
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
-          className="hidden"
-          onChange={(e) => void onFileChange(e)}
-        />
-
-        <Button
-          type="button"
-          variant="outline"
-          className="mt-6"
-          disabled={busy}
-          onClick={() => fileRef.current?.click()}
-        >
-          <Upload className="h-4 w-4" />
-          {busy ? "Reading…" : pairs.length > 0 ? "Choose another file" : "Choose file"}
-        </Button>
-        {fileLabel ? <p className="mt-2 text-xs text-muted-foreground">{fileLabel}</p> : null}
-
-        {pairs.length > 0 ? (
-          <div className="mt-6">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-medium">Preview · {pairs.length} pairs</span>
-            </div>
-            {langsChanged ? (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Detected language pair: {langLabel(wordLang)} → {langLabel(translationLang)}. The
-                list will switch to this when you add the words.
-              </p>
-            ) : null}
-            <div className="mt-3 max-h-64 overflow-auto rounded-xl border border-border">
-              <table className="w-full text-left text-sm">
-                <thead className="sticky top-0 bg-secondary text-xs text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 font-medium">{langLabel(wordLang)}</th>
-                    <th className="px-3 py-2 font-medium">{langLabel(translationLang)}</th>
-                    <th className="px-3 py-2 font-medium">Examples</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pairs.slice(0, 50).map((p, i) => (
-                    <tr key={`${p.word}-${i}`} className="border-t border-border">
-                      <td className="px-3 py-2">{p.word}</td>
-                      <td className="px-3 py-2">{p.translation}</td>
-                      <td className="px-3 py-2 text-muted-foreground">
-                        {p.examples?.length ? p.examples.join(" · ") : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {pairs.length > 50 ? (
-                <p className="border-t border-border px-3 py-2 text-xs text-muted-foreground">
-                  Showing first 50 of {pairs.length}.
+          {pairs.length > 0 ? (
+            <div className="mt-6">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium">Preview · {pairs.length} pairs</span>
+              </div>
+              {langsChanged ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Detected language pair: {langLabel(wordLang)} → {langLabel(translationLang)}. The
+                  list will switch to this when you add the words.
                 </p>
               ) : null}
+              <div className="mt-3 max-h-64 overflow-auto rounded-xl border border-border">
+                <table className="w-full text-left text-sm">
+                  <thead className="sticky top-0 bg-secondary text-xs text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">{langLabel(wordLang)}</th>
+                      <th className="px-3 py-2 font-medium">{langLabel(translationLang)}</th>
+                      <th className="px-3 py-2 font-medium">Examples</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pairs.slice(0, 50).map((p, i) => (
+                      <tr key={`${p.word}-${i}`} className="border-t border-border">
+                        <td className="px-3 py-2">{p.word}</td>
+                        <td className="px-3 py-2">{p.translation}</td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {p.examples?.length ? p.examples.join(" · ") : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {pairs.length > 50 ? (
+                  <p className="border-t border-border px-3 py-2 text-xs text-muted-foreground">
+                    Showing first 50 of {pairs.length}.
+                  </p>
+                ) : null}
+              </div>
             </div>
-          </div>
-        ) : (
-          <p className="mt-6 rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-            {busy ? "Reading file…" : "Choose a spreadsheet to preview pairs here."}
-          </p>
-        )}
+          ) : (
+            <p className="mt-6 rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+              {busy ? "Reading file…" : "Choose a spreadsheet to preview pairs here."}
+            </p>
+          )}
 
-        {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
+          {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
 
-        <Button
-          type="button"
-          size="lg"
-          className="mt-6 w-full"
-          disabled={pairs.length === 0}
-          onClick={() => {
-            if (pairs.length === 0) {
-              setError("Choose a file with at least one word pair first.")
-              return
-            }
-            tryCommit(pairs)
-          }}
-        >
-          Add {pairs.length > 0 ? `${pairs.length} ` : ""}to list
-        </Button>
-      </PageBody>
+          <Button
+            type="button"
+            size="lg"
+            className="mt-6 w-full"
+            disabled={pairs.length === 0}
+            onClick={() => {
+              if (pairs.length === 0) {
+                setError("Choose a file with at least one word pair first.")
+                return
+              }
+              tryCommit(pairs)
+            }}
+          >
+            Add {pairs.length > 0 ? `${pairs.length} ` : ""}to list
+          </Button>
+        </PageBody>
+      </AppShell>
 
       <DuplicateImportSheet
         open={pendingDuplicates != null}
@@ -298,6 +303,6 @@ export default function ImportFile() {
           tryCommit(pairs)
         }}
       />
-    </div>
+    </>
   )
 }

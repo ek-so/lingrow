@@ -11,6 +11,7 @@ import { MoveToFolderSheet } from "@/components/MoveToFolderSheet"
 import { NameFolderSheet } from "@/components/NameFolderSheet"
 import { SearchSheet } from "@/components/SearchSheet"
 import { AppHeader } from "@/components/AppHeader"
+import { AppShell } from "@/components/AppShell"
 import { PageBody, PageTitle } from "@/components/PageTitle"
 import { downloadCollectionExcel } from "@/lib/export-collection"
 import { countItemsInFolder, descendantFolderIds } from "@/lib/folders"
@@ -137,14 +138,14 @@ export default function Home() {
 
   if (folderMissing) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="mx-auto max-w-2xl px-5 pb-8 pt-16">
+      <AppShell header={<AppHeader leading={{ kind: "brand" }} />}>
+        <PageBody className="pb-8">
           <p className="text-muted-foreground">This folder no longer exists.</p>
           <Button type="button" className="mt-4" onClick={() => navigate("/")}>
             Back to Home
           </Button>
-        </div>
-      </div>
+        </PageBody>
+      </AppShell>
     )
   }
 
@@ -192,63 +193,64 @@ export default function Home() {
     </button>
   )
 
-  return (
-    <div className="min-h-screen bg-background">
-      {currentFolder ? (
-        <AppHeader
-          leading={{
-            kind: "back",
-            label: currentFolder.parentId
-              ? (getFolder(currentFolder.parentId)?.name ?? "Back")
-              : "My sets",
-            to: parentPath(),
-          }}
-          actions={
-            <>
-              {searchButton}
-              {createButton}
-              <OverflowMenu
-                label={`Actions for ${currentFolder.name}`}
-                items={[
-                  {
-                    label: "Rename",
-                    icon: <Pencil />,
-                    onSelect: () => setRenameTarget(currentFolder),
-                  },
-                  {
-                    label: "Move to…",
-                    icon: <FolderInput />,
-                    onSelect: () =>
-                      setMoveTarget({
-                        kind: "folder",
-                        id: currentFolder.id,
-                        name: currentFolder.name,
-                        parentId: currentFolder.parentId,
-                      }),
-                  },
-                  {
-                    label: "Delete",
-                    icon: <Trash2 />,
-                    destructive: true,
-                    onSelect: () => onDeleteFolder(currentFolder),
-                  },
-                ]}
-              />
-            </>
-          }
-        />
-      ) : (
-        <AppHeader
-          leading={{ kind: "brand" }}
-          actions={
-            <>
-              {searchButton}
-              {profileButton}
-            </>
-          }
-        />
-      )}
+  const header = currentFolder ? (
+    <AppHeader
+      leading={{
+        kind: "back",
+        label: currentFolder.parentId
+          ? (getFolder(currentFolder.parentId)?.name ?? "Back")
+          : "My sets",
+        to: parentPath(),
+      }}
+      actions={
+        <>
+          {searchButton}
+          {createButton}
+          <OverflowMenu
+            label={`Actions for ${currentFolder.name}`}
+            items={[
+              {
+                label: "Rename",
+                icon: <Pencil />,
+                onSelect: () => setRenameTarget(currentFolder),
+              },
+              {
+                label: "Move to…",
+                icon: <FolderInput />,
+                onSelect: () =>
+                  setMoveTarget({
+                    kind: "folder",
+                    id: currentFolder.id,
+                    name: currentFolder.name,
+                    parentId: currentFolder.parentId,
+                  }),
+              },
+              {
+                label: "Delete",
+                icon: <Trash2 />,
+                destructive: true,
+                onSelect: () => onDeleteFolder(currentFolder),
+              },
+            ]}
+          />
+        </>
+      }
+    />
+  ) : (
+    <AppHeader
+      leading={{ kind: "brand" }}
+      actions={
+        <>
+          {searchButton}
+          {profileButton}
+        </>
+      }
+    />
+  )
 
+  return (
+    <>
+      <AppShell header={header}>
       <PageBody className="pb-8">
         <PageTitle
           className="mb-6"
@@ -409,6 +411,7 @@ export default function Home() {
           </div>
         </div>
       </PageBody>
+      </AppShell>
 
       <SearchSheet
         open={searchOpen}
@@ -488,6 +491,6 @@ export default function Home() {
           setMoveTarget(null)
         }}
       />
-    </div>
+    </>
   )
 }
