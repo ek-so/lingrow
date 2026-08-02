@@ -41,7 +41,7 @@ function letterCounts(text: string) {
 }
 
 /** Best-effort script → app language for a single string. */
-export function detectLangHint(text: string): LangCode | null {
+function detectLangHint(text: string): LangCode | null {
   const { latin, cyrillic, germanExtra, total } = letterCounts(text)
   if (total === 0) return null
   if (cyrillic / total >= 0.35) return "ru"
@@ -136,7 +136,7 @@ function pairFromRest(word: string, rest: string): WordPair | null {
   let translation = rest
   const bracketExamples: string[] = []
   while (true) {
-    const match = translation.match(/\s*[(\[]([^)\]]+)[)\]]\s*$/)
+    const match = translation.match(/\s*[([]([^)\]]+)[)\]]\s*$/)
     if (!match || match.index == null) break
     const inner = match[1]!.trim()
     if (!inner) break
@@ -177,7 +177,7 @@ function parseInlinePairs(text: string): WordPair[] {
  * Alternating lines: word, translation, word, translation, …
  * Empty lines are skipped. Commas/semicolons inside the translation stay intact.
  */
-export function parseAlternatingPairs(text: string): WordPair[] {
+function parseAlternatingPairs(text: string): WordPair[] {
   const lines = text
     .split(/\r?\n/)
     .map(stripBullet)
@@ -256,11 +256,6 @@ export function parseImportText(text: string): ParsedImportText {
 
   const langs = detectPairLanguages(pairs)
   return { pairs, layout, ...langs }
-}
-
-/** @deprecated Prefer `parseImportText` — kept for call sites that only need pairs. */
-export function parseBulletText(text: string): WordPair[] {
-  return parseImportText(text).pairs
 }
 
 const HEADERISH =

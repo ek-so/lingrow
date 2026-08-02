@@ -2,7 +2,7 @@ import type { ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
 /** Top padding for content directly under AppHeader inside AppShell. */
-export const PAGE_CONTENT_TOP = "pt-5"
+const PAGE_CONTENT_TOP = "pt-5"
 
 /**
  * Shared page heading with optional actions (create, overflow ⋯, edit, etc.).

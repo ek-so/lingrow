@@ -2,7 +2,7 @@ import type { Collection } from "@/types"
 import { langLabel } from "@/lib/languages"
 
 /** Sanitize a collection name for use as a download filename. */
-export function excelFilename(name: string): string {
+function excelFilename(name: string): string {
   const cleaned = name
     .trim()
     .replace(/[\\/:*?"<>|]+/g, "-")
@@ -12,7 +12,7 @@ export function excelFilename(name: string): string {
 }
 
 /** Build spreadsheet rows: word, translation, then one column per example. */
-export function collectionToSheetRows(collection: Collection): string[][] {
+function collectionToSheetRows(collection: Collection): string[][] {
   const maxExamples = collection.words.reduce(
     (max, w) => Math.max(max, w.examples?.length ?? 0),
     0,

@@ -5,15 +5,22 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from "react"
 import { useNavigate } from "react-router-dom"
+import {
+  BrowseRow,
+  FolderIcon,
+  Layers,
+  LibrarySearchHeader,
+  ResultGroup,
+  ResultRow,
+  Search,
+  type LibrarySheetItem,
+} from "@/components/library-sheet"
 import { searchLibrary, type LibrarySearchResult } from "@/lib/library-search"
 import { loadRecentItems, type RecentItem } from "@/lib/recent"
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock"
 import type { Collection, Folder } from "@/types"
-import { cn } from "@/lib/utils"
-import { Folder as FolderIcon, Layers, Search, X } from "lucide-react"
 
 interface SearchSheetProps {
   open: boolean
@@ -21,10 +28,6 @@ interface SearchSheetProps {
   folders: Folder[]
   onClose: () => void
 }
-
-type BrowseItem =
-  | { kind: "folder"; id: string; name: string }
-  | { kind: "collection"; id: string; name: string; description: string }
 
 export function SearchSheet({ open, collections, folders, onClose }: SearchSheetProps) {
   const navigate = useNavigate()
@@ -69,7 +72,7 @@ export function SearchSheet({ open, collections, folders, onClose }: SearchSheet
   const searching = trimmed.length > 0
 
   const recentBrowse = useMemo(() => {
-    const items: BrowseItem[] = []
+    const items: LibrarySheetItem[] = []
     for (const item of recent) {
       if (item.kind === "folder") {
         const folder = folderById.get(item.id)
@@ -90,10 +93,10 @@ export function SearchSheet({ open, collections, folders, onClose }: SearchSheet
   }, [recent, folderById, collectionById])
 
   const allBrowse = useMemo(() => {
-    const folderItems: BrowseItem[] = [...folders]
+    const folderItems: LibrarySheetItem[] = [...folders]
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((folder) => ({ kind: "folder" as const, id: folder.id, name: folder.name }))
-    const setItems: BrowseItem[] = [...collections]
+    const setItems: LibrarySheetItem[] = [...collections]
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((collection) => ({
         kind: "collection" as const,
@@ -127,7 +130,7 @@ export function SearchSheet({ open, collections, folders, onClose }: SearchSheet
     go(`/study/${result.kind === "word" ? result.collectionId : result.id}`)
   }
 
-  function onSelectBrowse(item: BrowseItem) {
+  function onSelectBrowse(item: LibrarySheetItem) {
     if (item.kind === "folder") {
       go(`/folder/${item.id}`)
       return
@@ -146,53 +149,17 @@ export function SearchSheet({ open, collections, folders, onClose }: SearchSheet
       aria-labelledby="library-search-title"
       className="fixed inset-0 z-[100] flex flex-col bg-background"
     >
-      <header className="shrink-0 border-b border-border/80">
-        <div className="mx-auto flex max-w-2xl items-center gap-2 px-4 py-3">
-          <h2 id="library-search-title" className="sr-only">
-            Search library
-          </h2>
-          <label htmlFor={inputId} className="sr-only">
-            Search sets, folders, and words
-          </label>
-          <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              ref={inputRef}
-              id={inputId}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search sets, folders, words…"
-              autoComplete="off"
-              autoCorrect="off"
-              spellCheck={false}
-              className={cn(
-                "h-11 w-full rounded-md border border-border bg-card py-2 pl-9 text-base outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring",
-                query ? "pr-10" : "pr-3",
-              )}
-            />
-            {query ? (
-              <button
-                type="button"
-                aria-label="Clear search"
-                onClick={() => {
-                  setQuery("")
-                  inputRef.current?.focus({ preventScroll: true })
-                }}
-                className="absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            ) : null}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-11 shrink-0 items-center justify-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          >
-            Cancel
-          </button>
-        </div>
-      </header>
+      <LibrarySearchHeader
+        titleId="library-search-title"
+        title="Search library"
+        inputId={inputId}
+        inputLabel="Search sets, folders, and words"
+        placeholder="Search sets, folders, words…"
+        query={query}
+        onQueryChange={setQuery}
+        onCancel={onClose}
+        inputRef={inputRef}
+      />
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <div className="mx-auto max-w-2xl px-2 py-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
@@ -282,71 +249,5 @@ export function SearchSheet({ open, collections, folders, onClose }: SearchSheet
         </div>
       </div>
     </div>
-  )
-}
-
-function BrowseRow({
-  item,
-  onSelect,
-}: {
-  item: BrowseItem
-  onSelect: (item: BrowseItem) => void
-}) {
-  if (item.kind === "folder") {
-    return (
-      <ResultRow
-        icon={<FolderIcon className="h-4 w-4 shrink-0 text-primary" />}
-        title={item.name}
-        subtitle="Folder"
-        onClick={() => onSelect(item)}
-      />
-    )
-  }
-  return (
-    <ResultRow
-      icon={<Layers className="h-4 w-4 shrink-0 text-primary" />}
-      title={item.name}
-      subtitle={item.description || "Set"}
-      onClick={() => onSelect(item)}
-    />
-  )
-}
-
-function ResultGroup({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section>
-      <p className="px-3 pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {title}
-      </p>
-      <ul className="flex flex-col">{children}</ul>
-    </section>
-  )
-}
-
-function ResultRow({
-  icon,
-  title,
-  subtitle,
-  onClick,
-}: {
-  icon: ReactNode
-  title: string
-  subtitle: string
-  onClick: () => void
-}) {
-  return (
-    <li>
-      <button
-        type="button"
-        onClick={onClick}
-        className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-secondary"
-      >
-        {icon}
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-medium">{title}</span>
-          <span className="block truncate text-xs text-muted-foreground">{subtitle}</span>
-        </span>
-      </button>
-    </li>
   )
 }

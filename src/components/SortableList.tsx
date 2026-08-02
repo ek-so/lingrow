@@ -1,3 +1,4 @@
+/** Drag-and-drop list used to reorder words in the set editor (not the library). */
 import {
   DndContext,
   KeyboardSensor,

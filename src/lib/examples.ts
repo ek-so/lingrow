@@ -1,6 +1,6 @@
 /** Join/split usage examples for sheets, import, and forms. */
 
-export const EXAMPLE_SEP = " || "
+const EXAMPLE_SEP = " || "
 
 /** Trim and drop empties. Keeps every non-empty example (no hard cap). */
 export function normalizeExamples(raw: unknown): string[] | undefined {
@@ -37,11 +37,6 @@ export function splitExamplesCell(cell: string): string[] {
       .filter(Boolean)
   }
   return [trimmed]
-}
-
-export function joinExamples(examples: string[] | undefined): string {
-  const normalized = normalizeExamples(examples)
-  return normalized ? normalized.join(EXAMPLE_SEP) : ""
 }
 
 export function examplesTextareaValue(examples: string[] | undefined): string {

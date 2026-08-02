@@ -397,8 +397,6 @@ function WordRow({
   )
 }
 
-export type { CollectionFormValues }
-
 interface CollectionFormProps {
   initial: CollectionFormValues
   submitLabel: string

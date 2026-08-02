@@ -40,7 +40,7 @@ function cacheKey(text: string, from: LangCode, to: LangCode) {
 }
 
 /** Strip articles / “to” / plural tails so lookups stay stable after enrichment. */
-export function normalizeLookupQuery(text: string, lang: LangCode): string {
+function normalizeLookupQuery(text: string, lang: LangCode): string {
   let s = text.trim()
   if (!s) return ""
   if (lang === "de") return bareGermanLemma(s)

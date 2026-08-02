@@ -1,17 +1,15 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
-import {
-  DuplicateImportSheet,
-  type DuplicateImportChoice,
-} from "@/components/DuplicateImportSheet"
+import { DuplicateImportSheet } from "@/components/DuplicateImportSheet"
 import { ConfirmLeaveImportSheet } from "@/components/ConfirmLeaveImportSheet"
 import { AppHeader } from "@/components/AppHeader"
 import { AppShell } from "@/components/AppShell"
 import { PageBody, PageTitle } from "@/components/PageTitle"
-import { langLabel } from "@/lib/languages"
-import { classifyImport, loadImportDraft, saveImportResult } from "@/lib/import-bridge"
+import { ImportPreview } from "@/components/ImportPreview"
+import { loadImportDraft, type ImportDraft } from "@/lib/import-bridge"
 import { parseImportText } from "@/lib/parse-import"
+import { importBackLabel, useImportReview } from "@/lib/use-import-review"
 import type { WordPair } from "@/lib/collection-form"
 import type { LangCode } from "@/types"
 import { ClipboardPaste, Trash2 } from "lucide-react"
@@ -22,28 +20,6 @@ const PLACEHOLDER =
 export default function ImportText() {
   const navigate = useNavigate()
   const draft = loadImportDraft()
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  const [text, setText] = useState("")
-  const [pairs, setPairs] = useState<WordPair[]>([])
-  const [detectedWordLang, setDetectedWordLang] = useState<LangCode | null>(null)
-  const [detectedTranslationLang, setDetectedTranslationLang] = useState<LangCode | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [pasteHint, setPasteHint] = useState<string | null>(null)
-  const [duplicateChoice, setDuplicateChoice] = useState<DuplicateImportChoice>("skip")
-  const [pendingDuplicates, setPendingDuplicates] = useState<{
-    pairs: WordPair[]
-    duplicates: WordPair[]
-    fresh: WordPair[]
-  } | null>(null)
-  const [leaveOpen, setLeaveOpen] = useState(false)
-
-  useEffect(() => {
-    const id = window.requestAnimationFrame(() => {
-      textareaRef.current?.focus()
-    })
-    return () => window.cancelAnimationFrame(id)
-  }, [])
 
   if (!draft) {
     return (
@@ -58,41 +34,47 @@ export default function ImportText() {
     )
   }
 
-  const { values, returnTo } = draft
-  const wordLang = detectedWordLang ?? values.wordLang
-  const translationLang = detectedTranslationLang ?? values.translationLang
-  const hasUnsaved = pairs.length > 0 || text.trim().length > 0
-  const langsChanged =
-    (detectedWordLang != null && detectedWordLang !== values.wordLang) ||
-    (detectedTranslationLang != null && detectedTranslationLang !== values.translationLang)
+  return <ImportTextLoaded draft={draft} />
+}
 
-  function commitPairs(nextPairs: WordPair[], choice: DuplicateImportChoice | null) {
-    saveImportResult({
-      pairs: nextPairs,
-      choice,
-      wordLang: detectedWordLang ?? undefined,
-      translationLang: detectedTranslationLang ?? undefined,
+function ImportTextLoaded({ draft }: { draft: ImportDraft }) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [text, setText] = useState("")
+  const [pairs, setPairs] = useState<WordPair[]>([])
+  const [detectedWordLang, setDetectedWordLang] = useState<LangCode | null>(null)
+  const [detectedTranslationLang, setDetectedTranslationLang] = useState<LangCode | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [pasteHint, setPasteHint] = useState<string | null>(null)
+
+  const {
+    returnTo,
+    wordLang,
+    translationLang,
+    langsChanged,
+    duplicateChoice,
+    setDuplicateChoice,
+    pendingDuplicates,
+    setPendingDuplicates,
+    leaveOpen,
+    setLeaveOpen,
+    commitPairs,
+    tryCommit,
+    requestBack,
+    leaveClean,
+  } = useImportReview({
+    draft,
+    detectedWordLang,
+    detectedTranslationLang,
+  })
+
+  useEffect(() => {
+    const id = window.requestAnimationFrame(() => {
+      textareaRef.current?.focus()
     })
-    navigate(returnTo)
-  }
+    return () => window.cancelAnimationFrame(id)
+  }, [])
 
-  function tryCommit(nextPairs: WordPair[]) {
-    const { duplicates, fresh, normalized } = classifyImport(values.words, nextPairs)
-    if (duplicates.length === 0) {
-      commitPairs(normalized, null)
-      return
-    }
-    setPendingDuplicates({ pairs: normalized, duplicates, fresh })
-    setDuplicateChoice("skip")
-  }
-
-  function requestBack() {
-    if (!hasUnsaved) {
-      navigate(returnTo)
-      return
-    }
-    setLeaveOpen(true)
-  }
+  const hasUnsaved = pairs.length > 0 || text.trim().length > 0
 
   function applyParsedText(raw: string) {
     const parsed = parseImportText(raw)
@@ -106,10 +88,6 @@ export default function ImportText() {
     } else {
       setError(null)
     }
-  }
-
-  function onParseText() {
-    applyParsedText(text)
   }
 
   async function onPasteClipboard() {
@@ -143,18 +121,17 @@ export default function ImportText() {
   }
 
   const canClear = text.trim().length > 0 || pairs.length > 0
-  const backLabel = returnTo.startsWith("/edit")
-    ? "Edit set"
-    : returnTo.startsWith("/new")
-      ? "New set"
-      : "Back"
 
   return (
     <>
       <AppShell
         header={
           <AppHeader
-            leading={{ kind: "back", label: backLabel, onBack: requestBack }}
+            leading={{
+              kind: "back",
+              label: importBackLabel(returnTo),
+              onBack: () => requestBack(hasUnsaved),
+            }}
           />
         }
       >
@@ -188,66 +165,37 @@ export default function ImportText() {
             Paste text
           </PageTitle>
 
-        <div className="mt-6 flex flex-col gap-3">
-          <label className="flex flex-col gap-1.5">
-            <span className="sr-only">Your list</span>
-            <textarea
-              ref={textareaRef}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              rows={12}
-              placeholder={PLACEHOLDER}
-              className="w-full rounded-md border border-input bg-card px-3 py-2 text-base outline-none focus:ring-2 focus:ring-ring"
-            />
-          </label>
-          {pasteHint ? <p className="text-xs text-muted-foreground">{pasteHint}</p> : null}
-          <Button type="button" variant="outline" onClick={onParseText} disabled={!text.trim()}>
-            Parse
-          </Button>
-        </div>
-
-        {pairs.length > 0 ? (
-          <div className="mt-6">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-medium">Preview · {pairs.length} pairs</span>
-            </div>
-            {langsChanged ? (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Detected language pair: {langLabel(wordLang)} → {langLabel(translationLang)}. The
-                list will switch to this when you add the words.
-              </p>
-            ) : null}
-            <div className="mt-3 max-h-64 overflow-auto rounded-xl border border-border">
-              <table className="w-full text-left text-sm">
-                <thead className="sticky top-0 bg-secondary text-xs text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 font-medium">{langLabel(wordLang)}</th>
-                    <th className="px-3 py-2 font-medium">{langLabel(translationLang)}</th>
-                    <th className="px-3 py-2 font-medium">Examples</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pairs.slice(0, 50).map((p, i) => (
-                    <tr key={`${p.word}-${i}`} className="border-t border-border">
-                      <td className="px-3 py-2">{p.word}</td>
-                      <td className="px-3 py-2">{p.translation}</td>
-                      <td className="px-3 py-2 text-muted-foreground">
-                        {p.examples?.length ? p.examples.join(" · ") : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {pairs.length > 50 ? (
-                <p className="border-t border-border px-3 py-2 text-xs text-muted-foreground">
-                  Showing first 50 of {pairs.length}.
-                </p>
-              ) : null}
-            </div>
+          <div className="mt-6 flex flex-col gap-3">
+            <label className="flex flex-col gap-1.5">
+              <span className="sr-only">Your list</span>
+              <textarea
+                ref={textareaRef}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                rows={12}
+                placeholder={PLACEHOLDER}
+                className="w-full rounded-md border border-input bg-card px-3 py-2 text-base outline-none focus:ring-2 focus:ring-ring"
+              />
+            </label>
+            {pasteHint ? <p className="text-xs text-muted-foreground">{pasteHint}</p> : null}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => applyParsedText(text)}
+              disabled={!text.trim()}
+            >
+              Parse
+            </Button>
           </div>
-        ) : null}
 
-        {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
+          <ImportPreview
+            pairs={pairs}
+            wordLang={wordLang}
+            translationLang={translationLang}
+            langsChanged={langsChanged}
+          />
+
+          {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
 
           <Button
             type="button"
@@ -289,12 +237,12 @@ export default function ImportText() {
         onCancel={() => setLeaveOpen(false)}
         onDiscard={() => {
           setLeaveOpen(false)
-          navigate(returnTo)
+          leaveClean()
         }}
         onSave={() => {
           setLeaveOpen(false)
           if (pairs.length > 0) tryCommit(pairs)
-          else navigate(returnTo)
+          else leaveClean()
         }}
       />
     </>

@@ -17,7 +17,7 @@ function isAuthFragment(hash: string): boolean {
 }
 
 /** Strip auth query/hash tokens so HashRouter sees a real app route. */
-export function cleanAuthCallbackUrl() {
+function cleanAuthCallbackUrl() {
   const url = new URL(window.location.href)
   const authQueryKeys = ["code", "token_hash", "type", "error", "error_code", "error_description"]
   let changed = false

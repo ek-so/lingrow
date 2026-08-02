@@ -223,17 +223,6 @@ export function saveLibrary(library: Library, userId?: string | null) {
   localStorage.setItem(libraryKeyForUser(userId), JSON.stringify(clean))
 }
 
-/** @deprecated Prefer loadLibrary — kept for any external callers. */
-export function loadCollections(): Collection[] {
-  return loadLibrary().collections
-}
-
-/** @deprecated Prefer saveLibrary — kept for any external callers. */
-export function saveCollections(collections: Collection[]) {
-  const existing = canUseStorage() ? loadLibrary() : defaultLibrary()
-  saveLibrary({ ...existing, collections })
-}
-
 function settingsKeyForUser(userId?: string | null) {
   return userId ? `${SETTINGS_KEY}.${userId}` : SETTINGS_KEY
 }

@@ -69,23 +69,6 @@ export function genderFromArticle(article: string | null | undefined): GermanGen
   return null
 }
 
-/** Format e.g. “der Apfel, die Äpfel” (or “Apfel, Äpfel” if gender unknown). */
-export function formatGermanNoun(
-  singular: string,
-  gender: GermanGender | null,
-  plural: string | null,
-): string {
-  const lemma = bareGermanLemma(singular) || singular.trim()
-  if (!lemma) return ""
-  const art = articleForGender(gender)
-  const sg = art ? `${art} ${lemma}` : lemma
-  const pl = plural?.trim()
-  if (!pl) return sg
-  // German plurals take “die”; keep it when we know the gender/article pair.
-  if (art) return `${sg}, die ${pl}`
-  return `${sg}, ${pl}`
-}
-
 function parseGenus(raw: string | null): GermanGender | null {
   if (!raw) return null
   const g = raw.trim().toLowerCase()
@@ -105,7 +88,7 @@ function templateField(body: string, key: string): string | null {
 }
 
 /** Parse the first {{Deutsch Substantiv Übersicht …}} block. */
-export function parseGermanNounWikitext(wikitext: string, fallbackLemma: string): GermanNounInfo | null {
+function parseGermanNounWikitext(wikitext: string, fallbackLemma: string): GermanNounInfo | null {
   const block = wikitext.match(/\{\{Deutsch Substantiv Übersicht\s*\n([\s\S]*?)\n\}\}/)
   if (!block?.[1]) return null
   const body = block[1]
@@ -129,7 +112,7 @@ export function parseGermanNounWikitext(wikitext: string, fallbackLemma: string)
 }
 
 /** Apply umlaut to the last a/o/u/au in a German stem. */
-export function umlautStem(stem: string): string {
+function umlautStem(stem: string): string {
   return stem.replace(/(au|a|o|u)(?!.*(au|a|o|u))/i, (m) => {
     const map: Record<string, string> = {
       a: "ä",
@@ -147,7 +130,7 @@ export function umlautStem(stem: string): string {
 }
 
 /** Build plural from en.wiktionary `{{de-noun|gender,genitive,plural}}` specs. */
-export function pluralFromDeNounSpec(lemma: string, pluralSpec: string): string | null {
+function pluralFromDeNounSpec(lemma: string, pluralSpec: string): string | null {
   let spec = pluralSpec.split(":")[0] ?? ""
   spec = spec.replace(/\[.*?\]/g, "").trim()
   if (!spec || spec === "-" || spec === "—" || spec === "–") return null
@@ -162,7 +145,7 @@ export function pluralFromDeNounSpec(lemma: string, pluralSpec: string): string 
 }
 
 /** Parse English Wiktionary German section `{{de-noun|…}}`. */
-export function parseEnWiktionaryDeNoun(wikitext: string, lemma: string): GermanNounInfo | null {
+function parseEnWiktionaryDeNoun(wikitext: string, lemma: string): GermanNounInfo | null {
   const german = wikitext.match(/==\s*German\s*==([\s\S]*?)(?:\n==\s*[^=]|\s*$)/i)
   const section = german?.[1] ?? ""
   if (!section) return null

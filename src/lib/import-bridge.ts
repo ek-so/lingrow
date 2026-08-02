@@ -98,11 +98,11 @@ export function clearImportStaging() {
   sessionStorage.removeItem(STAGING_KEY)
 }
 
-export function wordKey(word: string) {
+function wordKey(word: string) {
   return word.trim().toLowerCase()
 }
 
-export function normalizePairs(pairs: WordPair[]): WordPair[] {
+function normalizePairs(pairs: WordPair[]): WordPair[] {
   const seen = new Set<string>()
   const out: WordPair[] = []
   for (const pair of pairs) {

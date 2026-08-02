@@ -41,7 +41,7 @@ export function loadRecentItems(): RecentItem[] {
   return parseRecent(localStorage.getItem(RECENT_KEY))
 }
 
-export function saveRecentItems(items: RecentItem[]) {
+function saveRecentItems(items: RecentItem[]) {
   if (!canUseStorage()) return
   localStorage.setItem(RECENT_KEY, JSON.stringify(items.slice(0, MAX_RECENT)))
 }

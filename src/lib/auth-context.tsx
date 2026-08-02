@@ -9,11 +9,14 @@ import {
 } from "react"
 import type { User } from "@supabase/supabase-js"
 import { authRedirectTo, getSupabase, isSupabaseConfigured } from "@/lib/supabase"
-import {
-  dismissLoginPrompt,
-  loadLoginPromptState,
-  type AuthSession,
-} from "@/lib/prefs"
+import { dismissLoginPrompt, loadLoginPromptState } from "@/lib/prefs"
+
+export interface AuthSession {
+  id: string
+  email: string
+  name: string
+  picture?: string
+}
 
 export type AuthStatus = "loading" | "signed_out" | "signed_in" | "error"
 

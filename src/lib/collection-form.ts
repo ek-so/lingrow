@@ -9,14 +9,6 @@ export interface WordPair {
   examples?: string[]
 }
 
-export interface CollectionInput {
-  name: string
-  description?: string
-  wordLang: LangCode
-  translationLang: LangCode
-  words: WordPair[]
-}
-
 export type DraftWord = {
   key: string
   word: string

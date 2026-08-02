@@ -5,10 +5,6 @@ const EN_TO_RE = /^to\s+/i
 
 export type PrefixHint = "der" | "die" | "das" | "to"
 
-export function isPrefixHint(value: string): value is PrefixHint {
-  return value === "der" || value === "die" || value === "das" || value === "to"
-}
-
 /** True if the field already starts with this article / “to”. */
 export function hasPrefix(text: string, prefix: PrefixHint): boolean {
   const t = text.trim()
@@ -31,7 +27,7 @@ export function applyPrefix(text: string, prefix: PrefixHint): string {
 }
 
 /** Split a comma-separated translation list into trimmed parts. */
-export function splitCommaList(text: string): string[] {
+function splitCommaList(text: string): string[] {
   return text
     .split(/\s*,\s*/)
     .map((p) => p.trim())

@@ -14,13 +14,6 @@ export interface LoginPromptState {
   decidedAt?: string
 }
 
-export interface AuthSession {
-  id: string
-  email: string
-  name: string
-  picture?: string
-}
-
 function canUseStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined"
 }
@@ -37,7 +30,7 @@ export function loadLoginPromptState(): LoginPromptState {
   }
 }
 
-export function saveLoginPromptState(state: LoginPromptState) {
+function saveLoginPromptState(state: LoginPromptState) {
   if (!canUseStorage()) return
   localStorage.setItem(LOGIN_PROMPT_KEY, JSON.stringify(state))
 }

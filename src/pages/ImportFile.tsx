@@ -1,24 +1,21 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
-import {
-  DuplicateImportSheet,
-  type DuplicateImportChoice,
-} from "@/components/DuplicateImportSheet"
+import { DuplicateImportSheet } from "@/components/DuplicateImportSheet"
 import { ConfirmLeaveImportSheet } from "@/components/ConfirmLeaveImportSheet"
 import { AppHeader } from "@/components/AppHeader"
 import { AppShell } from "@/components/AppShell"
 import { PageBody, PageTitle } from "@/components/PageTitle"
-import { langLabel } from "@/lib/languages"
+import { ImportPreview } from "@/components/ImportPreview"
 import {
-  classifyImport,
   clearImportStaging,
   loadImportDraft,
   loadImportStaging,
-  saveImportResult,
   saveImportStaging,
+  type ImportDraft,
 } from "@/lib/import-bridge"
 import { detectPairLanguages, isSpreadsheetFile, parseSpreadsheetFile } from "@/lib/parse-import"
+import { importBackLabel, useImportReview } from "@/lib/use-import-review"
 import type { WordPair } from "@/lib/collection-form"
 import type { LangCode } from "@/types"
 import { Trash2, Upload } from "lucide-react"
@@ -26,31 +23,6 @@ import { Trash2, Upload } from "lucide-react"
 export default function ImportFile() {
   const navigate = useNavigate()
   const draft = loadImportDraft()
-  const fileRef = useRef<HTMLInputElement>(null)
-
-  const staged = loadImportStaging()
-  const [pairs, setPairs] = useState<WordPair[]>(() => staged?.pairs ?? [])
-  const [detectedWordLang, setDetectedWordLang] = useState<LangCode | null>(
-    () => staged?.wordLang ?? null,
-  )
-  const [detectedTranslationLang, setDetectedTranslationLang] = useState<LangCode | null>(
-    () => staged?.translationLang ?? null,
-  )
-  const [fileLabel, setFileLabel] = useState<string | null>(() => staged?.fileLabel ?? null)
-  const [error, setError] = useState<string | null>(() => staged?.error ?? null)
-  const [busy, setBusy] = useState(false)
-  const [duplicateChoice, setDuplicateChoice] = useState<DuplicateImportChoice>("skip")
-  const [pendingDuplicates, setPendingDuplicates] = useState<{
-    pairs: WordPair[]
-    duplicates: WordPair[]
-    fresh: WordPair[]
-  } | null>(null)
-  const [leaveOpen, setLeaveOpen] = useState(false)
-
-  useEffect(() => {
-    // Staging was only needed to cross the navigation boundary.
-    clearImportStaging()
-  }, [])
 
   if (!draft) {
     return (
@@ -65,43 +37,51 @@ export default function ImportFile() {
     )
   }
 
-  const { values, returnTo } = draft
-  const wordLang = detectedWordLang ?? values.wordLang
-  const translationLang = detectedTranslationLang ?? values.translationLang
-  const hasUnsaved = pairs.length > 0
-  const langsChanged =
-    (detectedWordLang != null && detectedWordLang !== values.wordLang) ||
-    (detectedTranslationLang != null && detectedTranslationLang !== values.translationLang)
+  return <ImportFileLoaded draft={draft} />
+}
 
-  function commitPairs(nextPairs: WordPair[], choice: DuplicateImportChoice | null) {
-    saveImportResult({
-      pairs: nextPairs,
-      choice,
-      wordLang: detectedWordLang ?? undefined,
-      translationLang: detectedTranslationLang ?? undefined,
-    })
+function ImportFileLoaded({ draft }: { draft: ImportDraft }) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const staged = loadImportStaging()
+  const [pairs, setPairs] = useState<WordPair[]>(() => staged?.pairs ?? [])
+  const [detectedWordLang, setDetectedWordLang] = useState<LangCode | null>(
+    () => staged?.wordLang ?? null,
+  )
+  const [detectedTranslationLang, setDetectedTranslationLang] = useState<LangCode | null>(
+    () => staged?.translationLang ?? null,
+  )
+  const [fileLabel, setFileLabel] = useState<string | null>(() => staged?.fileLabel ?? null)
+  const [error, setError] = useState<string | null>(() => staged?.error ?? null)
+  const [busy, setBusy] = useState(false)
+
+  const {
+    returnTo,
+    wordLang,
+    translationLang,
+    langsChanged,
+    duplicateChoice,
+    setDuplicateChoice,
+    pendingDuplicates,
+    setPendingDuplicates,
+    leaveOpen,
+    setLeaveOpen,
+    commitPairs,
+    tryCommit,
+    requestBack,
+    leaveClean,
+  } = useImportReview({
+    draft,
+    detectedWordLang,
+    detectedTranslationLang,
+    clearStagingOnLeave: true,
+  })
+
+  useEffect(() => {
+    // Staging was only needed to cross the navigation boundary.
     clearImportStaging()
-    navigate(returnTo)
-  }
+  }, [])
 
-  function tryCommit(nextPairs: WordPair[]) {
-    const { duplicates, fresh, normalized } = classifyImport(values.words, nextPairs)
-    if (duplicates.length === 0) {
-      commitPairs(normalized, null)
-      return
-    }
-    setPendingDuplicates({ pairs: normalized, duplicates, fresh })
-    setDuplicateChoice("skip")
-  }
-
-  function requestBack() {
-    if (!hasUnsaved) {
-      clearImportStaging()
-      navigate(returnTo)
-      return
-    }
-    setLeaveOpen(true)
-  }
+  const hasUnsaved = pairs.length > 0
 
   async function onFileChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -146,12 +126,6 @@ export default function ImportFile() {
     }
   }
 
-  const backLabel = returnTo.startsWith("/edit")
-    ? "Edit set"
-    : returnTo.startsWith("/new")
-      ? "New set"
-      : "Back"
-
   function clearAll() {
     setPairs([])
     setDetectedWordLang(null)
@@ -166,7 +140,11 @@ export default function ImportFile() {
       <AppShell
         header={
           <AppHeader
-            leading={{ kind: "back", label: backLabel, onBack: requestBack }}
+            leading={{
+              kind: "back",
+              label: importBackLabel(returnTo),
+              onBack: () => requestBack(hasUnsaved),
+            }}
           />
         }
       >
@@ -211,44 +189,12 @@ export default function ImportFile() {
           {fileLabel ? <p className="mt-2 text-xs text-muted-foreground">{fileLabel}</p> : null}
 
           {pairs.length > 0 ? (
-            <div className="mt-6">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-medium">Preview · {pairs.length} pairs</span>
-              </div>
-              {langsChanged ? (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Detected language pair: {langLabel(wordLang)} → {langLabel(translationLang)}. The
-                  list will switch to this when you add the words.
-                </p>
-              ) : null}
-              <div className="mt-3 max-h-64 overflow-auto rounded-xl border border-border">
-                <table className="w-full text-left text-sm">
-                  <thead className="sticky top-0 bg-secondary text-xs text-muted-foreground">
-                    <tr>
-                      <th className="px-3 py-2 font-medium">{langLabel(wordLang)}</th>
-                      <th className="px-3 py-2 font-medium">{langLabel(translationLang)}</th>
-                      <th className="px-3 py-2 font-medium">Examples</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pairs.slice(0, 50).map((p, i) => (
-                      <tr key={`${p.word}-${i}`} className="border-t border-border">
-                        <td className="px-3 py-2">{p.word}</td>
-                        <td className="px-3 py-2">{p.translation}</td>
-                        <td className="px-3 py-2 text-muted-foreground">
-                          {p.examples?.length ? p.examples.join(" · ") : "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {pairs.length > 50 ? (
-                  <p className="border-t border-border px-3 py-2 text-xs text-muted-foreground">
-                    Showing first 50 of {pairs.length}.
-                  </p>
-                ) : null}
-              </div>
-            </div>
+            <ImportPreview
+              pairs={pairs}
+              wordLang={wordLang}
+              translationLang={translationLang}
+              langsChanged={langsChanged}
+            />
           ) : (
             <p className="mt-6 rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
               {busy ? "Reading file…" : "Choose a spreadsheet to preview pairs here."}
@@ -297,8 +243,7 @@ export default function ImportFile() {
         onCancel={() => setLeaveOpen(false)}
         onDiscard={() => {
           setLeaveOpen(false)
-          clearImportStaging()
-          navigate(returnTo)
+          leaveClean()
         }}
         onSave={() => {
           setLeaveOpen(false)
