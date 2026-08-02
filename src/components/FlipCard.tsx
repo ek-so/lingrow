@@ -16,8 +16,12 @@ interface FlipCardProps {
   className?: string
 }
 
+const AXIS_LOCK_PX = 10
+const SWIPE_PX = 72
+
 /**
  * Flashcard: tap to flip (and parent should speak). Swipe left/right rates.
+ * Vertical movement is ignored so up/down never rates or flips.
  */
 export function FlipCard({
   front,
@@ -31,6 +35,7 @@ export function FlipCard({
 }: FlipCardProps) {
   const startX = useRef<number | null>(null)
   const startY = useRef<number | null>(null)
+  const axis = useRef<"undecided" | "x" | "y">("undecided")
   const dragging = useRef(false)
   const suppressClick = useRef(false)
   const flippedRef = useRef(flipped)
@@ -50,11 +55,19 @@ export function FlipCard({
     onFlip(!flippedRef.current)
   }
 
+  function resetPointerState() {
+    dragging.current = false
+    startX.current = null
+    startY.current = null
+    axis.current = "undecided"
+  }
+
   function onPointerDown(e: PointerEvent<HTMLDivElement>) {
     if (exiting) return
     if (e.pointerType === "mouse" && e.button !== 0) return
     startX.current = e.clientX
     startY.current = e.clientY
+    axis.current = "undecided"
     dragging.current = true
     suppressClick.current = false
     e.currentTarget.setPointerCapture(e.pointerId)
@@ -64,19 +77,31 @@ export function FlipCard({
     if (!dragging.current || startX.current == null || startY.current == null) return
     const dx = e.clientX - startX.current
     const dy = e.clientY - startY.current
-    if (Math.abs(dx) < Math.abs(dy) && Math.abs(dx) < 12) return
+
+    if (axis.current === "undecided") {
+      if (Math.hypot(dx, dy) < AXIS_LOCK_PX) return
+      // Lock to the dominant axis; vertical gestures never move the card.
+      axis.current = Math.abs(dx) > Math.abs(dy) ? "x" : "y"
+    }
+
+    if (axis.current !== "x") return
     setDragX(Math.max(-140, Math.min(140, dx)))
   }
 
   function finishGesture(clientX: number) {
     if (!dragging.current || startX.current == null) return
     const dx = clientX - startX.current
-    dragging.current = false
-    startX.current = null
-    startY.current = null
+    const locked = axis.current
+    resetPointerState()
     suppressClick.current = true
 
-    if (Math.abs(dx) > 72) {
+    // Vertical drag: ignore completely (no flip, no rate).
+    if (locked === "y") {
+      setDragX(0)
+      return
+    }
+
+    if (locked === "x" && Math.abs(dx) > SWIPE_PX) {
       const dir: CardSwipeDirection = dx < 0 ? "left" : "right"
       setExiting(true)
       setExitX(dir === "left" ? -420 : 420)
@@ -90,8 +115,10 @@ export function FlipCard({
       return
     }
 
-    // Tap / short drag — flip (parent voices the new side).
-    flip()
+    // True tap (no axis lock) — flip. Short horizontal drag just springs back.
+    if (locked === "undecided") {
+      flip()
+    }
     setDragX(0)
   }
 
@@ -104,9 +131,7 @@ export function FlipCard({
   }
 
   function onPointerCancel() {
-    dragging.current = false
-    startX.current = null
-    startY.current = null
+    resetPointerState()
     setDragX(0)
   }
 
