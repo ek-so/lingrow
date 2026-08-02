@@ -7,9 +7,10 @@ import { AppHeader } from "@/components/AppHeader"
 import { FlipCard } from "@/components/FlipCard"
 import { OverflowMenu } from "@/components/OverflowMenu"
 import { MoveToFolderSheet } from "@/components/MoveToFolderSheet"
-import { PageTitle } from "@/components/PageTitle"
+import { PAGE_CONTENT_TOP, PageTitle } from "@/components/PageTitle"
 import { StudyStats, type StudyRating } from "@/components/StudyStats"
 import { playClingSound } from "@/lib/cling"
+import { cn } from "@/lib/utils"
 import { downloadCollectionExcel } from "@/lib/export-collection"
 import { LANGS, langLabel, pairLabel } from "@/lib/languages"
 import { loadQuietMode, saveQuietMode } from "@/lib/prefs"
@@ -536,8 +537,13 @@ export default function Study() {
         }
       />
 
-      <div className="absolute inset-x-0 top-14 bottom-[4.75rem] flex flex-col overflow-hidden">
-        <div className="mx-auto w-full max-w-2xl shrink-0 px-5 pt-3">
+      <div
+        className={cn(
+          "absolute inset-x-0 top-0 bottom-[4.75rem] flex flex-col overflow-hidden",
+          PAGE_CONTENT_TOP,
+        )}
+      >
+        <div className="mx-auto w-full max-w-2xl shrink-0 px-5">
           <PageTitle className="mb-3">{collection.name}</PageTitle>
           <Progress value={progressPct} className="mb-2" />
           <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">

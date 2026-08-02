@@ -1,6 +1,9 @@
 import type { ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
+/** Viewport offset below the fixed AppHeader (h-14) before page titles. */
+export const PAGE_CONTENT_TOP = "pt-[4.5rem]"
+
 /**
  * Shared page heading. Uses a fixed title-row height so the distance from the
  * sticky header to the title stays the same with or without right-side actions.
@@ -38,6 +41,8 @@ export function PageBody({
   className?: string
 }) {
   return (
-    <div className={cn("mx-auto max-w-2xl px-5 pb-6 pt-[4.5rem]", className)}>{children}</div>
+    <div className={cn("mx-auto max-w-2xl px-5 pb-6", PAGE_CONTENT_TOP, className)}>
+      {children}
+    </div>
   )
 }
