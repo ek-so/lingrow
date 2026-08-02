@@ -563,14 +563,16 @@ export default function Study() {
               }}
               onSwipeLeft={() => rateAndAdvance(word.id, "learning", collection.words.length)}
               onSwipeRight={() => rateAndAdvance(word.id, "known", collection.words.length)}
+              corner={
+                <div className="pointer-events-auto">
+                  <CardSidePlay
+                    label={`Play ${flipped ? sides.backText : sides.frontText}`}
+                    onPlay={() => playCardSide(flipped)}
+                  />
+                </div>
+              }
               front={
-                <div className="relative flex h-full w-full flex-col items-center justify-center">
-                  <div className="absolute right-0 top-0 z-10">
-                    <CardSidePlay
-                      label={`Play ${sides.frontText}`}
-                      onPlay={() => playCardSide(false)}
-                    />
-                  </div>
+                <>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">{sides.frontHint}</p>
                   <p className="mt-3 text-3xl font-semibold tracking-tight">{sides.frontText}</p>
                   {sides.frontExamples?.length ? (
@@ -582,16 +584,10 @@ export default function Study() {
                       ))}
                     </ul>
                   ) : null}
-                </div>
+                </>
               }
               back={
-                <div className="relative flex h-full w-full flex-col items-center justify-center">
-                  <div className="absolute right-0 top-0 z-10">
-                    <CardSidePlay
-                      label={`Play ${sides.backText}`}
-                      onPlay={() => playCardSide(true)}
-                    />
-                  </div>
+                <>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">{sides.backHint}</p>
                   <p className="mt-3 text-3xl font-semibold tracking-tight">{sides.backText}</p>
                   {sides.backExamples?.length ? (
@@ -603,7 +599,7 @@ export default function Study() {
                       ))}
                     </ul>
                   ) : null}
-                </div>
+                </>
               }
             />
             <p className="mt-3 text-center text-xs text-muted-foreground">
