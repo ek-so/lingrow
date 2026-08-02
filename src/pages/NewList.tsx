@@ -31,8 +31,15 @@ export default function NewList() {
     return true
   })
 
+  function dismissKeyboard() {
+    const active = document.activeElement
+    if (active instanceof HTMLElement) active.blur()
+  }
+
   useEffect(() => {
-    if (blocker.state === "blocked") setLeaveOpen(true)
+    if (blocker.state !== "blocked") return
+    dismissKeyboard()
+    setLeaveOpen(true)
   }, [blocker.state])
 
   function closeLeaveSheet() {
@@ -61,6 +68,7 @@ export default function NewList() {
   }
 
   function requestBack() {
+    dismissKeyboard()
     if (!dirty) {
       allowNavRef.current = true
       navigate(backTo)
