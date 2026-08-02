@@ -345,11 +345,13 @@ export default function Home() {
           {childCollections.map((c) => {
             const total = c.words.length
             const saved = progressById[c.id]
+            const opened = Boolean(saved)
             const at = saved ? Math.min(saved.index, Math.max(0, total - 1)) : 0
-            // Mid-session only (finished sessions reset cursor to 0 but keep last-rep time).
-            const showProgress = Boolean(saved && total > 0 && saved.index > 0)
-            const progressPct = total > 0 ? ((at + 1) / total) * 100 : 0
-            const lastRep = saved?.updatedAt ? formatLastRepetition(saved.updatedAt) : ""
+            const position = opened ? at + 1 : 0
+            const progressPct = total > 0 ? (position / total) * 100 : 0
+            const whenLabel = saved?.updatedAt
+              ? formatLastRepetition(saved.updatedAt)
+              : "Never opened"
 
             return (
               <Card key={c.id} className="transition-colors hover:border-primary/50">
@@ -400,13 +402,13 @@ export default function Home() {
                     <span className="inline-flex rounded-full bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground">
                       {pairLabel(c.wordLang, c.translationLang)}
                     </span>
-                    {showProgress ? (
+                    {total > 0 ? (
                       <div className="mt-3">
                         <div className="mb-1.5 flex items-center justify-between gap-3 text-xs text-muted-foreground">
                           <span className="tabular-nums">
-                            {at + 1} of {total}
+                            {position} of {total}
                           </span>
-                          {lastRep ? <span>{lastRep}</span> : null}
+                          <span>{whenLabel}</span>
                         </div>
                         <Progress value={progressPct} className="h-1.5" />
                       </div>
