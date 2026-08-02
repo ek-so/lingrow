@@ -109,25 +109,18 @@ function PrefixHints({
   onApplyPrefix: (prefix: PrefixHint) => void
   onApplyPlural: (plural: string) => void
 }) {
-  if (!prefix && !plural) return null
+  // Don't offer “to” / articles once they’re already on the field.
+  const showPrefix = !!prefix && !hasPrefix(value, prefix)
+  const showPlural = !!plural && !hasGermanPlural(value, plural)
+  if (!showPrefix && !showPlural) return null
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <span className="text-[11px] text-muted-foreground">Add</span>
-      {prefix ? (
-        <Chip
-          muted
-          label={prefix}
-          active={hasPrefix(value, prefix)}
-          onClick={() => onApplyPrefix(prefix)}
-        />
+      {showPrefix && prefix ? (
+        <Chip muted label={prefix} onClick={() => onApplyPrefix(prefix)} />
       ) : null}
-      {plural ? (
-        <Chip
-          muted
-          label={`, ${plural}`}
-          active={hasGermanPlural(value, plural)}
-          onClick={() => onApplyPlural(plural)}
-        />
+      {showPlural && plural ? (
+        <Chip muted label={`, ${plural}`} onClick={() => onApplyPlural(plural)} />
       ) : null}
     </div>
   )
