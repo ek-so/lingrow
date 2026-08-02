@@ -12,31 +12,54 @@ export function LoginPrompt() {
     error,
     configured,
     confirmEmailSentTo,
+    passwordResetSentTo,
+    passwordRecovery,
   } = useAuth()
 
-  useBodyScrollLock(showLoginPrompt)
+  const open = showLoginPrompt || passwordRecovery
+  useBodyScrollLock(open)
 
   useEffect(() => {
-    if (!showLoginPrompt) return
+    if (!showLoginPrompt || passwordRecovery) return
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") continueLocally()
     }
     document.addEventListener("keydown", onKeyDown)
     return () => document.removeEventListener("keydown", onKeyDown)
-  }, [showLoginPrompt, continueLocally])
+  }, [showLoginPrompt, passwordRecovery, continueLocally])
 
-  if (!showLoginPrompt) return null
+  if (!open) return null
 
   const waitingForConfirm = Boolean(confirmEmailSentTo)
+  const waitingForReset = Boolean(passwordResetSentTo)
+
+  let title = "Sync collections to the cloud?"
+  let body =
+    "Create an account or sign in with email and password to keep your word lists in the cloud. Otherwise, collections stay on this device only."
+  if (passwordRecovery) {
+    title = "Set a new password"
+    body = "You opened a password reset link. Choose a password to use with your email next time."
+  } else if (waitingForReset) {
+    title = "Check your email"
+    body = "Open the reset link on this device, then choose a new password."
+  } else if (waitingForConfirm) {
+    title = "Confirm your email"
+    body =
+      "Check your inbox to finish creating your account, then sign in with your email and password."
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center overflow-hidden sm:items-center">
-      <button
-        type="button"
-        aria-label="Dismiss"
-        className="absolute inset-0 bg-black/40"
-        onClick={continueLocally}
-      />
+      {!passwordRecovery ? (
+        <button
+          type="button"
+          aria-label="Dismiss"
+          className="absolute inset-0 bg-black/40"
+          onClick={continueLocally}
+        />
+      ) : (
+        <div className="absolute inset-0 bg-black/40" />
+      )}
       <div
         role="dialog"
         aria-modal="true"
@@ -46,21 +69,11 @@ export function LoginPrompt() {
       >
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-border sm:hidden" />
         <h2 id="login-prompt-title" className="text-lg font-semibold tracking-tight">
-          {waitingForConfirm ? "Confirm your email" : "Sync collections to the cloud?"}
+          {title}
         </h2>
-        {waitingForConfirm ? (
-          <p className="mt-2 text-sm text-muted-foreground">
-            Check your inbox to finish creating your account, then sign in with your email and
-            password.
-          </p>
-        ) : (
-          <p className="mt-2 text-sm text-muted-foreground">
-            Create an account or sign in with email and password to keep your word lists in the
-            cloud. Otherwise, collections stay on this device only.
-          </p>
-        )}
+        <p className="mt-2 text-sm text-muted-foreground">{body}</p>
 
-        {!waitingForConfirm ? (
+        {!waitingForConfirm && !waitingForReset && !passwordRecovery ? (
           <ul className="mt-4 space-y-2 text-sm">
             <li className="flex gap-2.5">
               <Cloud className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
@@ -92,9 +105,11 @@ export function LoginPrompt() {
 
         <div className="mt-5 flex flex-col gap-2">
           <AuthForm size="lg" />
-          <Button type="button" variant="outline" onClick={continueLocally}>
-            Continue locally
-          </Button>
+          {!passwordRecovery ? (
+            <Button type="button" variant="outline" onClick={continueLocally}>
+              Continue locally
+            </Button>
+          ) : null}
         </div>
       </div>
     </div>

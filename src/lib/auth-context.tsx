@@ -17,7 +17,7 @@ import {
 
 export type AuthStatus = "loading" | "signed_out" | "signed_in" | "error"
 
-const MIN_PASSWORD_LENGTH = 6
+export const MIN_PASSWORD_LENGTH = 6
 
 interface AuthContextValue {
   status: AuthStatus
@@ -30,12 +30,19 @@ interface AuthContextValue {
   signingIn: boolean
   /** Set when sign-up needs the user to confirm their email before a session exists. */
   confirmEmailSentTo: string | null
+  /** Set after a password-reset email is requested. */
+  passwordResetSentTo: string | null
+  /** True when the user opened a recovery link and must choose a new password. */
+  passwordRecovery: boolean
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string) => Promise<void>
+  requestPasswordReset: (email: string) => Promise<void>
+  updatePassword: (password: string) => Promise<void>
   signOut: () => Promise<void>
   dismissPrompt: () => void
   continueLocally: () => void
   clearConfirmEmail: () => void
+  clearPasswordResetSent: () => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -69,6 +76,14 @@ function validateCredentials(email: string, password: string): string | null {
   return null
 }
 
+function validatePassword(password: string): string | null {
+  if (!password) return "Enter your password."
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`
+  }
+  return null
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const configured = isSupabaseConfigured()
   const [status, setStatus] = useState<AuthStatus>("loading")
@@ -77,6 +92,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [syncing, setSyncing] = useState(false)
   const [signingIn, setSigningIn] = useState(false)
   const [confirmEmailSentTo, setConfirmEmailSentTo] = useState<string | null>(null)
+  const [passwordResetSentTo, setPasswordResetSentTo] = useState<string | null>(null)
+  const [passwordRecovery, setPasswordRecovery] = useState(false)
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
 
   useEffect(() => {
@@ -117,8 +134,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     void boot()
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (cancelled) return
+      if (event === "PASSWORD_RECOVERY") {
+        setPasswordRecovery(true)
+        setPasswordResetSentTo(null)
+        setConfirmEmailSentTo(null)
+      }
       if (session?.user) {
         setUser(sessionFromUser(session.user))
         setStatus("signed_in")
@@ -130,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setUser(null)
         setStatus("signed_out")
+        setPasswordRecovery(false)
       }
     })
 
@@ -143,6 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string) => {
       setError(null)
       setConfirmEmailSentTo(null)
+      setPasswordResetSentTo(null)
       const trimmed = email.trim()
       const validationError = validateCredentials(trimmed, password)
       if (validationError) {
@@ -176,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string) => {
       setError(null)
       setConfirmEmailSentTo(null)
+      setPasswordResetSentTo(null)
       const trimmed = email.trim()
       const validationError = validateCredentials(trimmed, password)
       if (validationError) {
@@ -221,9 +246,74 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [configured]
   )
 
+  const requestPasswordReset = useCallback(
+    async (email: string) => {
+      setError(null)
+      setConfirmEmailSentTo(null)
+      setPasswordResetSentTo(null)
+      const trimmed = email.trim()
+      if (!trimmed) {
+        setError("Enter your email address.")
+        throw new Error("Email is required")
+      }
+      if (!configured) {
+        setError("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable sign-in.")
+        throw new Error("Supabase is not configured")
+      }
+      setSigningIn(true)
+      try {
+        const supabase = getSupabase()
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmed, {
+          redirectTo: authRedirectTo(),
+        })
+        if (resetError) throw resetError
+        setPasswordResetSentTo(trimmed)
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Could not send reset email"
+        setError(msg)
+        throw e
+      } finally {
+        setSigningIn(false)
+      }
+    },
+    [configured]
+  )
+
+  const updatePassword = useCallback(
+    async (password: string) => {
+      setError(null)
+      const validationError = validatePassword(password)
+      if (validationError) {
+        setError(validationError)
+        throw new Error(validationError)
+      }
+      if (!configured) {
+        setError("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable sign-in.")
+        throw new Error("Supabase is not configured")
+      }
+      setSigningIn(true)
+      try {
+        const supabase = getSupabase()
+        const { error: updateError } = await supabase.auth.updateUser({ password })
+        if (updateError) throw updateError
+        setPasswordRecovery(false)
+        setPasswordResetSentTo(null)
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Could not update password"
+        setError(msg)
+        throw e
+      } finally {
+        setSigningIn(false)
+      }
+    },
+    [configured]
+  )
+
   const signOut = useCallback(async () => {
     setError(null)
     setConfirmEmailSentTo(null)
+    setPasswordResetSentTo(null)
+    setPasswordRecovery(false)
     if (configured) {
       try {
         await getSupabase().auth.signOut()
@@ -249,6 +339,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setConfirmEmailSentTo(null)
   }, [])
 
+  const clearPasswordResetSent = useCallback(() => {
+    setPasswordResetSentTo(null)
+  }, [])
+
   const value = useMemo<AuthContextValue>(
     () => ({
       status,
@@ -260,12 +354,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       showLoginPrompt,
       signingIn,
       confirmEmailSentTo,
+      passwordResetSentTo,
+      passwordRecovery,
       signIn,
       signUp,
+      requestPasswordReset,
+      updatePassword,
       signOut,
       dismissPrompt,
       continueLocally,
       clearConfirmEmail,
+      clearPasswordResetSent,
     }),
     [
       status,
@@ -276,12 +375,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       showLoginPrompt,
       signingIn,
       confirmEmailSentTo,
+      passwordResetSentTo,
+      passwordRecovery,
       signIn,
       signUp,
+      requestPasswordReset,
+      updatePassword,
       signOut,
       dismissPrompt,
       continueLocally,
       clearConfirmEmail,
+      clearPasswordResetSent,
     ]
   )
 

@@ -14,6 +14,8 @@ export default function Profile() {
     signOut,
     configured,
     confirmEmailSentTo,
+    passwordResetSentTo,
+    passwordRecovery,
   } = useAuth()
   const { settings, setPronounceFirst, syncStatus, syncError } = useCollections()
 
@@ -96,20 +98,33 @@ export default function Profile() {
             ) : (
               <div>
                 <p className="font-medium">
-                  {confirmEmailSentTo ? "Confirm your email" : "Not signed in"}
+                  {passwordResetSentTo
+                    ? "Check your email"
+                    : confirmEmailSentTo
+                      ? "Confirm your email"
+                      : "Not signed in"}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {confirmEmailSentTo ? (
+                  {passwordResetSentTo ? (
+                    <>Open the reset link on this device, then choose a new password.</>
+                  ) : confirmEmailSentTo ? (
                     <>Open the confirmation link, then sign in with your email and password.</>
                   ) : (
                     <>
                       Sign in or create an account with email and password so Lingrow can store your
-                      collections in the cloud. Without sign-in, data stays in this browser only.
+                      collections in the cloud. Without sign-in, data stays in this browser only. If
+                      you previously used a magic link, use Forgot password to set one.
                     </>
                   )}
                 </p>
               </div>
             )}
+
+            {passwordRecovery ? (
+              <p className="mt-3 text-sm text-muted-foreground">
+                Choose a new password below to finish restoring access for this account.
+              </p>
+            ) : null}
 
             {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
             {syncError ? <p className="mt-3 text-sm text-destructive">{syncError}</p> : null}
@@ -122,7 +137,7 @@ export default function Profile() {
               </p>
             ) : null}
 
-            {!signedIn ? (
+            {!signedIn || passwordRecovery ? (
               <div className="mt-4">
                 <AuthForm layout="profile" />
               </div>
