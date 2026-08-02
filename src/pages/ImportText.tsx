@@ -11,7 +11,7 @@ import { classifyImport, loadImportDraft, saveImportResult } from "@/lib/import-
 import { parseImportText } from "@/lib/parse-import"
 import type { WordPair } from "@/lib/collection-form"
 import type { LangCode } from "@/types"
-import { ArrowLeft, ClipboardPaste } from "lucide-react"
+import { ArrowLeft, ClipboardPaste, Trash2 } from "lucide-react"
 
 const PLACEHOLDER =
   "the apple — der Apfel (Ich esse einen Apfel.)\nto run — laufen (Ich laufe jeden Morgen.)"
@@ -129,10 +129,22 @@ export default function ImportText() {
     }
   }
 
+  function clearAll() {
+    setText("")
+    setPairs([])
+    setDetectedWordLang(null)
+    setDetectedTranslationLang(null)
+    setError(null)
+    setPasteHint(null)
+    textareaRef.current?.focus()
+  }
+
+  const canClear = text.trim().length > 0 || pairs.length > 0
+
   return (
     <div className="min-h-screen bg-background">
       <header className="fixed inset-x-0 top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-5 py-3">
+        <div className="mx-auto flex max-w-2xl items-center px-5 py-3">
           <button
             type="button"
             onClick={requestBack}
@@ -141,20 +153,35 @@ export default function ImportText() {
             <ArrowLeft className="h-4 w-4" />
             Back
           </button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Paste from clipboard"
-            onClick={() => void onPasteClipboard()}
-          >
-            <ClipboardPaste className="h-5 w-5" />
-          </Button>
         </div>
       </header>
 
       <div className="mx-auto max-w-2xl px-5 pb-6 pt-[4.75rem]">
-        <h1 className="text-2xl font-semibold tracking-tight">Paste text</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">Paste text</h1>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Paste from clipboard"
+              onClick={() => void onPasteClipboard()}
+            >
+              <ClipboardPaste className="h-5 w-5" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Clear text and preview"
+              disabled={!canClear}
+              onClick={clearAll}
+              className="text-destructive hover:bg-transparent hover:text-destructive disabled:text-destructive/40"
+            >
+              <Trash2 className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
 
         <div className="mt-6 flex flex-col gap-3">
           <label className="flex flex-col gap-1.5">
@@ -178,17 +205,6 @@ export default function ImportText() {
           <div className="mt-6">
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm font-medium">Preview · {pairs.length} pairs</span>
-              <button
-                type="button"
-                className="text-xs text-muted-foreground underline hover:text-foreground"
-                onClick={() => {
-                  setPairs([])
-                  setDetectedWordLang(null)
-                  setDetectedTranslationLang(null)
-                }}
-              >
-                Clear preview
-              </button>
             </div>
             {langsChanged ? (
               <p className="mt-2 text-xs text-muted-foreground">
