@@ -6,6 +6,7 @@ import {
   type WordPair,
 } from "@/lib/collection-form"
 import { normalizeExamples } from "@/lib/examples"
+import type { LangCode } from "@/types"
 
 const DRAFT_KEY = "lingrow.import.draft.v1"
 const RESULT_KEY = "lingrow.import.result.v1"
@@ -18,6 +19,9 @@ export interface ImportDraft {
 export interface ImportResult {
   pairs: WordPair[]
   choice: DuplicateImportChoice | null
+  /** Optional language override detected from the pasted/imported text. */
+  wordLang?: LangCode
+  translationLang?: LangCode
 }
 
 function canUseStorage() {
