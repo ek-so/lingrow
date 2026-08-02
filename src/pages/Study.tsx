@@ -304,6 +304,7 @@ export default function Study() {
   }
 
   function rateAndAdvance(wordId: string, rating: StudyRating, total: number) {
+    // Jump speech to the next card; keep auto-play running unless the session ends.
     stopSpeech()
     setRatings((prev) => ({ ...prev, [wordId]: rating }))
     setFlipped(false)
@@ -445,8 +446,8 @@ export default function Study() {
 
   function goTo(newIndex: number) {
     if (!collection) return
+    // Keep auto-play on; only Pause should stop it.
     stopSpeech()
-    setPlaying(false)
     setIndex(Math.max(0, Math.min(collection.words.length - 1, newIndex)))
     setPhase("first")
     setFlipped(false)
@@ -456,7 +457,6 @@ export default function Study() {
     if (!collection) return
     const current = collection.words[index]
     stopSpeech()
-    setPlaying(false)
     setRatings((prev) => {
       const next = { ...prev }
       if (!next[current.id]) next[current.id] = "skipped"
@@ -468,6 +468,7 @@ export default function Study() {
       return next
     })
     if (index >= collection.words.length - 1) {
+      setPlaying(false)
       setView("stats")
       return
     }
