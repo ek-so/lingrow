@@ -17,6 +17,8 @@ import {
 
 export type AuthStatus = "loading" | "signed_out" | "signed_in" | "error"
 
+const MIN_PASSWORD_LENGTH = 6
+
 interface AuthContextValue {
   status: AuthStatus
   user: AuthSession | null
@@ -26,12 +28,14 @@ interface AuthContextValue {
   setSyncing: (value: boolean) => void
   showLoginPrompt: boolean
   signingIn: boolean
-  linkSentTo: string | null
-  signIn: (email: string) => Promise<void>
+  /** Set when sign-up needs the user to confirm their email before a session exists. */
+  confirmEmailSentTo: string | null
+  signIn: (email: string, password: string) => Promise<void>
+  signUp: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   dismissPrompt: () => void
   continueLocally: () => void
-  clearLinkSent: () => void
+  clearConfirmEmail: () => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -56,6 +60,15 @@ function sessionFromUser(user: User): AuthSession {
   }
 }
 
+function validateCredentials(email: string, password: string): string | null {
+  if (!email.trim()) return "Enter your email address."
+  if (!password) return "Enter your password."
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`
+  }
+  return null
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const configured = isSupabaseConfigured()
   const [status, setStatus] = useState<AuthStatus>("loading")
@@ -63,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [signingIn, setSigningIn] = useState(false)
-  const [linkSentTo, setLinkSentTo] = useState<string | null>(null)
+  const [confirmEmailSentTo, setConfirmEmailSentTo] = useState<string | null>(null)
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
 
   useEffect(() => {
@@ -111,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setStatus("signed_in")
         setShowLoginPrompt(false)
         setSigningIn(false)
-        setLinkSentTo(null)
+        setConfirmEmailSentTo(null)
         setError(null)
         dismissLoginPrompt()
       } else {
@@ -127,13 +140,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [configured])
 
   const signIn = useCallback(
-    async (email: string) => {
+    async (email: string, password: string) => {
       setError(null)
-      setLinkSentTo(null)
+      setConfirmEmailSentTo(null)
       const trimmed = email.trim()
-      if (!trimmed) {
-        setError("Enter your email address.")
-        throw new Error("Email is required")
+      const validationError = validateCredentials(trimmed, password)
+      if (validationError) {
+        setError(validationError)
+        throw new Error(validationError)
       }
       if (!configured) {
         setError("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable sign-in.")
@@ -142,16 +156,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSigningIn(true)
       try {
         const supabase = getSupabase()
-        const { error: otpError } = await supabase.auth.signInWithOtp({
+        const { error: signInError } = await supabase.auth.signInWithPassword({
           email: trimmed,
+          password,
+        })
+        if (signInError) throw signInError
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Could not sign in"
+        setError(msg)
+        throw e
+      } finally {
+        setSigningIn(false)
+      }
+    },
+    [configured]
+  )
+
+  const signUp = useCallback(
+    async (email: string, password: string) => {
+      setError(null)
+      setConfirmEmailSentTo(null)
+      const trimmed = email.trim()
+      const validationError = validateCredentials(trimmed, password)
+      if (validationError) {
+        setError(validationError)
+        throw new Error(validationError)
+      }
+      if (!configured) {
+        setError("Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable sign-in.")
+        throw new Error("Supabase is not configured")
+      }
+      setSigningIn(true)
+      try {
+        const supabase = getSupabase()
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email: trimmed,
+          password,
           options: {
             emailRedirectTo: authRedirectTo(),
           },
         })
-        if (otpError) throw otpError
-        setLinkSentTo(trimmed)
+        if (signUpError) throw signUpError
+
+        // Supabase may return a user with empty identities when the email is
+        // already registered and confirmations are enabled (anti-enumeration).
+        const identities = data.user?.identities
+        if (data.user && Array.isArray(identities) && identities.length === 0) {
+          const msg = "An account with this email already exists. Sign in instead."
+          setError(msg)
+          throw new Error(msg)
+        }
+
+        if (data.user && !data.session) {
+          setConfirmEmailSentTo(trimmed)
+        }
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "Could not send magic link"
+        const msg = e instanceof Error ? e.message : "Could not create account"
         setError(msg)
         throw e
       } finally {
@@ -163,7 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     setError(null)
-    setLinkSentTo(null)
+    setConfirmEmailSentTo(null)
     if (configured) {
       try {
         await getSupabase().auth.signOut()
@@ -185,8 +245,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setShowLoginPrompt(false)
   }, [])
 
-  const clearLinkSent = useCallback(() => {
-    setLinkSentTo(null)
+  const clearConfirmEmail = useCallback(() => {
+    setConfirmEmailSentTo(null)
   }, [])
 
   const value = useMemo<AuthContextValue>(
@@ -199,12 +259,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSyncing,
       showLoginPrompt,
       signingIn,
-      linkSentTo,
+      confirmEmailSentTo,
       signIn,
+      signUp,
       signOut,
       dismissPrompt,
       continueLocally,
-      clearLinkSent,
+      clearConfirmEmail,
     }),
     [
       status,
@@ -214,12 +275,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       syncing,
       showLoginPrompt,
       signingIn,
-      linkSentTo,
+      confirmEmailSentTo,
       signIn,
+      signUp,
       signOut,
       dismissPrompt,
       continueLocally,
-      clearLinkSent,
+      clearConfirmEmail,
     ]
   )
 

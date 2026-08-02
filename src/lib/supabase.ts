@@ -26,7 +26,7 @@ export function getSupabase(): SupabaseClient {
   return client
 }
 
-/** Where the magic link should land after sign-in. */
+/** Where email confirmation / auth redirects should land. */
 export function authRedirectTo() {
   const base = import.meta.env.BASE_URL || "/"
   const origin = typeof window !== "undefined" ? window.location.origin : ""

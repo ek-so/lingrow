@@ -1,25 +1,21 @@
-import { useState } from "react"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
+import { AuthForm } from "@/components/AuthForm"
 import { useAuth } from "@/lib/auth-context"
 import { useCollections } from "@/lib/collections-context"
 import type { PronounceFirst } from "@/types"
-import { ArrowLeft, Cloud, CloudOff, LoaderCircle, LogOut, Mail } from "lucide-react"
+import { ArrowLeft, Cloud, CloudOff, LoaderCircle, LogOut } from "lucide-react"
 
 export default function Profile() {
   const {
     user,
     error,
     syncing,
-    signingIn,
-    signIn,
     signOut,
     configured,
-    linkSentTo,
-    clearLinkSent,
+    confirmEmailSentTo,
   } = useAuth()
   const { settings, setPronounceFirst, syncStatus, syncError } = useCollections()
-  const [email, setEmail] = useState("")
 
   function onPronounceChange(value: PronounceFirst) {
     setPronounceFirst(value)
@@ -100,15 +96,15 @@ export default function Profile() {
             ) : (
               <div>
                 <p className="font-medium">
-                  {linkSentTo ? "Check your email" : "Not signed in"}
+                  {confirmEmailSentTo ? "Confirm your email" : "Not signed in"}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {linkSentTo ? (
-                    <>Open the magic link on this device to finish signing in.</>
+                  {confirmEmailSentTo ? (
+                    <>Open the confirmation link, then sign in with your email and password.</>
                   ) : (
                     <>
-                      Email yourself a magic link so Lingrow can store your collections in the cloud.
-                      Without sign-in, data stays in this browser only.
+                      Sign in or create an account with email and password so Lingrow can store your
+                      collections in the cloud. Without sign-in, data stays in this browser only.
                     </>
                   )}
                 </p>
@@ -127,51 +123,8 @@ export default function Profile() {
             ) : null}
 
             {!signedIn ? (
-              <div className="mt-4 flex flex-col gap-2">
-                {linkSentTo ? (
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      disabled={signingIn || !configured}
-                      onClick={() => {
-                        void signIn(linkSentTo).catch(() => undefined)
-                      }}
-                    >
-                      <Mail className="h-4 w-4" />
-                      {signingIn ? "Sending…" : "Resend link"}
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => clearLinkSent()}>
-                      Use a different email
-                    </Button>
-                  </div>
-                ) : (
-                  <form
-                    className="flex flex-col gap-2 sm:flex-row"
-                    onSubmit={(e) => {
-                      e.preventDefault()
-                      void signIn(email).catch(() => undefined)
-                    }}
-                  >
-                    <label className="sr-only" htmlFor="profile-email">
-                      Email
-                    </label>
-                    <input
-                      id="profile-email"
-                      type="email"
-                      autoComplete="email"
-                      inputMode="email"
-                      required
-                      placeholder="you@example.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring sm:min-w-0 sm:flex-1"
-                    />
-                    <Button type="submit" disabled={signingIn || !configured} className="shrink-0">
-                      <Mail className="h-4 w-4" />
-                      {signingIn ? "Sending…" : "Email magic link"}
-                    </Button>
-                  </form>
-                )}
+              <div className="mt-4">
+                <AuthForm layout="profile" />
               </div>
             ) : null}
           </div>
