@@ -355,56 +355,18 @@ export default function Home() {
 
             return (
               <Card key={c.id} className="transition-colors hover:border-primary/50">
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-3">
-                    <Link to={`/study/${c.id}`} className="min-w-0 flex-1">
-                      <CardTitle>{c.name}</CardTitle>
-                      {c.description ? (
-                        <CardDescription className="mt-1">{c.description}</CardDescription>
-                      ) : null}
-                    </Link>
-                    <OverflowMenu
-                      label={`Actions for ${c.name}`}
-                      items={[
-                        {
-                          label: "Edit",
-                          icon: <Pencil />,
-                          onSelect: () => navigate(`/edit/${c.id}`),
-                        },
-                        {
-                          label: "Move to…",
-                          icon: <FolderInput />,
-                          onSelect: () =>
-                            setMoveTarget({
-                              kind: "collection",
-                              id: c.id,
-                              name: c.name,
-                              folderId: c.folderId ?? null,
-                            }),
-                        },
-                        {
-                          label: "Export",
-                          icon: <Download />,
-                          onSelect: () => onExport(c),
-                        },
-                        {
-                          label: "Delete",
-                          icon: <Trash2 />,
-                          destructive: true,
-                          onSelect: () => onDeleteSet(c.id, c.name),
-                        },
-                      ]}
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Link to={`/study/${c.id}`} className="block">
-                    <span className="inline-flex rounded-full bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground">
+                <div className="flex items-start gap-2 p-4">
+                  <Link to={`/study/${c.id}`} className="min-w-0 flex-1">
+                    <CardTitle className="text-base">{c.name}</CardTitle>
+                    {c.description ? (
+                      <CardDescription className="mt-0.5 line-clamp-2">{c.description}</CardDescription>
+                    ) : null}
+                    <span className="mt-1.5 inline-flex rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
                       {pairLabel(c.wordLang, c.translationLang)}
                     </span>
                     {total > 0 ? (
-                      <div className="mt-3">
-                        <div className="mb-1.5 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                      <div className="mt-2.5">
+                        <div className="mb-1 flex items-center justify-between gap-3 text-xs text-muted-foreground">
                           <span className="tabular-nums">
                             {position} of {total}
                           </span>
@@ -414,7 +376,39 @@ export default function Home() {
                       </div>
                     ) : null}
                   </Link>
-                </CardContent>
+                  <OverflowMenu
+                    label={`Actions for ${c.name}`}
+                    items={[
+                      {
+                        label: "Edit",
+                        icon: <Pencil />,
+                        onSelect: () => navigate(`/edit/${c.id}`),
+                      },
+                      {
+                        label: "Move to…",
+                        icon: <FolderInput />,
+                        onSelect: () =>
+                          setMoveTarget({
+                            kind: "collection",
+                            id: c.id,
+                            name: c.name,
+                            folderId: c.folderId ?? null,
+                          }),
+                      },
+                      {
+                        label: "Export",
+                        icon: <Download />,
+                        onSelect: () => onExport(c),
+                      },
+                      {
+                        label: "Delete",
+                        icon: <Trash2 />,
+                        destructive: true,
+                        onSelect: () => onDeleteSet(c.id, c.name),
+                      },
+                    ]}
+                  />
+                </div>
               </Card>
             )
           })}
