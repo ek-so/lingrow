@@ -1,4 +1,5 @@
 const LOGIN_PROMPT_KEY = "lingrow.loginPrompt.v1"
+const QUIET_MODE_KEY = "lingrow.quietMode.v1"
 
 export interface LoginPromptState {
   /** User dismissed the first-visit login suggestion. */
@@ -36,4 +37,19 @@ export function saveLoginPromptState(state: LoginPromptState) {
 
 export function dismissLoginPrompt() {
   saveLoginPromptState({ dismissed: true, decidedAt: new Date().toISOString() })
+}
+
+/** Global study mute — persists across sets. */
+export function loadQuietMode(): boolean {
+  if (!canUseStorage()) return false
+  try {
+    return localStorage.getItem(QUIET_MODE_KEY) === "1"
+  } catch {
+    return false
+  }
+}
+
+export function saveQuietMode(quiet: boolean) {
+  if (!canUseStorage()) return
+  localStorage.setItem(QUIET_MODE_KEY, quiet ? "1" : "0")
 }

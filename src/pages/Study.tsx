@@ -10,7 +10,13 @@ import { StudyStats, type StudyRating } from "@/components/StudyStats"
 import { playClingSound } from "@/lib/cling"
 import { downloadCollectionExcel } from "@/lib/export-collection"
 import { LANGS, langLabel, pairLabel } from "@/lib/languages"
+import { loadQuietMode, saveQuietMode } from "@/lib/prefs"
 import { recordRecentOpen } from "@/lib/recent"
+import {
+  clearStudyProgress,
+  loadStudyProgress,
+  saveStudyProgress,
+} from "@/lib/study-progress"
 import { useWakeLock } from "@/lib/use-wake-lock"
 import {
   ArrowLeft,
@@ -19,9 +25,12 @@ import {
   Pause,
   Pencil,
   Play,
+  RotateCcw,
   SkipBack,
   SkipForward,
   Trash2,
+  Volume2,
+  VolumeX,
 } from "lucide-react"
 import type { Collection, PronounceFirst, Word } from "@/types"
 
@@ -53,27 +62,55 @@ export default function Study() {
   const [moveOpen, setMoveOpen] = useState(false)
   const [view, setView] = useState<StudyView>("cards")
   const [ratings, setRatings] = useState<Record<string, StudyRating>>({})
+  const [quiet, setQuiet] = useState(() => loadQuietMode())
   const voicesRef = useRef<SpeechSynthesisVoice[]>([])
   const timeoutRef = useRef<number | null>(null)
   const clingPlayed = useRef(false)
   const speakGen = useRef(0)
+  const quietRef = useRef(quiet)
+  quietRef.current = quiet
 
   // Keep the screen on during play so speechSynthesis is not suspended by lock.
   useWakeLock(playing && view === "cards")
 
-  function resetSession() {
+  function stopSpeech() {
+    speakGen.current += 1
+    window.speechSynthesis.cancel()
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+  }
+
+  function resetToFirstWord() {
     stopSpeech()
     setIndex(0)
+    setPlaying(false)
+    setPhase("first")
+    setFlipped(false)
+    setRatings({})
+    if (id) clearStudyProgress(id)
+  }
+
+  function resetSession() {
+    resetToFirstWord()
+    setView("cards")
+    clingPlayed.current = false
+  }
+
+  useEffect(() => {
+    stopSpeech()
     setPlaying(false)
     setPhase("first")
     setFlipped(false)
     setView("cards")
     setRatings({})
     clingPlayed.current = false
-  }
 
-  useEffect(() => {
-    resetSession()
+    if (!id || !collection) {
+      setIndex(0)
+      return
+    }
+    const saved = loadStudyProgress(id)
+    const max = Math.max(0, collection.words.length - 1)
+    setIndex(saved ? Math.min(Math.max(0, saved.index), max) : 0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, pronounceFirst])
 
@@ -84,6 +121,11 @@ export default function Study() {
     // Record once per set id when the set exists.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
+
+  useEffect(() => {
+    if (!id || !collection || view !== "cards") return
+    saveStudyProgress(id, index)
+  }, [id, index, view, collection])
 
   useEffect(() => {
     function loadVoices() {
@@ -105,10 +147,23 @@ export default function Study() {
   useEffect(() => {
     if (view !== "stats" || clingPlayed.current) return
     clingPlayed.current = true
-    playClingSound()
-  }, [view])
+    if (id) clearStudyProgress(id)
+    if (!quietRef.current) playClingSound()
+  }, [view, id])
 
   function speak(text: string, lang: string, onEnd?: () => void) {
+    const gen = speakGen.current
+
+    if (quietRef.current) {
+      if (!onEnd) return
+      const ms = Math.min(1100, Math.max(280, text.trim().split(/\s+/).length * 260))
+      timeoutRef.current = window.setTimeout(() => {
+        if (speakGen.current !== gen) return
+        onEnd()
+      }, ms)
+      return
+    }
+
     const utter = new SpeechSynthesisUtterance(text)
     utter.lang = lang
     const prefix = lang.toLowerCase().slice(0, 2)
@@ -118,7 +173,6 @@ export default function Study() {
     if (voice) utter.voice = voice
     utter.rate = 0.95
     if (onEnd) {
-      const gen = speakGen.current
       utter.onend = () => {
         if (speakGen.current !== gen) return
         onEnd()
@@ -241,27 +295,33 @@ export default function Study() {
       }, BETWEEN_CARDS_MS)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, phase, index, pronounceFirst, view])
+  }, [playing, phase, index, pronounceFirst, view, quiet])
 
   // Manual study: pronounce the front side once when landing on a card.
   useEffect(() => {
     if (playing || view !== "cards" || !collection) return
     if (flipped) return
+    if (quiet) return
     speakVisibleSide(index, false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, playing, view, id, pronounceFirst])
-
-  function stopSpeech() {
-    speakGen.current += 1
-    window.speechSynthesis.cancel()
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
-  }
+  }, [index, playing, view, id, pronounceFirst, quiet])
 
   function handleFlip(next: boolean) {
     setFlipped(next)
     if (view !== "cards") return
+    if (quiet) return
     // Always voice the side that becomes visible after a flip.
     speakVisibleSide(index, next)
+  }
+
+  function toggleQuiet() {
+    const next = !quiet
+    saveQuietMode(next)
+    setQuiet(next)
+    // Cancel any in-flight utterance; auto-play effect restarts via `quiet` dep.
+    speakGen.current += 1
+    window.speechSynthesis.cancel()
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
   }
 
   if (!collection) {
@@ -363,6 +423,7 @@ export default function Study() {
     if (!collection) return
     if (!window.confirm(`Delete “${collection.name}”? This can’t be undone.`)) return
     stopSpeech()
+    clearStudyProgress(collection.id)
     deleteCollection(collection.id)
     navigate(backTo)
   }
@@ -488,7 +549,16 @@ export default function Study() {
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border/80 bg-background/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-2xl items-center justify-center gap-4 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="mx-auto flex max-w-2xl items-center justify-center gap-2 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:gap-3">
+          <Button
+            variant={quiet ? "secondary" : "outline"}
+            size="icon"
+            aria-label={quiet ? "Sound on" : "Quiet mode"}
+            aria-pressed={quiet}
+            onClick={toggleQuiet}
+          >
+            {quiet ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+          </Button>
           <Button
             variant="outline"
             size="icon"
@@ -498,7 +568,7 @@ export default function Study() {
           >
             <SkipBack className="h-4 w-4" />
           </Button>
-          <Button size="lg" onClick={togglePlay} className="w-32">
+          <Button size="lg" onClick={togglePlay} className="w-28 sm:w-32">
             {playing ? (
               <>
                 <Pause className="h-4 w-4" /> Pause
@@ -511,6 +581,15 @@ export default function Study() {
           </Button>
           <Button variant="outline" size="icon" aria-label="Next" onClick={goNext}>
             <SkipForward className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Reset to first word"
+            onClick={resetToFirstWord}
+            disabled={index === 0 && !playing && !flipped}
+          >
+            <RotateCcw className="h-4 w-4" />
           </Button>
         </div>
       </div>
