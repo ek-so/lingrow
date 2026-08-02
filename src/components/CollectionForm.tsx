@@ -455,6 +455,8 @@ export function CollectionForm({
     })),
   )
   const [error, setError] = useState<string | null>(null)
+  const [nameError, setNameError] = useState(false)
+  const nameInputRef = useRef<HTMLInputElement>(null)
 
   const sameLanguage = wordLang === translationLang
 
@@ -482,9 +484,15 @@ export function CollectionForm({
     const trimmedName = name.trim()
     const validWords = pairsFromDraft(words)
     if (!trimmedName) {
-      setError("Give your list a name.")
+      setNameError(true)
+      setError(null)
+      requestAnimationFrame(() => {
+        nameInputRef.current?.focus({ preventScroll: true })
+        nameInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+      })
       return false
     }
+    setNameError(false)
     if (validWords.length === 0) {
       setError(
         sameLanguage
@@ -522,11 +530,26 @@ export function CollectionForm({
       <label className="flex flex-col gap-1.5">
         <span className="text-sm font-medium">Name</span>
         <input
+          ref={nameInputRef}
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value)
+            if (nameError) setNameError(false)
+          }}
           placeholder="e.g. Kitchen verbs"
-          className={inputClassName}
+          aria-invalid={nameError || undefined}
+          aria-describedby={nameError ? "name-error" : undefined}
+          className={
+            nameError
+              ? `${inputClassName} border-destructive focus:ring-destructive`
+              : inputClassName
+          }
         />
+        {nameError ? (
+          <span id="name-error" className="text-xs text-destructive">
+            Enter a name to save
+          </span>
+        ) : null}
       </label>
 
       <label className="flex flex-col gap-1.5">
