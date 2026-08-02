@@ -11,6 +11,7 @@ import { playClingSound } from "@/lib/cling"
 import { downloadCollectionExcel } from "@/lib/export-collection"
 import { LANGS, langLabel, pairLabel } from "@/lib/languages"
 import { recordRecentOpen } from "@/lib/recent"
+import { prefetchSpeech, speak as speakAudio, stopSpeaking } from "@/lib/speech"
 import { useWakeLock } from "@/lib/use-wake-lock"
 import {
   ArrowLeft,
@@ -53,12 +54,11 @@ export default function Study() {
   const [moveOpen, setMoveOpen] = useState(false)
   const [view, setView] = useState<StudyView>("cards")
   const [ratings, setRatings] = useState<Record<string, StudyRating>>({})
-  const voicesRef = useRef<SpeechSynthesisVoice[]>([])
   const timeoutRef = useRef<number | null>(null)
   const clingPlayed = useRef(false)
   const speakGen = useRef(0)
 
-  // Keep the screen on during play so speechSynthesis is not suspended by lock.
+  // Keep the screen on during play so gaps between clips are less likely to sleep the device.
   useWakeLock(playing && view === "cards")
 
   function resetSession() {
@@ -86,13 +86,8 @@ export default function Study() {
   }, [id])
 
   useEffect(() => {
-    function loadVoices() {
-      voicesRef.current = window.speechSynthesis.getVoices()
-    }
-    loadVoices()
-    window.speechSynthesis.onvoiceschanged = loadVoices
     return () => {
-      window.speechSynthesis.cancel()
+      stopSpeaking()
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
     }
   }, [])
@@ -109,27 +104,32 @@ export default function Study() {
   }, [view])
 
   function speak(text: string, lang: string, onEnd?: () => void) {
-    const utter = new SpeechSynthesisUtterance(text)
-    utter.lang = lang
-    const prefix = lang.toLowerCase().slice(0, 2)
-    const voice =
-      voicesRef.current.find((v) => v.lang.toLowerCase().startsWith(lang.toLowerCase())) ??
-      voicesRef.current.find((v) => v.lang.toLowerCase().startsWith(prefix))
-    if (voice) utter.voice = voice
-    utter.rate = 0.95
-    if (onEnd) {
-      const gen = speakGen.current
-      utter.onend = () => {
-        if (speakGen.current !== gen) return
-        onEnd()
-      }
-    }
-    window.speechSynthesis.speak(utter)
+    const gen = speakGen.current
+    speakAudio(text, lang, () => {
+      if (speakGen.current !== gen) return
+      onEnd?.()
+    })
   }
 
   function speakOnce(text: string, lang: string) {
-    window.speechSynthesis.cancel()
+    stopSpeaking()
     speak(text, lang)
+  }
+
+  function prefetchAround(wordIndex: number, fromPhase: SpeakPhase) {
+    if (!collection) return
+    const items: { text: string; lang: string }[] = []
+    const currentWord = collection.words[wordIndex]
+    if (currentWord) {
+      const sides = sidesForWord(collection, currentWord)
+      if (fromPhase === "first") items.push(sides.second)
+    }
+    const nextWord = collection.words[wordIndex + 1]
+    if (nextWord) {
+      const nextSides = sidesForWord(collection, nextWord)
+      items.push(nextSides.first, nextSides.second)
+    }
+    prefetchSpeech(items)
   }
 
   function speakVisibleSide(wordIndex: number, showBack: boolean) {
@@ -211,9 +211,10 @@ export default function Study() {
     if (!word) return
     const sides = sidesForWord(collection, word)
     const gen = speakGen.current
+    prefetchAround(index, phase)
 
     if (phase === "first") {
-      window.speechSynthesis.cancel()
+      stopSpeaking()
       speak(sides.first.text, sides.first.lang, () => {
         timeoutRef.current = window.setTimeout(() => {
           if (speakGen.current !== gen) return
@@ -248,12 +249,14 @@ export default function Study() {
     if (playing || view !== "cards" || !collection) return
     if (flipped) return
     speakVisibleSide(index, false)
+    // Warm the back side (and next card) so flips feel instant.
+    prefetchAround(index, "first")
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, playing, view, id, pronounceFirst])
 
   function stopSpeech() {
     speakGen.current += 1
-    window.speechSynthesis.cancel()
+    stopSpeaking()
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
   }
 
