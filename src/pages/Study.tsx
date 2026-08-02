@@ -11,6 +11,7 @@ import { playClingSound } from "@/lib/cling"
 import { downloadCollectionExcel } from "@/lib/export-collection"
 import { LANGS, langLabel, pairLabel } from "@/lib/languages"
 import { recordRecentOpen } from "@/lib/recent"
+import { useWakeLock } from "@/lib/use-wake-lock"
 import {
   ArrowLeft,
   Download,
@@ -56,6 +57,9 @@ export default function Study() {
   const timeoutRef = useRef<number | null>(null)
   const clingPlayed = useRef(false)
   const speakGen = useRef(0)
+
+  // Keep the screen on during play so speechSynthesis is not suspended by lock.
+  useWakeLock(playing && view === "cards")
 
   function resetSession() {
     stopSpeech()
