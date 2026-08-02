@@ -13,12 +13,22 @@ import { useUnsavedChangesGuard } from "@/lib/use-unsaved-changes"
 export default function EditList() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { getCollection, getFolder, folders, updateCollection } = useCollections()
+  const { getCollection, folders, updateCollection } = useCollections()
   const collection = id ? getCollection(id) : undefined
-  const parentFolder = collection?.folderId ? getFolder(collection.folderId) : undefined
-  const backTo = parentFolder ? `/folder/${parentFolder.id}` : "/"
-  const backLabel = parentFolder?.name ?? "My sets"
-  const backTrail = folderTrailUp(folders, collection?.folderId ?? null)
+  // Edit is a subpage of the set (study), not of the containing folder.
+  const backTo = collection ? `/study/${collection.id}` : "/"
+  const backLabel = collection?.name ?? "Back"
+  const backTrail = collection
+    ? [
+        {
+          id: collection.id,
+          label: collection.name,
+          to: `/study/${collection.id}`,
+          kind: "set" as const,
+        },
+        ...folderTrailUp(folders, collection.folderId ?? null),
+      ]
+    : []
 
   const [dirty, setDirty] = useState(false)
   const submitRef = useRef<(() => boolean) | null>(null)
