@@ -94,21 +94,21 @@
           dismissed the sign-in suggestion.
         </li>
         <li>
-          <strong>If you sign in with email:</strong> your email address (and a hashed password
-          managed by Supabase Auth) used to identify your session.
+          <strong>If you sign in with GitHub:</strong> your GitHub account identity (and related
+          profile details such as name, avatar, and email if provided by GitHub) used by Supabase
+          Auth to identify your session.
         </li>
         <li>
-          <strong>If you sign in with email:</strong> your word lists and settings stored in
+          <strong>If you sign in with GitHub:</strong> your word lists and settings stored in
           Lingrow’s Supabase database, scoped to your account, so they can sync across devices.
         </li>
       </ul>
 
-      <h2>3. How email / Supabase access works</h2>
+      <h2>3. How GitHub / Supabase access works</h2>
       <p>
-        Email sign-in is optional. If you choose it, authentication is handled by Supabase using
-        email and password (with an optional confirmation email when creating an account). Lingrow
-        then reads and writes only your own collections and settings in the database (enforced with
-        row-level security).
+        GitHub sign-in is optional. If you choose it, authentication is handled by Supabase using
+        GitHub OAuth. Lingrow then reads and writes only your own collections and settings in the
+        database (enforced with row-level security).
       </p>
       <p>
         You can sign out from Lingrow Profile at any time. Clearing site data in your browser
@@ -119,15 +119,15 @@
       <ul>
         <li>We do not sell your personal information.</li>
         <li>We do not use your vocabulary data for advertising.</li>
-        <li>We do not require a social login provider; sign-in is email-only.</li>
+        <li>We do not require email/password registration; optional sign-in is via GitHub.</li>
       </ul>
 
       <h2>5. Where data lives</h2>
       <p>
-        Without sign-in, data remains in your browser on that device. With email sign-in,
+        Without sign-in, data remains in your browser on that device. With GitHub sign-in,
         collections and settings are also stored in Supabase (cloud database) under your user id,
-        in addition to a local cache in your browser. Supabase processes auth data under
-        its own terms and privacy policies.
+        in addition to a local cache in your browser. Supabase and GitHub process auth data under
+        their own terms and privacy policies.
       </p>
 
       <h2>6. Cookies and similar technologies</h2>

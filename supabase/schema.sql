@@ -1,5 +1,5 @@
 -- Lingrow cloud schema (run in Supabase SQL editor)
--- Enables per-user collections synced from the app via email magic-link auth.
+-- Enables per-user collections synced from the app via GitHub OAuth (Supabase Auth).
 
 create table if not exists public.folders (
   id text primary key,
