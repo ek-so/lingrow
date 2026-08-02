@@ -4,6 +4,7 @@ import { useCollections } from "@/lib/collections-context"
 import { useAuth } from "@/lib/auth-context"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
 import { OverflowMenu } from "@/components/OverflowMenu"
 import { CreateItemSheet } from "@/components/CreateItemSheet"
 import { MoveHereSheet } from "@/components/MoveHereSheet"
@@ -343,7 +344,12 @@ export default function Home() {
           })}
 
           {childCollections.map((c) => {
+            const total = c.words.length
             const saved = progressById[c.id]
+            const at = saved ? Math.min(saved.index, Math.max(0, total - 1)) : 0
+            // Mid-session only (finished sessions reset cursor to 0 but keep last-rep time).
+            const showProgress = Boolean(saved && total > 0 && saved.index > 0)
+            const progressPct = total > 0 ? ((at + 1) / total) * 100 : 0
             const lastRep = saved?.updatedAt ? formatLastRepetition(saved.updatedAt) : ""
 
             return (
@@ -391,17 +397,27 @@ export default function Home() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <Link
-                    to={`/study/${c.id}`}
-                    className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2"
-                  >
-                    <span className="rounded-full bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground">
-                      {pairLabel(c.wordLang, c.translationLang)}
-                    </span>
-                    {lastRep ? (
-                      <span className="text-xs text-muted-foreground">
-                        Last repetition · {lastRep}
+                  <Link to={`/study/${c.id}`} className="block">
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                      <span className="rounded-full bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground">
+                        {pairLabel(c.wordLang, c.translationLang)}
                       </span>
+                      {lastRep ? (
+                        <span className="text-xs text-muted-foreground">
+                          Last repetition · {lastRep}
+                        </span>
+                      ) : null}
+                    </div>
+                    {showProgress ? (
+                      <div className="mt-3">
+                        <div className="mb-1.5 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                          <span>Left off</span>
+                          <span className="tabular-nums">
+                            {at + 1} / {total}
+                          </span>
+                        </div>
+                        <Progress value={progressPct} className="h-1.5" />
+                      </div>
                     ) : null}
                   </Link>
                 </CardContent>
