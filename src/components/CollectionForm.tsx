@@ -673,10 +673,6 @@ export function CollectionForm({
 
       <div>
         <span className="text-sm font-medium">Words</span>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Type a bare word — we’ll suggest translations, light article/“to” chips you can accept,
-          and example sentences. Tap translations to stack them with commas.
-        </p>
 
         <input
           ref={fileInputRef}
