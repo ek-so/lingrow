@@ -10,4 +10,3 @@ Collections stay in your browser by default. You can optionally sign in with Git
 
 - [Word suggestions (translations, examples, German plurals)](docs/word-suggestions.md) — where auto-fill data comes from
 - [Background pronunciation](docs/background-pronunciation.md) — lock-screen / background audio via `<audio>` TTS
-- [Supabase ↔ GitHub auth](docs/supabase-github-auth.md) — reconnect OAuth if sign-in breaks
