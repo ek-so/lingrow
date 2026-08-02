@@ -167,6 +167,12 @@ export default function ImportFile() {
         header={
           <AppHeader
             leading={{ kind: "back", label: backLabel, onBack: requestBack }}
+          />
+        }
+      >
+        <PageBody>
+          <PageTitle
+            description="Spreadsheet columns: word, translation, optional examples. Header optional."
             actions={
               <Button
                 type="button"
@@ -180,11 +186,7 @@ export default function ImportFile() {
                 <Trash2 className="h-5 w-5" />
               </Button>
             }
-          />
-        }
-      >
-        <PageBody>
-          <PageTitle description="Spreadsheet columns: word, translation, optional examples. Header optional.">
+          >
             Import file
           </PageTitle>
 

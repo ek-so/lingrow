@@ -155,6 +155,11 @@ export default function ImportText() {
         header={
           <AppHeader
             leading={{ kind: "back", label: backLabel, onBack: requestBack }}
+          />
+        }
+      >
+        <PageBody>
+          <PageTitle
             actions={
               <>
                 <Button
@@ -179,11 +184,9 @@ export default function ImportText() {
                 </Button>
               </>
             }
-          />
-        }
-      >
-        <PageBody>
-          <PageTitle>Paste text</PageTitle>
+          >
+            Paste text
+          </PageTitle>
 
         <div className="mt-6 flex flex-col gap-3">
           <label className="flex flex-col gap-1.5">

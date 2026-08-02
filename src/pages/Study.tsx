@@ -501,47 +501,6 @@ export default function Study() {
         header={
           <AppHeader
             leading={{ kind: "back", label: backLabel, to: backTo, trail: backTrail }}
-            actions={
-              <>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Edit set"
-                  onClick={() => {
-                    stopSpeech()
-                    navigate(`/edit/${collection.id}`)
-                  }}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <OverflowMenu
-                  label={`Actions for ${collection.name}`}
-                  items={[
-                    {
-                      label: "Move to…",
-                      icon: <FolderInput />,
-                      onSelect: () => {
-                        stopSpeech()
-                        setPlaying(false)
-                        setMoveOpen(true)
-                      },
-                    },
-                    {
-                      label: "Export",
-                      icon: <Download />,
-                      onSelect: onExport,
-                    },
-                    {
-                      label: "Delete",
-                      icon: <Trash2 />,
-                      destructive: true,
-                      onSelect: onDelete,
-                    },
-                  ]}
-                />
-              </>
-            }
           />
         }
         footer={
@@ -594,7 +553,52 @@ export default function Study() {
       >
         <div className="flex h-full flex-col overflow-hidden">
           <div className="mx-auto w-full max-w-2xl shrink-0 px-5 pt-5">
-            <PageTitle className="mb-3">{collection.name}</PageTitle>
+            <PageTitle
+              className="mb-3"
+              actions={
+                <>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Edit set"
+                    onClick={() => {
+                      stopSpeech()
+                      navigate(`/edit/${collection.id}`)
+                    }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <OverflowMenu
+                    label={`Actions for ${collection.name}`}
+                    items={[
+                      {
+                        label: "Move to…",
+                        icon: <FolderInput />,
+                        onSelect: () => {
+                          stopSpeech()
+                          setPlaying(false)
+                          setMoveOpen(true)
+                        },
+                      },
+                      {
+                        label: "Export",
+                        icon: <Download />,
+                        onSelect: onExport,
+                      },
+                      {
+                        label: "Delete",
+                        icon: <Trash2 />,
+                        destructive: true,
+                        onSelect: onDelete,
+                      },
+                    ]}
+                  />
+                </>
+              }
+            >
+              {collection.name}
+            </PageTitle>
             <Progress value={progressPct} className="mb-2" />
             <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
               <span>{pairLabel(collection.wordLang, collection.translationLang)}</span>

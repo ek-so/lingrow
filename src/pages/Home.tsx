@@ -211,6 +211,36 @@ export default function Home() {
     </button>
   )
 
+  const folderOverflow = currentFolder ? (
+    <OverflowMenu
+      label={`Actions for ${currentFolder.name}`}
+      items={[
+        {
+          label: "Rename",
+          icon: <Pencil />,
+          onSelect: () => setRenameTarget(currentFolder),
+        },
+        {
+          label: "Move to…",
+          icon: <FolderInput />,
+          onSelect: () =>
+            setMoveTarget({
+              kind: "folder",
+              id: currentFolder.id,
+              name: currentFolder.name,
+              parentId: currentFolder.parentId,
+            }),
+        },
+        {
+          label: "Delete",
+          icon: <Trash2 />,
+          destructive: true,
+          onSelect: () => onDeleteFolder(currentFolder),
+        },
+      ]}
+    />
+  ) : null
+
   const header = currentFolder ? (
     <AppHeader
       leading={{
@@ -221,39 +251,7 @@ export default function Home() {
         to: parentPath(),
         trail: folderTrailUp(folders, currentFolder.parentId),
       }}
-      actions={
-        <>
-          {searchButton}
-          {createButton}
-          <OverflowMenu
-            label={`Actions for ${currentFolder.name}`}
-            items={[
-              {
-                label: "Rename",
-                icon: <Pencil />,
-                onSelect: () => setRenameTarget(currentFolder),
-              },
-              {
-                label: "Move to…",
-                icon: <FolderInput />,
-                onSelect: () =>
-                  setMoveTarget({
-                    kind: "folder",
-                    id: currentFolder.id,
-                    name: currentFolder.name,
-                    parentId: currentFolder.parentId,
-                  }),
-              },
-              {
-                label: "Delete",
-                icon: <Trash2 />,
-                destructive: true,
-                onSelect: () => onDeleteFolder(currentFolder),
-              },
-            ]}
-          />
-        </>
-      }
+      actions={searchButton}
     />
   ) : (
     <AppHeader
@@ -276,7 +274,8 @@ export default function Home() {
           actions={
             <>
               <SortMenu value={sortMode} onChange={onSortChange} />
-              {currentFolder ? null : createButton}
+              {createButton}
+              {folderOverflow}
             </>
           }
         >

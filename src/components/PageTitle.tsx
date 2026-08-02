@@ -5,8 +5,9 @@ import { cn } from "@/lib/utils"
 export const PAGE_CONTENT_TOP = "pt-5"
 
 /**
- * Shared page heading. Uses a fixed title-row height so the distance from the
- * app header to the title stays the same with or without right-side actions.
+ * Shared page heading with optional actions (create, overflow ⋯, edit, etc.).
+ * Uses a fixed title-row height so the distance from the app header to the
+ * title stays the same with or without right-side actions.
  */
 export function PageTitle({
   children,

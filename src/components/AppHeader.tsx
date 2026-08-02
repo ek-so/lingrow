@@ -118,8 +118,9 @@ function BreadcrumbTrailMenu({
 }
 
 /**
- * Top app bar for AppShell — brand on the home root, back + label on inner
- * pages, optional actions on the right. Stays pinned via the shell layout
+ * Top app bar for AppShell — brand or breadcrumbs on the left; search and/or
+ * profile on the right. Page-level actions (create, overflow ⋯, edit, etc.)
+ * belong beside `PageTitle`, not here. Stays pinned via the shell layout
  * (not document `position: fixed`).
  */
 export function AppHeader({ leading, actions, className }: AppHeaderProps) {
