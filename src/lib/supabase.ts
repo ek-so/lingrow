@@ -30,5 +30,6 @@ export function getSupabase(): SupabaseClient {
 export function authRedirectTo() {
   const base = import.meta.env.BASE_URL || "/"
   const origin = typeof window !== "undefined" ? window.location.origin : ""
-  return `${origin}${base.replace(/\/?$/, "/")}app.html`
+  // Include a HashRouter path so callbacks never leave an empty/invalid hash.
+  return `${origin}${base.replace(/\/?$/, "/")}app.html#/`
 }

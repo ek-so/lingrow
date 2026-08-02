@@ -10,11 +10,21 @@
     <title>Lingrow</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <script>
-      // Old app bookmarks used /lingrow/#/... — send those to the app entry.
-      if (location.hash && location.hash.length > 1) {
-        var base = location.pathname.replace(/\/?$/, "/")
-        location.replace(base + "app.html" + location.search + location.hash)
-      }
+      // Send SPA routes and auth callbacks to the app entry.
+      // Auth links may use ?code= / ?token_hash= or a hash fragment with tokens
+      // (not #/...), which must not stay on this marketing page.
+      (function () {
+        var search = location.search || ""
+        var hash = location.hash || ""
+        var params = new URLSearchParams(search)
+        var isAuthQuery = params.has("code") || params.has("token_hash")
+        var isAppRoute = hash.indexOf("#/") === 0
+        var isAuthHash = hash.length > 1 && hash.indexOf("#/") !== 0
+        if (isAuthQuery || isAppRoute || isAuthHash) {
+          var base = location.pathname.replace(/\/?$/, "/")
+          location.replace(base + "app.html" + search + hash)
+        }
+      })()
     </script>
     <style>
       :root {

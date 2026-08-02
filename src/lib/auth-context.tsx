@@ -8,6 +8,10 @@ import {
   type ReactNode,
 } from "react"
 import type { User } from "@supabase/supabase-js"
+import {
+  clearPendingPasswordRecovery,
+  isPendingPasswordRecovery,
+} from "@/lib/auth-bootstrap"
 import { authRedirectTo, getSupabase, isSupabaseConfigured } from "@/lib/supabase"
 import {
   dismissLoginPrompt,
@@ -93,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [signingIn, setSigningIn] = useState(false)
   const [confirmEmailSentTo, setConfirmEmailSentTo] = useState<string | null>(null)
   const [passwordResetSentTo, setPasswordResetSentTo] = useState<string | null>(null)
-  const [passwordRecovery, setPasswordRecovery] = useState(false)
+  const [passwordRecovery, setPasswordRecovery] = useState(() => isPendingPasswordRecovery())
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
 
   useEffect(() => {
@@ -122,6 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           setUser(null)
           setStatus("signed_out")
+          setPasswordRecovery(false)
           setShowLoginPrompt(!prompt.dismissed)
         }
       } catch (e) {
@@ -297,6 +302,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { error: updateError } = await supabase.auth.updateUser({ password })
         if (updateError) throw updateError
         setPasswordRecovery(false)
+        clearPendingPasswordRecovery()
         setPasswordResetSentTo(null)
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Could not update password"
@@ -314,6 +320,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setConfirmEmailSentTo(null)
     setPasswordResetSentTo(null)
     setPasswordRecovery(false)
+    clearPendingPasswordRecovery()
     if (configured) {
       try {
         await getSupabase().auth.signOut()

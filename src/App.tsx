@@ -1,4 +1,4 @@
-import { createHashRouter, Outlet, RouterProvider } from "react-router-dom"
+import { createHashRouter, Navigate, Outlet, RouterProvider } from "react-router-dom"
 import { AuthProvider } from "@/lib/auth-context"
 import { CollectionsProvider } from "@/lib/collections-context"
 import { LoginPrompt } from "@/components/LoginPrompt"
@@ -22,6 +22,7 @@ function AppLayout() {
 const router = createHashRouter([
   {
     element: <AppLayout />,
+    errorElement: <Navigate to="/" replace />,
     children: [
       { path: "/", element: <Home /> },
       { path: "/folder/:folderId", element: <Home /> },
@@ -31,6 +32,7 @@ const router = createHashRouter([
       { path: "/import/text", element: <ImportText /> },
       { path: "/study/:id", element: <Study /> },
       { path: "/profile", element: <Profile /> },
+      { path: "*", element: <Navigate to="/" replace /> },
     ],
   },
 ])
