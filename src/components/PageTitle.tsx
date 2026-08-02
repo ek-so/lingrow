@@ -38,6 +38,6 @@ export function PageBody({
   className?: string
 }) {
   return (
-    <div className={cn("mx-auto max-w-2xl px-5 pb-6 pt-[4.75rem]", className)}>{children}</div>
+    <div className={cn("mx-auto max-w-2xl px-5 pb-6 pt-[4.5rem]", className)}>{children}</div>
   )
 }
