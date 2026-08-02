@@ -4,6 +4,7 @@ import { useCollections } from "@/lib/collections-context"
 import { useAuth } from "@/lib/auth-context"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
 import { OverflowMenu } from "@/components/OverflowMenu"
 import { CreateItemSheet } from "@/components/CreateItemSheet"
 import { MoveHereSheet } from "@/components/MoveHereSheet"
@@ -90,6 +91,9 @@ export default function Home() {
     return sortCollections(siblings, sortMode, loadStudyProgressMap())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collections, currentFolderId, sortMode, location.key])
+
+  // Refresh when returning from study so resume position stays current.
+  const progressById = useMemo(() => loadStudyProgressMap(), [location.key])
 
   function onSortChange(mode: LibrarySortMode) {
     setSortMode(mode)
@@ -339,73 +343,91 @@ export default function Home() {
             )
           })}
 
-          {childCollections.map((c) => (
-            <Card key={c.id} className="transition-colors hover:border-primary/50">
-              <CardHeader>
-                <div className="flex items-start justify-between gap-3">
-                  <Link to={`/study/${c.id}`} className="min-w-0 flex-1">
-                    <CardTitle>{c.name}</CardTitle>
-                    {c.description ? (
-                      <CardDescription className="mt-1">{c.description}</CardDescription>
+          {childCollections.map((c) => {
+            const total = c.words.length
+            const saved = progressById[c.id]
+            const at = saved ? Math.min(saved.index, Math.max(0, total - 1)) : 0
+            const showProgress = Boolean(saved && total > 0)
+            const progressPct = total > 0 ? ((at + 1) / total) * 100 : 0
+
+            return (
+              <Card key={c.id} className="transition-colors hover:border-primary/50">
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-3">
+                    <Link to={`/study/${c.id}`} className="min-w-0 flex-1">
+                      <CardTitle>{c.name}</CardTitle>
+                      {c.description ? (
+                        <CardDescription className="mt-1">{c.description}</CardDescription>
+                      ) : null}
+                    </Link>
+                    <OverflowMenu
+                      label={`Actions for ${c.name}`}
+                      items={[
+                        {
+                          label: "Edit",
+                          icon: <Pencil />,
+                          onSelect: () => navigate(`/edit/${c.id}`),
+                        },
+                        {
+                          label: "Move to…",
+                          icon: <FolderInput />,
+                          onSelect: () =>
+                            setMoveTarget({
+                              kind: "collection",
+                              id: c.id,
+                              name: c.name,
+                              folderId: c.folderId ?? null,
+                            }),
+                        },
+                        {
+                          label: "Export",
+                          icon: <Download />,
+                          onSelect: () => onExport(c),
+                        },
+                        {
+                          label: "Delete",
+                          icon: <Trash2 />,
+                          destructive: true,
+                          onSelect: () => onDeleteSet(c.id, c.name),
+                        },
+                      ]}
+                    />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <Link to={`/study/${c.id}`} className="block">
+                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                      <span className="rounded-full bg-accent px-2.5 py-1 font-medium text-accent-foreground">
+                        {pairLabel(c.wordLang, c.translationLang)}
+                      </span>
+                      {c.level && (
+                        <span className="rounded-full bg-secondary px-2.5 py-1 font-medium">
+                          {c.level}
+                        </span>
+                      )}
+                      {c.theme && (
+                        <span className="rounded-full bg-secondary px-2.5 py-1">{c.theme}</span>
+                      )}
+                      <span className="rounded-full bg-secondary px-2.5 py-1">
+                        {total} words
+                      </span>
+                    </div>
+                    {showProgress ? (
+                      <div className="mt-3">
+                        <div className="mb-1.5 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                          <span>Left off</span>
+                          <span className="tabular-nums">
+                            {at + 1} / {total}
+                          </span>
+                        </div>
+                        <Progress value={progressPct} className="h-1.5" />
+                      </div>
                     ) : null}
                   </Link>
-                  <OverflowMenu
-                    label={`Actions for ${c.name}`}
-                    items={[
-                      {
-                        label: "Edit",
-                        icon: <Pencil />,
-                        onSelect: () => navigate(`/edit/${c.id}`),
-                      },
-                      {
-                        label: "Move to…",
-                        icon: <FolderInput />,
-                        onSelect: () =>
-                          setMoveTarget({
-                            kind: "collection",
-                            id: c.id,
-                            name: c.name,
-                            folderId: c.folderId ?? null,
-                          }),
-                      },
-                      {
-                        label: "Export",
-                        icon: <Download />,
-                        onSelect: () => onExport(c),
-                      },
-                      {
-                        label: "Delete",
-                        icon: <Trash2 />,
-                        destructive: true,
-                        onSelect: () => onDeleteSet(c.id, c.name),
-                      },
-                    ]}
-                  />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Link
-                  to={`/study/${c.id}`}
-                  className="flex flex-wrap gap-2 text-xs text-muted-foreground"
-                >
-                  <span className="rounded-full bg-accent px-2.5 py-1 text-accent-foreground font-medium">
-                    {pairLabel(c.wordLang, c.translationLang)}
-                  </span>
-                  {c.level && (
-                    <span className="rounded-full bg-secondary px-2.5 py-1 font-medium">
-                      {c.level}
-                    </span>
-                  )}
-                  {c.theme && (
-                    <span className="rounded-full bg-secondary px-2.5 py-1">{c.theme}</span>
-                  )}
-                  <span className="rounded-full bg-secondary px-2.5 py-1">
-                    {c.words.length} words
-                  </span>
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            )
+          })}
 
           {childFolders.length === 0 && childCollections.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
