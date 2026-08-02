@@ -1,4 +1,4 @@
-import { HashRouter, Routes, Route } from "react-router-dom"
+import { createHashRouter, Outlet, RouterProvider } from "react-router-dom"
 import { AuthProvider } from "@/lib/auth-context"
 import { CollectionsProvider } from "@/lib/collections-context"
 import { LoginPrompt } from "@/components/LoginPrompt"
@@ -9,22 +9,35 @@ import EditList from "@/pages/EditList"
 import ImportWords from "@/pages/ImportWords"
 import Profile from "@/pages/Profile"
 
+function AppLayout() {
+  return (
+    <>
+      <Outlet />
+      <LoginPrompt />
+    </>
+  )
+}
+
+const router = createHashRouter([
+  {
+    element: <AppLayout />,
+    children: [
+      { path: "/", element: <Home /> },
+      { path: "/folder/:folderId", element: <Home /> },
+      { path: "/new", element: <NewList /> },
+      { path: "/edit/:id", element: <EditList /> },
+      { path: "/import", element: <ImportWords /> },
+      { path: "/study/:id", element: <Study /> },
+      { path: "/profile", element: <Profile /> },
+    ],
+  },
+])
+
 function App() {
   return (
     <AuthProvider>
       <CollectionsProvider>
-        <HashRouter>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/folder/:folderId" element={<Home />} />
-            <Route path="/new" element={<NewList />} />
-            <Route path="/edit/:id" element={<EditList />} />
-            <Route path="/import" element={<ImportWords />} />
-            <Route path="/study/:id" element={<Study />} />
-            <Route path="/profile" element={<Profile />} />
-          </Routes>
-          <LoginPrompt />
-        </HashRouter>
+        <RouterProvider router={router} />
       </CollectionsProvider>
     </AuthProvider>
   )

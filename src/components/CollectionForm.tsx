@@ -16,6 +16,7 @@ import {
   loadImportDraft,
   saveImportDraft,
 } from "@/lib/import-bridge"
+import { clearNewSetDraft, loadNewSetDraft, saveNewSetDraft } from "@/lib/new-set-draft"
 import { examplesFromTextarea } from "@/lib/examples"
 import {
   appendCommaItem,
@@ -409,13 +410,21 @@ interface CollectionFormProps {
   onDirtyChange?: (dirty: boolean) => void
   /** Parent can call this to run the same validation + submit as the Save button. */
   submitRef?: MutableRefObject<(() => boolean) | null>
+  /** When set, typed progress is restored after reload and kept in localStorage. */
+  persistDraftKey?: string
 }
 
-function resolveInitial(fallback: CollectionFormValues, pathname: string): CollectionFormValues {
+function resolveInitial(
+  fallback: CollectionFormValues,
+  pathname: string,
+  search: string,
+  persistDraftKey?: string,
+): CollectionFormValues {
   const draft = loadImportDraft()
   const result = consumeImportResult()
+  const here = `${pathname}${search}`
 
-  if (draft && draft.returnTo === pathname) {
+  if (draft && (draft.returnTo === here || draft.returnTo === pathname)) {
     const base = draft.values
     clearImportDraft()
     if (result) {
@@ -425,6 +434,27 @@ function resolveInitial(fallback: CollectionFormValues, pathname: string): Colle
       }
     }
     return base
+  }
+
+  if (persistDraftKey) {
+    const saved = loadNewSetDraft(persistDraftKey)
+    if (saved) {
+      return {
+        name: saved.name ?? "",
+        description: saved.description ?? "",
+        wordLang: saved.wordLang ?? fallback.wordLang,
+        translationLang: saved.translationLang ?? fallback.translationLang,
+        words:
+          Array.isArray(saved.words) && saved.words.length > 0
+            ? saved.words.map((w) => ({
+                key: w.key || emptyDraftWord().key,
+                word: w.word ?? "",
+                translation: w.translation ?? "",
+                examplesText: w.examplesText ?? "",
+              }))
+            : fallback.words,
+      }
+    }
   }
 
   // Orphan result without matching draft — ignore
@@ -437,10 +467,13 @@ export function CollectionForm({
   onSubmit,
   onDirtyChange,
   submitRef,
+  persistDraftKey,
 }: CollectionFormProps) {
   const navigate = useNavigate()
   const location = useLocation()
-  const [boot] = useState(() => resolveInitial(initial, location.pathname))
+  const [boot] = useState(() =>
+    resolveInitial(initial, location.pathname, location.search, persistDraftKey),
+  )
 
   const [name, setName] = useState(boot.name)
   const [description, setDescription] = useState(boot.description)
@@ -464,6 +497,22 @@ export function CollectionForm({
     onDirtyChange?.(hasEnteredProgress({ name, description, words }))
   }, [name, description, words, onDirtyChange])
 
+  useEffect(() => {
+    if (!persistDraftKey) return
+    const values: CollectionFormValues = {
+      name,
+      description,
+      wordLang,
+      translationLang,
+      words,
+    }
+    if (hasEnteredProgress(values)) {
+      saveNewSetDraft(persistDraftKey, values)
+    } else {
+      clearNewSetDraft(persistDraftKey)
+    }
+  }, [persistDraftKey, name, description, wordLang, translationLang, words])
+
   function updateWord(key: string, field: "word" | "translation" | "examplesText", value: string) {
     setWords((prev) => prev.map((w) => (w.key === key ? { ...w, [field]: value } : w)))
   }
@@ -474,7 +523,7 @@ export function CollectionForm({
 
   function openImport() {
     saveImportDraft({
-      returnTo: location.pathname,
+      returnTo: location.pathname + location.search,
       values: { name, description, wordLang, translationLang, words },
     })
     navigate("/import")
@@ -502,6 +551,7 @@ export function CollectionForm({
       return false
     }
     setError(null)
+    if (persistDraftKey) clearNewSetDraft(persistDraftKey)
     onSubmit({
       name: trimmedName,
       description,

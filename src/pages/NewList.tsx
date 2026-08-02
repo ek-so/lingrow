@@ -1,9 +1,10 @@
-import { useCallback, useRef, useState } from "react"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { useBlocker, useNavigate, useSearchParams } from "react-router-dom"
 import { useCollections } from "@/lib/collections-context"
 import { CollectionForm } from "@/components/CollectionForm"
 import { ConfirmSaveProgressSheet } from "@/components/ConfirmSaveProgressSheet"
 import { emptyDraftWord } from "@/lib/collection-form"
+import { clearNewSetDraft, newSetDraftKey } from "@/lib/new-set-draft"
 import { ArrowLeft } from "lucide-react"
 
 export default function NewList() {
@@ -14,18 +15,58 @@ export default function NewList() {
   const folder = folderParam ? getFolder(folderParam) : undefined
   const folderId = folder?.id ?? null
   const backTo = folderId ? `/folder/${folderId}` : "/"
+  const draftKey = newSetDraftKey(folderId)
 
   const [dirty, setDirty] = useState(false)
   const [leaveOpen, setLeaveOpen] = useState(false)
   const submitRef = useRef<(() => boolean) | null>(null)
+  const allowNavRef = useRef(false)
   const onDirtyChange = useCallback((next: boolean) => setDirty(next), [])
+
+  const blocker = useBlocker(({ nextLocation }) => {
+    if (allowNavRef.current) return false
+    if (!dirty) return false
+    // Import flow saves its own bridge draft; don't interrupt it.
+    if (nextLocation.pathname === "/import") return false
+    return true
+  })
+
+  useEffect(() => {
+    if (blocker.state === "blocked") setLeaveOpen(true)
+  }, [blocker.state])
+
+  function closeLeaveSheet() {
+    setLeaveOpen(false)
+    if (blocker.state === "blocked") blocker.reset()
+  }
+
+  function discardAndLeave() {
+    clearNewSetDraft(draftKey)
+    setLeaveOpen(false)
+    allowNavRef.current = true
+    if (blocker.state === "blocked") {
+      blocker.proceed()
+      return
+    }
+    navigate(backTo)
+  }
+
+  function saveAndLeave() {
+    setLeaveOpen(false)
+    if (blocker.state === "blocked") blocker.reset()
+    const ok = submitRef.current?.() ?? false
+    if (!ok) {
+      allowNavRef.current = false
+    }
+  }
 
   function requestBack() {
     if (!dirty) {
+      allowNavRef.current = true
       navigate(backTo)
       return
     }
-    setLeaveOpen(true)
+    navigate(backTo)
   }
 
   return (
@@ -65,9 +106,12 @@ export default function NewList() {
               words: [emptyDraftWord(), emptyDraftWord(), emptyDraftWord()],
             }}
             submitLabel="Save set"
+            persistDraftKey={draftKey}
             onDirtyChange={onDirtyChange}
             submitRef={submitRef}
             onSubmit={(values) => {
+              clearNewSetDraft(draftKey)
+              allowNavRef.current = true
               const created = addCollection({ ...values, folderId })
               navigate(`/study/${created.id}`)
             }}
@@ -77,15 +121,9 @@ export default function NewList() {
 
       <ConfirmSaveProgressSheet
         open={leaveOpen}
-        onCancel={() => setLeaveOpen(false)}
-        onNo={() => {
-          setLeaveOpen(false)
-          navigate(backTo)
-        }}
-        onYes={() => {
-          setLeaveOpen(false)
-          submitRef.current?.()
-        }}
+        onCancel={closeLeaveSheet}
+        onNo={discardAndLeave}
+        onYes={saveAndLeave}
       />
     </div>
   )
