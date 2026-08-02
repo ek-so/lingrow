@@ -13,7 +13,7 @@ import { SearchSheet } from "@/components/SearchSheet"
 import { AppHeader } from "@/components/AppHeader"
 import { PageBody, PageTitle } from "@/components/PageTitle"
 import { downloadCollectionExcel } from "@/lib/export-collection"
-import { countItemsInFolder, descendantFolderIds } from "@/lib/folders"
+import { countItemsInFolder, descendantFolderIds, folderTrailUp } from "@/lib/folders"
 import { pairLabel } from "@/lib/languages"
 import { recordRecentOpen } from "@/lib/recent"
 import {
@@ -202,6 +202,7 @@ export default function Home() {
               ? (getFolder(currentFolder.parentId)?.name ?? "Back")
               : "My sets",
             to: parentPath(),
+            trail: folderTrailUp(folders, currentFolder.parentId),
           }}
           actions={
             <>
