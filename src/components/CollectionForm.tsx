@@ -430,6 +430,8 @@ function resolveInitial(
     if (result) {
       return {
         ...base,
+        wordLang: result.wordLang ?? base.wordLang,
+        translationLang: result.translationLang ?? base.translationLang,
         words: applyImport(base.words, result.pairs, result.choice),
       }
     }

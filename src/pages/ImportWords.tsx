@@ -12,8 +12,14 @@ import {
   loadImportDraft,
   saveImportResult,
 } from "@/lib/import-bridge"
-import { isSpreadsheetFile, parseBulletText, parseSpreadsheetFile } from "@/lib/parse-import"
+import {
+  detectPairLanguages,
+  isSpreadsheetFile,
+  parseImportText,
+  parseSpreadsheetFile,
+} from "@/lib/parse-import"
 import type { WordPair } from "@/lib/collection-form"
+import type { LangCode } from "@/types"
 import { ArrowLeft, FileSpreadsheet, List, Upload } from "lucide-react"
 
 type ImportMode = "file" | "text"
@@ -26,6 +32,8 @@ export default function ImportWords() {
   const [mode, setMode] = useState<ImportMode>("file")
   const [text, setText] = useState("")
   const [pairs, setPairs] = useState<WordPair[]>([])
+  const [detectedWordLang, setDetectedWordLang] = useState<LangCode | null>(null)
+  const [detectedTranslationLang, setDetectedTranslationLang] = useState<LangCode | null>(null)
   const [fileLabel, setFileLabel] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -51,12 +59,20 @@ export default function ImportWords() {
   }
 
   const { values, returnTo } = draft
-  const wordLang = values.wordLang
-  const translationLang = values.translationLang
+  const wordLang = detectedWordLang ?? values.wordLang
+  const translationLang = detectedTranslationLang ?? values.translationLang
   const hasUnsaved = pairs.length > 0
+  const langsChanged =
+    (detectedWordLang != null && detectedWordLang !== values.wordLang) ||
+    (detectedTranslationLang != null && detectedTranslationLang !== values.translationLang)
 
   function commitPairs(nextPairs: WordPair[], choice: DuplicateImportChoice | null) {
-    saveImportResult({ pairs: nextPairs, choice })
+    saveImportResult({
+      pairs: nextPairs,
+      choice,
+      wordLang: detectedWordLang ?? undefined,
+      translationLang: detectedTranslationLang ?? undefined,
+    })
     navigate(returnTo)
   }
 
@@ -90,7 +106,10 @@ export default function ImportWords() {
     setError(null)
     try {
       const parsed = await parseSpreadsheetFile(file)
+      const langs = detectPairLanguages(parsed)
       setPairs(parsed)
+      setDetectedWordLang(langs.wordLang ?? null)
+      setDetectedTranslationLang(langs.translationLang ?? null)
       setFileLabel(file.name)
       if (parsed.length === 0) {
         setError("No word pairs found. Expect columns: word, translation, optional examples.")
@@ -105,12 +124,14 @@ export default function ImportWords() {
   }
 
   function onParseText() {
-    const parsed = parseBulletText(text)
-    setPairs(parsed)
+    const parsed = parseImportText(text)
+    setPairs(parsed.pairs)
+    setDetectedWordLang(parsed.wordLang ?? null)
+    setDetectedTranslationLang(parsed.translationLang ?? null)
     setFileLabel(null)
-    if (parsed.length === 0) {
+    if (parsed.pairs.length === 0) {
       setError(
-        "No pairs found. Use lines like “- apple — der Apfel || Ich esse einen Apfel.” or “word - translation”.",
+        "No pairs found. Use alternating lines (word, then translation), or one pair per line like “apple — яблоко”.",
       )
     } else {
       setError(null)
@@ -201,14 +222,15 @@ export default function ImportWords() {
                   onChange={(e) => setText(e.target.value)}
                   rows={10}
                   placeholder={
-                    "- the apple — der Apfel || Ich esse einen Apfel. || Der Apfel ist rot.\n- to run — laufen || Ich laufe jeden Morgen."
+                    "jingoist\nшовинист, ура-патриот\nflaccid\nвялый, дряблый\n\n— or —\n\n- the apple — der Apfel || Ich esse einen Apfel."
                   }
                   className="w-full rounded-md border border-input bg-card px-3 py-2 text-base outline-none focus:ring-2 focus:ring-ring"
                 />
               </label>
               <p className="mt-2 text-xs text-muted-foreground">
-                One pair per line. Bullets optional. Separators: —, –, -, :, =, or tab. Add examples
-                after the translation with || (up to three).
+                Alternating lines work (word, then translation). Or one pair per line with —, –, -,
+                :, =, or tab. Commas inside translations are kept. Language pair is detected when
+                possible (e.g. English → Russian).
               </p>
               <Button type="button" variant="outline" className="mt-3" onClick={onParseText}>
                 Parse text
@@ -226,12 +248,20 @@ export default function ImportWords() {
                 className="text-xs text-muted-foreground underline hover:text-foreground"
                 onClick={() => {
                   setPairs([])
+                  setDetectedWordLang(null)
+                  setDetectedTranslationLang(null)
                   setFileLabel(null)
                 }}
               >
                 Clear
               </button>
             </div>
+            {langsChanged ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Detected language pair: {langLabel(wordLang)} → {langLabel(translationLang)}. The
+                list will switch to this when you add the words.
+              </p>
+            ) : null}
             <div className="mt-3 max-h-64 overflow-auto rounded-xl border border-border">
               <table className="w-full text-left text-sm">
                 <thead className="sticky top-0 bg-secondary text-xs text-muted-foreground">
