@@ -1,52 +1,59 @@
 import type { Collection } from "@/types"
 
-/** Default lists seeded into localStorage on first visit. */
+/** Demo list shown to new guests (not signed in) on first visit. */
 export const seedCollections: Collection[] = [
   {
-    id: "test-5",
-    name: "Test Collection",
-    description: "Five random words, just to check everything works end to end.",
+    id: "demo-vocab-5",
+    name: "Sample vocabulary",
+    description: "Five German–English words to try study mode before you make your own list.",
     wordLang: "de",
     translationLang: "en",
     level: "A1",
-    theme: "Sanity check",
+    theme: "Vocabulary basics",
     words: [
       {
-        id: "w1",
-        word: "der Apfel",
-        translation: "the apple",
+        id: "demo-w1",
+        word: "das Wort",
+        translation: "the word",
         examples: [
-          "Ich esse einen Apfel.",
-          "Der Apfel ist rot und süß.",
-          "Möchtest du einen Apfel?",
+          "Was bedeutet dieses Wort?",
+          "Ich lerne jeden Tag neue Wörter.",
         ],
       },
       {
-        id: "w2",
-        word: "laufen",
-        translation: "to run",
-        examples: ["Ich laufe jeden Morgen.", "Kannst du schnell laufen?"],
-      },
-      {
-        id: "w3",
-        word: "schnell",
-        translation: "fast",
-        examples: ["Das Auto ist sehr schnell.", "Bitte nicht so schnell sprechen."],
-      },
-      {
-        id: "w4",
-        word: "das Fenster",
-        translation: "the window",
-        examples: ["Bitte öffne das Fenster.", "Das Fenster ist geschlossen."],
-      },
-      {
-        id: "w5",
-        word: "verstehen",
-        translation: "to understand",
+        id: "demo-w2",
+        word: "lernen",
+        translation: "to learn",
         examples: [
-          "Ich verstehe die Frage.",
-          "Verstehst du Deutsch?",
-          "Er hat mich nicht verstanden.",
+          "Ich lerne Deutsch.",
+          "Sie lernt schnell neue Vokabeln.",
+        ],
+      },
+      {
+        id: "demo-w3",
+        word: "die Bedeutung",
+        translation: "the meaning",
+        examples: [
+          "Die Bedeutung ist klar.",
+          "Kennst du die Bedeutung dieses Satzes?",
+        ],
+      },
+      {
+        id: "demo-w4",
+        word: "üben",
+        translation: "to practice",
+        examples: [
+          "Wir üben die Aussprache.",
+          "Du solltest jeden Tag üben.",
+        ],
+      },
+      {
+        id: "demo-w5",
+        word: "die Übersetzung",
+        translation: "the translation",
+        examples: [
+          "Die Übersetzung ist richtig.",
+          "Schreib die Übersetzung auf.",
         ],
       },
     ],

@@ -79,9 +79,8 @@ function migrateFolder(raw: unknown): Folder | null {
 }
 
 function migrateCollectionsList(raw: unknown): Collection[] {
-  if (!Array.isArray(raw)) return structuredClone(seedCollections)
-  const migrated = raw.map(migrateCollection).filter((c): c is Collection => c != null)
-  return migrated.length > 0 ? migrated : structuredClone(seedCollections)
+  if (!Array.isArray(raw)) return []
+  return raw.map(migrateCollection).filter((c): c is Collection => c != null)
 }
 
 function migrateFoldersList(raw: unknown): Folder[] {
@@ -103,11 +102,20 @@ function sanitizeLibrary(library: Library): Library {
   return { collections, folders }
 }
 
-function emptySeedLibrary(): Library {
+function emptyLibrary(): Library {
+  return { collections: [], folders: [] }
+}
+
+/** Demo vocabulary set for first-time guests (signed-out). */
+function guestSeedLibrary(): Library {
   return {
     collections: structuredClone(seedCollections).map((c) => ({ ...c, folderId: null })),
     folders: [],
   }
+}
+
+function defaultLibrary(userId?: string | null): Library {
+  return userId ? emptyLibrary() : guestSeedLibrary()
 }
 
 function parseLibraryJson(raw: string): Library | null {
@@ -150,7 +158,7 @@ function readLegacyCollections(): Library | null {
 
 /** Load library for a signed-in user (or the anonymous local profile). */
 export function loadLibrary(userId?: string | null): Library {
-  if (!canUseStorage()) return emptySeedLibrary()
+  if (!canUseStorage()) return defaultLibrary(userId)
   try {
     const keyed = localStorage.getItem(libraryKeyForUser(userId))
     if (keyed) {
@@ -173,17 +181,20 @@ export function loadLibrary(userId?: string | null): Library {
       }
     }
 
-    const legacy = readLegacyCollections()
-    if (legacy) {
-      saveLibrary(legacy, userId)
-      return legacy
+    // Legacy v1/v2 keys only apply to the anonymous profile.
+    if (!userId) {
+      const legacy = readLegacyCollections()
+      if (legacy) {
+        saveLibrary(legacy, userId)
+        return legacy
+      }
     }
 
-    const seed = emptySeedLibrary()
-    saveLibrary(seed, userId)
-    return seed
+    const initial = defaultLibrary(userId)
+    saveLibrary(initial, userId)
+    return initial
   } catch {
-    return emptySeedLibrary()
+    return defaultLibrary(userId)
   }
 }
 
@@ -200,7 +211,7 @@ export function loadCollections(): Collection[] {
 
 /** @deprecated Prefer saveLibrary — kept for any external callers. */
 export function saveCollections(collections: Collection[]) {
-  const existing = canUseStorage() ? loadLibrary() : emptySeedLibrary()
+  const existing = canUseStorage() ? loadLibrary() : defaultLibrary()
   saveLibrary({ ...existing, collections })
 }
 
