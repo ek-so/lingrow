@@ -54,6 +54,45 @@ export function hasEnteredProgress(values: {
   )
 }
 
+function normalizeWordsForCompare(
+  words: Array<{ word: string; translation: string; examplesText: string }>,
+) {
+  return words
+    .map((w) => ({
+      word: w.word.trim(),
+      translation: w.translation.trim(),
+      examplesText: w.examplesText.trim(),
+    }))
+    .filter((w) => w.word || w.translation || w.examplesText)
+}
+
+/** True when the form differs from a baseline (new-set empty baseline or loaded edit). */
+export function isFormDirty(
+  current: {
+    name: string
+    description: string
+    wordLang: LangCode
+    translationLang: LangCode
+    words: Array<{ word: string; translation: string; examplesText: string }>
+  },
+  baseline: {
+    name: string
+    description: string
+    wordLang: LangCode
+    translationLang: LangCode
+    words: Array<{ word: string; translation: string; examplesText: string }>
+  },
+): boolean {
+  if (current.name.trim() !== baseline.name.trim()) return true
+  if (current.description.trim() !== baseline.description.trim()) return true
+  if (current.wordLang !== baseline.wordLang) return true
+  if (current.translationLang !== baseline.translationLang) return true
+  return (
+    JSON.stringify(normalizeWordsForCompare(current.words)) !==
+    JSON.stringify(normalizeWordsForCompare(baseline.words))
+  )
+}
+
 export function draftFromWords(words: Word[]): DraftWord[] {
   if (words.length === 0) return [emptyDraftWord()]
   return words.map((w) => ({

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react"
-import { useBlocker, useNavigate, useSearchParams } from "react-router-dom"
+import { useCallback, useRef, useState } from "react"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { useCollections } from "@/lib/collections-context"
 import { CollectionForm } from "@/components/CollectionForm"
 import { ConfirmSaveProgressSheet } from "@/components/ConfirmSaveProgressSheet"
 import { emptyDraftWord } from "@/lib/collection-form"
 import { clearNewSetDraft, newSetDraftKey } from "@/lib/new-set-draft"
+import { useUnsavedChangesGuard } from "@/lib/use-unsaved-changes"
 import { ArrowLeft } from "lucide-react"
 
 export default function NewList() {
@@ -18,64 +19,22 @@ export default function NewList() {
   const draftKey = newSetDraftKey(folderId)
 
   const [dirty, setDirty] = useState(false)
-  const [leaveOpen, setLeaveOpen] = useState(false)
   const submitRef = useRef<(() => boolean) | null>(null)
-  const allowNavRef = useRef(false)
   const onDirtyChange = useCallback((next: boolean) => setDirty(next), [])
 
-  const blocker = useBlocker(({ nextLocation }) => {
-    if (allowNavRef.current) return false
-    if (!dirty) return false
-    // Import flow saves its own bridge draft; don't interrupt it.
-    if (nextLocation.pathname.startsWith("/import/")) return false
-    return true
+  const {
+    leaveOpen,
+    requestLeave,
+    allowNextNavigation,
+    cancelLeave,
+    discardAndLeave,
+    saveAndLeave,
+  } = useUnsavedChangesGuard({
+    dirty,
+    allowPathPrefixes: ["/import/"],
+    onDiscard: () => clearNewSetDraft(draftKey),
+    onSave: () => submitRef.current?.() ?? false,
   })
-
-  function dismissKeyboard() {
-    const active = document.activeElement
-    if (active instanceof HTMLElement) active.blur()
-  }
-
-  useEffect(() => {
-    if (blocker.state !== "blocked") return
-    dismissKeyboard()
-    setLeaveOpen(true)
-  }, [blocker.state])
-
-  function closeLeaveSheet() {
-    setLeaveOpen(false)
-    if (blocker.state === "blocked") blocker.reset()
-  }
-
-  function discardAndLeave() {
-    clearNewSetDraft(draftKey)
-    setLeaveOpen(false)
-    allowNavRef.current = true
-    if (blocker.state === "blocked") {
-      blocker.proceed()
-      return
-    }
-    navigate(backTo)
-  }
-
-  function saveAndLeave() {
-    setLeaveOpen(false)
-    if (blocker.state === "blocked") blocker.reset()
-    const ok = submitRef.current?.() ?? false
-    if (!ok) {
-      allowNavRef.current = false
-    }
-  }
-
-  function requestBack() {
-    dismissKeyboard()
-    if (!dirty) {
-      allowNavRef.current = true
-      navigate(backTo)
-      return
-    }
-    navigate(backTo)
-  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -83,7 +42,7 @@ export default function NewList() {
         <div className="mx-auto flex max-w-2xl items-center px-5 py-3">
           <button
             type="button"
-            onClick={requestBack}
+            onClick={() => requestLeave(backTo)}
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -119,7 +78,7 @@ export default function NewList() {
             submitRef={submitRef}
             onSubmit={(values) => {
               clearNewSetDraft(draftKey)
-              allowNavRef.current = true
+              allowNextNavigation()
               const created = addCollection({ ...values, folderId })
               navigate(`/study/${created.id}`)
             }}
@@ -129,7 +88,7 @@ export default function NewList() {
 
       <ConfirmSaveProgressSheet
         open={leaveOpen}
-        onCancel={closeLeaveSheet}
+        onCancel={cancelLeave}
         onNo={discardAndLeave}
         onYes={saveAndLeave}
       />

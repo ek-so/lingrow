@@ -376,39 +376,45 @@ export default function Study() {
             <ArrowLeft className="h-4 w-4" />
             {backLabel}
           </Link>
-          <OverflowMenu
-            label={`Actions for ${collection.name}`}
-            items={[
-              {
-                label: "Edit",
-                icon: <Pencil />,
-                onSelect: () => {
-                  stopSpeech()
-                  navigate(`/edit/${collection.id}`)
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Edit set"
+              onClick={() => {
+                stopSpeech()
+                navigate(`/edit/${collection.id}`)
+              }}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <OverflowMenu
+              label={`Actions for ${collection.name}`}
+              items={[
+                {
+                  label: "Move to…",
+                  icon: <FolderInput />,
+                  onSelect: () => {
+                    stopSpeech()
+                    setPlaying(false)
+                    setMoveOpen(true)
+                  },
                 },
-              },
-              {
-                label: "Move to…",
-                icon: <FolderInput />,
-                onSelect: () => {
-                  stopSpeech()
-                  setPlaying(false)
-                  setMoveOpen(true)
+                {
+                  label: "Export",
+                  icon: <Download />,
+                  onSelect: onExport,
                 },
-              },
-              {
-                label: "Export",
-                icon: <Download />,
-                onSelect: onExport,
-              },
-              {
-                label: "Delete",
-                icon: <Trash2 />,
-                destructive: true,
-                onSelect: onDelete,
-              },
-            ]}
-          />
+                {
+                  label: "Delete",
+                  icon: <Trash2 />,
+                  destructive: true,
+                  onSelect: onDelete,
+                },
+              ]}
+            />
+          </div>
         </div>
       </header>
 

@@ -5,6 +5,7 @@ import { LANG_CODES, LANGS, langLabel } from "@/lib/languages"
 import {
   emptyDraftWord,
   hasEnteredProgress,
+  isFormDirty,
   pairsFromDraft,
   type CollectionFormValues,
   type DraftWord,
@@ -233,7 +234,7 @@ function WordRow({
     )
 
   return (
-    <div className="rounded-lg border border-border p-3">
+    <div className="rounded-lg border border-border bg-card p-3">
       <div className="flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-col gap-1">
@@ -327,20 +328,15 @@ function WordRow({
           </div>
 
           {suggestion && !sameLanguage && translationChips.length > 0 ? (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[11px] text-muted-foreground">
-                Translations — tap to add (comma-separated)
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {translationChips.map((alt) => (
-                  <Chip
-                    key={alt}
-                    label={alt}
-                    active={commaListIncludes(draft.translation, alt)}
-                    onClick={() => applyTranslation(alt)}
-                  />
-                ))}
-              </div>
+            <div className="flex flex-wrap gap-1.5">
+              {translationChips.map((alt) => (
+                <Chip
+                  key={alt}
+                  label={alt}
+                  active={commaListIncludes(draft.translation, alt)}
+                  onClick={() => applyTranslation(alt)}
+                />
+              ))}
             </div>
           ) : null}
 
@@ -497,9 +493,16 @@ export function CollectionForm({
 
   const sameLanguage = wordLang === translationLang
 
+  const baselineRef = useRef(boot)
+
   useEffect(() => {
-    onDirtyChange?.(hasEnteredProgress({ name, description, words }))
-  }, [name, description, words, onDirtyChange])
+    onDirtyChange?.(
+      isFormDirty(
+        { name, description, wordLang, translationLang, words },
+        baselineRef.current,
+      ),
+    )
+  }, [name, description, wordLang, translationLang, words, onDirtyChange])
 
   useEffect(() => {
     if (!persistDraftKey) return
@@ -731,14 +734,19 @@ export function CollectionForm({
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 pb-24">
         <Button type="button" variant="outline" onClick={() => setWords((w) => [...w, emptyDraftWord()])}>
           <Plus className="h-4 w-4" />
           Add row
         </Button>
-        <Button type="submit" size="lg">
-          {submitLabel}
-        </Button>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border/80 bg-background/90 backdrop-blur-md">
+        <div className="mx-auto max-w-2xl px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <Button type="submit" size="lg" className="w-full">
+            {submitLabel}
+          </Button>
+        </div>
       </div>
     </form>
   )
