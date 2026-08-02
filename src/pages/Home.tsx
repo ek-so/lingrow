@@ -397,23 +397,16 @@ export default function Home() {
                 </CardHeader>
                 <CardContent>
                   <Link to={`/study/${c.id}`} className="block">
-                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-                      <span className="rounded-full bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground">
-                        {pairLabel(c.wordLang, c.translationLang)}
-                      </span>
-                      {lastRep ? (
-                        <span className="text-xs text-muted-foreground">
-                          Last repetition · {lastRep}
-                        </span>
-                      ) : null}
-                    </div>
+                    <span className="inline-flex rounded-full bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground">
+                      {pairLabel(c.wordLang, c.translationLang)}
+                    </span>
                     {showProgress ? (
                       <div className="mt-3">
                         <div className="mb-1.5 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                          <span>Left off</span>
                           <span className="tabular-nums">
-                            {at + 1} / {total}
+                            {at + 1} of {total}
                           </span>
+                          {lastRep ? <span>{lastRep}</span> : null}
                         </div>
                         <Progress value={progressPct} className="h-1.5" />
                       </div>
