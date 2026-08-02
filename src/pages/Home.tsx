@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 import { useCollections } from "@/lib/collections-context"
 import { useAuth } from "@/lib/auth-context"
@@ -11,7 +11,6 @@ import { MoveToFolderSheet } from "@/components/MoveToFolderSheet"
 import { NameFolderSheet } from "@/components/NameFolderSheet"
 import { SearchSheet } from "@/components/SearchSheet"
 import { SortMenu } from "@/components/SortMenu"
-import { SortableItem, SortableList } from "@/components/SortableList"
 import { AppHeader } from "@/components/AppHeader"
 import { AppShell } from "@/components/AppShell"
 import { PageBody, PageTitle } from "@/components/PageTitle"
@@ -48,11 +47,9 @@ export default function Home() {
     folders,
     deleteCollection,
     moveCollection,
-    reorderCollections,
     addFolder,
     renameFolder,
     moveFolder,
-    reorderFolders,
     deleteFolder,
     getFolder,
   } = useCollections()
@@ -68,7 +65,6 @@ export default function Home() {
   const [renameTarget, setRenameTarget] = useState<Folder | null>(null)
   const [moveTarget, setMoveTarget] = useState<MoveTarget | null>(null)
   const [sortMode, setSortMode] = useState<LibrarySortMode>(() => loadLibrarySortMode())
-  const manualSort = sortMode === "manual"
 
   useEffect(() => {
     if (currentFolderId && currentFolder) {
@@ -102,137 +98,6 @@ export default function Home() {
 
   // Invalid deep link → treat as root.
   const folderMissing = Boolean(currentFolderId && !currentFolder)
-
-  function renderFolderCard(folder: Folder, dragHandle?: ReactNode) {
-    const counts = countItemsInFolder(
-      folders,
-      collections.map((c) => c.folderId),
-      folder.id,
-    )
-    const itemLabel = [
-      counts.folders > 0
-        ? `${counts.folders} folder${counts.folders === 1 ? "" : "s"}`
-        : null,
-      `${counts.sets} set${counts.sets === 1 ? "" : "s"}`,
-    ]
-      .filter(Boolean)
-      .join(" · ")
-
-    return (
-      <Card className="transition-colors hover:border-primary/50">
-        <CardHeader>
-          <div className={`flex items-start ${dragHandle ? "gap-1" : "justify-between gap-3"}`}>
-            {dragHandle}
-            <Link
-              to={`/folder/${folder.id}`}
-              className={`min-w-0 flex-1 ${dragHandle ? "pt-2" : ""}`}
-            >
-              <CardTitle className="flex items-center gap-2">
-                <FolderIcon className="h-5 w-5 shrink-0 text-primary" />
-                <span className="truncate">{folder.name}</span>
-              </CardTitle>
-              <CardDescription className="mt-1">{itemLabel}</CardDescription>
-            </Link>
-            <OverflowMenu
-              label={`Actions for ${folder.name}`}
-              items={[
-                {
-                  label: "Rename",
-                  icon: <Pencil />,
-                  onSelect: () => setRenameTarget(folder),
-                },
-                {
-                  label: "Move to…",
-                  icon: <FolderInput />,
-                  onSelect: () =>
-                    setMoveTarget({
-                      kind: "folder",
-                      id: folder.id,
-                      name: folder.name,
-                      parentId: folder.parentId,
-                    }),
-                },
-                {
-                  label: "Delete",
-                  icon: <Trash2 />,
-                  destructive: true,
-                  onSelect: () => onDeleteFolder(folder),
-                },
-              ]}
-            />
-          </div>
-        </CardHeader>
-      </Card>
-    )
-  }
-
-  function renderCollectionCard(c: Collection, dragHandle?: ReactNode) {
-    return (
-      <Card className="transition-colors hover:border-primary/50">
-        <CardHeader>
-          <div className={`flex items-start ${dragHandle ? "gap-1" : "justify-between gap-3"}`}>
-            {dragHandle}
-            <Link
-              to={`/study/${c.id}`}
-              className={`min-w-0 flex-1 ${dragHandle ? "pt-2" : ""}`}
-            >
-              <CardTitle>{c.name}</CardTitle>
-              {c.description ? (
-                <CardDescription className="mt-1">{c.description}</CardDescription>
-              ) : null}
-            </Link>
-            <OverflowMenu
-              label={`Actions for ${c.name}`}
-              items={[
-                {
-                  label: "Edit",
-                  icon: <Pencil />,
-                  onSelect: () => navigate(`/edit/${c.id}`),
-                },
-                {
-                  label: "Move to…",
-                  icon: <FolderInput />,
-                  onSelect: () =>
-                    setMoveTarget({
-                      kind: "collection",
-                      id: c.id,
-                      name: c.name,
-                      folderId: c.folderId ?? null,
-                    }),
-                },
-                {
-                  label: "Export",
-                  icon: <Download />,
-                  onSelect: () => onExport(c),
-                },
-                {
-                  label: "Delete",
-                  icon: <Trash2 />,
-                  destructive: true,
-                  onSelect: () => onDeleteSet(c.id, c.name),
-                },
-              ]}
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Link
-            to={`/study/${c.id}`}
-            className="flex flex-wrap gap-2 text-xs text-muted-foreground"
-          >
-            <span className="rounded-full bg-accent px-2.5 py-1 text-accent-foreground font-medium">
-              {pairLabel(c.wordLang, c.translationLang)}
-            </span>
-            {c.level && (
-              <span className="rounded-full bg-secondary px-2.5 py-1 font-medium">{c.level}</span>
-            )}
-            {c.theme && <span className="rounded-full bg-secondary px-2.5 py-1">{c.theme}</span>}
-            <span className="rounded-full bg-secondary px-2.5 py-1">{c.words.length} words</span>
-          </Link>
-        </CardContent>
-      </Card>
-    )
-  }
 
   function onDeleteSet(id: string, name: string) {
     if (!window.confirm(`Delete “${name}”? This can’t be undone.`)) return
@@ -415,53 +280,132 @@ export default function Home() {
         </PageTitle>
 
         <div className="flex flex-col gap-3">
-          {childFolders.length > 0 ? (
-            manualSort ? (
-              <SortableList
-                ids={childFolders.map((f) => f.id)}
-                onReorder={(orderedIds) => reorderFolders(currentFolderId, orderedIds)}
-                className="flex flex-col gap-3"
-              >
-                {childFolders.map((folder) => (
-                  <SortableItem
-                    key={folder.id}
-                    id={folder.id}
-                    handleLabel={`Reorder folder ${folder.name}`}
-                  >
-                    {(dragHandle) => renderFolderCard(folder, dragHandle)}
-                  </SortableItem>
-                ))}
-              </SortableList>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {childFolders.map((folder) => (
-                  <div key={folder.id}>{renderFolderCard(folder)}</div>
-                ))}
-              </div>
+          {childFolders.map((folder) => {
+            const counts = countItemsInFolder(
+              folders,
+              collections.map((c) => c.folderId),
+              folder.id,
             )
-          ) : null}
+            const itemLabel = [
+              counts.folders > 0
+                ? `${counts.folders} folder${counts.folders === 1 ? "" : "s"}`
+                : null,
+              `${counts.sets} set${counts.sets === 1 ? "" : "s"}`,
+            ]
+              .filter(Boolean)
+              .join(" · ")
 
-          {childCollections.length > 0 ? (
-            manualSort ? (
-              <SortableList
-                ids={childCollections.map((c) => c.id)}
-                onReorder={(orderedIds) => reorderCollections(currentFolderId, orderedIds)}
-                className="flex flex-col gap-3"
-              >
-                {childCollections.map((c) => (
-                  <SortableItem key={c.id} id={c.id} handleLabel={`Reorder set ${c.name}`}>
-                    {(dragHandle) => renderCollectionCard(c, dragHandle)}
-                  </SortableItem>
-                ))}
-              </SortableList>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {childCollections.map((c) => (
-                  <div key={c.id}>{renderCollectionCard(c)}</div>
-                ))}
-              </div>
+            return (
+              <Card key={folder.id} className="transition-colors hover:border-primary/50">
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-3">
+                    <Link to={`/folder/${folder.id}`} className="min-w-0 flex-1">
+                      <CardTitle className="flex items-center gap-2">
+                        <FolderIcon className="h-5 w-5 shrink-0 text-primary" />
+                        <span className="truncate">{folder.name}</span>
+                      </CardTitle>
+                      <CardDescription className="mt-1">{itemLabel}</CardDescription>
+                    </Link>
+                    <OverflowMenu
+                      label={`Actions for ${folder.name}`}
+                      items={[
+                        {
+                          label: "Rename",
+                          icon: <Pencil />,
+                          onSelect: () => setRenameTarget(folder),
+                        },
+                        {
+                          label: "Move to…",
+                          icon: <FolderInput />,
+                          onSelect: () =>
+                            setMoveTarget({
+                              kind: "folder",
+                              id: folder.id,
+                              name: folder.name,
+                              parentId: folder.parentId,
+                            }),
+                        },
+                        {
+                          label: "Delete",
+                          icon: <Trash2 />,
+                          destructive: true,
+                          onSelect: () => onDeleteFolder(folder),
+                        },
+                      ]}
+                    />
+                  </div>
+                </CardHeader>
+              </Card>
             )
-          ) : null}
+          })}
+
+          {childCollections.map((c) => (
+            <Card key={c.id} className="transition-colors hover:border-primary/50">
+              <CardHeader>
+                <div className="flex items-start justify-between gap-3">
+                  <Link to={`/study/${c.id}`} className="min-w-0 flex-1">
+                    <CardTitle>{c.name}</CardTitle>
+                    {c.description ? (
+                      <CardDescription className="mt-1">{c.description}</CardDescription>
+                    ) : null}
+                  </Link>
+                  <OverflowMenu
+                    label={`Actions for ${c.name}`}
+                    items={[
+                      {
+                        label: "Edit",
+                        icon: <Pencil />,
+                        onSelect: () => navigate(`/edit/${c.id}`),
+                      },
+                      {
+                        label: "Move to…",
+                        icon: <FolderInput />,
+                        onSelect: () =>
+                          setMoveTarget({
+                            kind: "collection",
+                            id: c.id,
+                            name: c.name,
+                            folderId: c.folderId ?? null,
+                          }),
+                      },
+                      {
+                        label: "Export",
+                        icon: <Download />,
+                        onSelect: () => onExport(c),
+                      },
+                      {
+                        label: "Delete",
+                        icon: <Trash2 />,
+                        destructive: true,
+                        onSelect: () => onDeleteSet(c.id, c.name),
+                      },
+                    ]}
+                  />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Link
+                  to={`/study/${c.id}`}
+                  className="flex flex-wrap gap-2 text-xs text-muted-foreground"
+                >
+                  <span className="rounded-full bg-accent px-2.5 py-1 text-accent-foreground font-medium">
+                    {pairLabel(c.wordLang, c.translationLang)}
+                  </span>
+                  {c.level && (
+                    <span className="rounded-full bg-secondary px-2.5 py-1 font-medium">
+                      {c.level}
+                    </span>
+                  )}
+                  {c.theme && (
+                    <span className="rounded-full bg-secondary px-2.5 py-1">{c.theme}</span>
+                  )}
+                  <span className="rounded-full bg-secondary px-2.5 py-1">
+                    {c.words.length} words
+                  </span>
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
 
           {childFolders.length === 0 && childCollections.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">

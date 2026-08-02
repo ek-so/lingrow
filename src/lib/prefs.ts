@@ -1,4 +1,8 @@
-import { isLibrarySortMode, type LibrarySortMode } from "@/lib/library-sort"
+import {
+  DEFAULT_LIBRARY_SORT,
+  isLibrarySortMode,
+  type LibrarySortMode,
+} from "@/lib/library-sort"
 
 const LOGIN_PROMPT_KEY = "lingrow.loginPrompt.v1"
 const QUIET_MODE_KEY = "lingrow.quietMode.v1"
@@ -58,12 +62,14 @@ export function saveQuietMode(quiet: boolean) {
 }
 
 export function loadLibrarySortMode(): LibrarySortMode {
-  if (!canUseStorage()) return "manual"
+  if (!canUseStorage()) return DEFAULT_LIBRARY_SORT
   try {
     const raw = localStorage.getItem(LIBRARY_SORT_KEY)
-    return isLibrarySortMode(raw) ? raw : "manual"
+    // Migrate removed “manual” preference to alphabetical.
+    if (raw === "manual") return DEFAULT_LIBRARY_SORT
+    return isLibrarySortMode(raw) ? raw : DEFAULT_LIBRARY_SORT
   } catch {
-    return "manual"
+    return DEFAULT_LIBRARY_SORT
   }
 }
 

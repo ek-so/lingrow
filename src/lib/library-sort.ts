@@ -2,20 +2,16 @@ import type { Collection, Folder } from "@/types"
 import { descendantFolderIds } from "@/lib/folders"
 import type { StudyProgress } from "@/lib/study-progress"
 
-export type LibrarySortMode =
-  | "manual"
-  | "name"
-  | "added"
-  | "edited"
-  | "practiced"
+export type LibrarySortMode = "name" | "added" | "edited" | "practiced"
 
 export const LIBRARY_SORT_OPTIONS: { value: LibrarySortMode; label: string }[] = [
-  { value: "manual", label: "Manual order" },
   { value: "name", label: "Alphabetical" },
   { value: "added", label: "Recently added" },
   { value: "edited", label: "Recently edited" },
   { value: "practiced", label: "Recently exercised" },
 ]
+
+export const DEFAULT_LIBRARY_SORT: LibrarySortMode = "name"
 
 const EPOCH_MS = 0
 
@@ -29,7 +25,7 @@ function compareName(a: string, b: string): number {
   return a.localeCompare(b, undefined, { sensitivity: "base" })
 }
 
-/** Sort folders for display. Manual returns the input order unchanged. */
+/** Sort folders for display. */
 export function sortFolders(
   folders: Folder[],
   mode: LibrarySortMode,
@@ -39,7 +35,7 @@ export function sortFolders(
     progressByCollectionId: Record<string, StudyProgress>
   },
 ): Folder[] {
-  if (mode === "manual" || folders.length <= 1) return folders
+  if (folders.length <= 1) return folders
 
   const practicedAt = new Map<string, number>()
   if (mode === "practiced") {
@@ -75,13 +71,13 @@ export function sortFolders(
   return sorted
 }
 
-/** Sort sets for display. Manual returns the input order unchanged. */
+/** Sort sets for display. */
 export function sortCollections(
   collections: Collection[],
   mode: LibrarySortMode,
   progressByCollectionId: Record<string, StudyProgress>,
 ): Collection[] {
-  if (mode === "manual" || collections.length <= 1) return collections
+  if (collections.length <= 1) return collections
 
   const sorted = [...collections]
   sorted.sort((a, b) => {
@@ -105,11 +101,5 @@ export function sortCollections(
 }
 
 export function isLibrarySortMode(value: unknown): value is LibrarySortMode {
-  return (
-    value === "manual" ||
-    value === "name" ||
-    value === "added" ||
-    value === "edited" ||
-    value === "practiced"
-  )
+  return value === "name" || value === "added" || value === "edited" || value === "practiced"
 }

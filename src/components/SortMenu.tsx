@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { ArrowUpDown, Check } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import {
   LIBRARY_SORT_OPTIONS,
   type LibrarySortMode,
@@ -38,17 +39,17 @@ export function SortMenu({ value, onChange, className }: SortMenuProps) {
 
   return (
     <div ref={rootRef} className={cn("relative", className)}>
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon"
         aria-label={`Sort: ${activeLabel}`}
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex h-10 items-center gap-1.5 rounded-md px-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
       >
-        <ArrowUpDown className="h-4 w-4 shrink-0" />
-        <span className="max-w-[9rem] truncate text-xs font-medium">{activeLabel}</span>
-      </button>
+        <ArrowUpDown className="h-4 w-4" />
+      </Button>
 
       {open ? (
         <div
@@ -63,10 +64,7 @@ export function SortMenu({ value, onChange, className }: SortMenuProps) {
                 type="button"
                 role="menuitemradio"
                 aria-checked={selected}
-                className={cn(
-                  "flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors hover:bg-secondary",
-                  selected ? "text-foreground" : "text-foreground",
-                )}
+                className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm text-foreground transition-colors hover:bg-secondary"
                 onClick={() => {
                   onChange(option.value)
                   setOpen(false)
