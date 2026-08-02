@@ -1,12 +1,12 @@
 import { useCallback, useRef, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { useCollections } from "@/lib/collections-context"
+import { AppHeader } from "@/components/AppHeader"
 import { CollectionForm } from "@/components/CollectionForm"
 import { ConfirmSaveProgressSheet } from "@/components/ConfirmSaveProgressSheet"
 import { PageBody, PageTitle } from "@/components/PageTitle"
 import { draftFromWords } from "@/lib/collection-form"
 import { useUnsavedChangesGuard } from "@/lib/use-unsaved-changes"
-import { ArrowLeft } from "lucide-react"
 
 export default function EditList() {
   const { id } = useParams()
@@ -49,18 +49,13 @@ export default function EditList() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="fixed inset-x-0 top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-2xl items-center px-5 py-3">
-          <button
-            type="button"
-            onClick={() => requestLeave(backTo)}
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {backLabel}
-          </button>
-        </div>
-      </header>
+      <AppHeader
+        leading={{
+          kind: "back",
+          label: backLabel,
+          onBack: () => requestLeave(backTo),
+        }}
+      />
 
       <PageBody>
         <PageTitle description="Update languages, name, or word pairs.">Edit set</PageTitle>

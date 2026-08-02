@@ -6,6 +6,7 @@ import {
   type DuplicateImportChoice,
 } from "@/components/DuplicateImportSheet"
 import { ConfirmLeaveImportSheet } from "@/components/ConfirmLeaveImportSheet"
+import { AppHeader } from "@/components/AppHeader"
 import { PageBody, PageTitle } from "@/components/PageTitle"
 import { langLabel } from "@/lib/languages"
 import {
@@ -19,7 +20,7 @@ import {
 import { detectPairLanguages, isSpreadsheetFile, parseSpreadsheetFile } from "@/lib/parse-import"
 import type { WordPair } from "@/lib/collection-form"
 import type { LangCode } from "@/types"
-import { ArrowLeft, Upload } from "lucide-react"
+import { Trash2, Upload } from "lucide-react"
 
 export default function ImportFile() {
   const navigate = useNavigate()
@@ -144,20 +145,39 @@ export default function ImportFile() {
     }
   }
 
+  const backLabel = returnTo.startsWith("/edit")
+    ? "Edit set"
+    : returnTo.startsWith("/new")
+      ? "New set"
+      : "Back"
+
+  function clearAll() {
+    setPairs([])
+    setDetectedWordLang(null)
+    setDetectedTranslationLang(null)
+    setFileLabel(null)
+    setError(null)
+    clearImportStaging()
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <header className="fixed inset-x-0 top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-2xl items-center px-5 py-3">
-          <button
+      <AppHeader
+        leading={{ kind: "back", label: backLabel, onBack: requestBack }}
+        actions={
+          <Button
             type="button"
-            onClick={requestBack}
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            variant="ghost"
+            size="icon"
+            aria-label="Clear import"
+            disabled={pairs.length === 0 && !fileLabel}
+            onClick={clearAll}
+            className="text-destructive hover:bg-transparent hover:text-destructive disabled:text-destructive/40"
           >
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </button>
-        </div>
-      </header>
+            <Trash2 className="h-5 w-5" />
+          </Button>
+        }
+      />
 
       <PageBody>
         <PageTitle description="Spreadsheet columns: word, translation, optional examples. Header optional.">
@@ -188,20 +208,6 @@ export default function ImportFile() {
           <div className="mt-6">
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm font-medium">Preview · {pairs.length} pairs</span>
-              <button
-                type="button"
-                className="text-xs text-muted-foreground underline hover:text-foreground"
-                onClick={() => {
-                  setPairs([])
-                  setDetectedWordLang(null)
-                  setDetectedTranslationLang(null)
-                  setFileLabel(null)
-                  setError(null)
-                  clearImportStaging()
-                }}
-              >
-                Clear
-              </button>
             </div>
             {langsChanged ? (
               <p className="mt-2 text-xs text-muted-foreground">

@@ -1,11 +1,10 @@
-import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
+import { AppHeader } from "@/components/AppHeader"
 import { PageBody, PageTitle } from "@/components/PageTitle"
 import { useAuth } from "@/lib/auth-context"
 import { useCollections } from "@/lib/collections-context"
 import type { PronounceFirst } from "@/types"
 import {
-  ArrowLeft,
   Cloud,
   CloudOff,
   LoaderCircle,
@@ -46,17 +45,7 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="fixed inset-x-0 top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-2xl items-center px-5 py-3">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            My sets
-          </Link>
-        </div>
-      </header>
+      <AppHeader leading={{ kind: "back", label: "My sets", to: "/" }} />
 
       <PageBody className="pb-8">
         <PageTitle

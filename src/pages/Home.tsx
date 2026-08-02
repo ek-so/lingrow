@@ -10,17 +10,16 @@ import { MoveHereSheet } from "@/components/MoveHereSheet"
 import { MoveToFolderSheet } from "@/components/MoveToFolderSheet"
 import { NameFolderSheet } from "@/components/NameFolderSheet"
 import { SearchSheet } from "@/components/SearchSheet"
+import { AppHeader } from "@/components/AppHeader"
 import { PageBody, PageTitle } from "@/components/PageTitle"
 import { downloadCollectionExcel } from "@/lib/export-collection"
 import { countItemsInFolder, descendantFolderIds } from "@/lib/folders"
 import { pairLabel } from "@/lib/languages"
 import { recordRecentOpen } from "@/lib/recent"
 import {
-  ArrowLeft,
   Folder as FolderIcon,
   FolderInput,
   FolderPlus,
-  Layers,
   Pencil,
   Plus,
   Search,
@@ -149,104 +148,114 @@ export default function Home() {
     )
   }
 
+  const searchButton = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      aria-label="Search"
+      onClick={() => setSearchOpen(true)}
+    >
+      <Search className="h-4 w-4" />
+    </Button>
+  )
+
+  const createButton = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      aria-label="Create"
+      onClick={() => setCreateOpen(true)}
+    >
+      <Plus className="h-4 w-4" />
+    </Button>
+  )
+
+  const profileButton = (
+    <button
+      type="button"
+      aria-label="Profile"
+      onClick={() => navigate("/profile")}
+      className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+    >
+      {user?.picture && status === "signed_in" ? (
+        <img
+          src={user.picture}
+          alt=""
+          className="h-8 w-8 rounded-full object-cover"
+          referrerPolicy="no-referrer"
+        />
+      ) : (
+        <UserRound className="h-5 w-5" />
+      )}
+    </button>
+  )
+
   return (
     <div className="min-h-screen bg-background">
-      <header className="fixed inset-x-0 top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-5 py-3">
-          <a
-            href={import.meta.env.BASE_URL}
-            className="flex items-center gap-2 text-primary"
-          >
-            <Layers className="h-5 w-5" />
-            <span className="text-sm font-medium tracking-wide uppercase">Lingrow</span>
-          </a>
-          <button
-            type="button"
-            aria-label="Profile"
-            onClick={() => navigate("/profile")}
-            className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          >
-            {user?.picture && status === "signed_in" ? (
-              <img
-                src={user.picture}
-                alt=""
-                className="h-8 w-8 rounded-full object-cover"
-                referrerPolicy="no-referrer"
+      {currentFolder ? (
+        <AppHeader
+          leading={{
+            kind: "back",
+            label: currentFolder.parentId
+              ? (getFolder(currentFolder.parentId)?.name ?? "Back")
+              : "My sets",
+            to: parentPath(),
+          }}
+          actions={
+            <>
+              {searchButton}
+              {createButton}
+              <OverflowMenu
+                label={`Actions for ${currentFolder.name}`}
+                items={[
+                  {
+                    label: "Rename",
+                    icon: <Pencil />,
+                    onSelect: () => setRenameTarget(currentFolder),
+                  },
+                  {
+                    label: "Move to…",
+                    icon: <FolderInput />,
+                    onSelect: () =>
+                      setMoveTarget({
+                        kind: "folder",
+                        id: currentFolder.id,
+                        name: currentFolder.name,
+                        parentId: currentFolder.parentId,
+                      }),
+                  },
+                  {
+                    label: "Delete",
+                    icon: <Trash2 />,
+                    destructive: true,
+                    onSelect: () => onDeleteFolder(currentFolder),
+                  },
+                ]}
               />
-            ) : (
-              <UserRound className="h-5 w-5" />
-            )}
-          </button>
-        </div>
-      </header>
+            </>
+          }
+        />
+      ) : (
+        <AppHeader
+          leading={{ kind: "brand" }}
+          actions={
+            <>
+              {searchButton}
+              {profileButton}
+            </>
+          }
+        />
+      )}
 
       <PageBody className="pb-8">
-        {currentFolder ? (
-          <div className="mb-4">
-            <Link
-              to={parentPath()}
-              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              {currentFolder.parentId
-                ? (getFolder(currentFolder.parentId)?.name ?? "Back")
-                : "My sets"}
-            </Link>
-          </div>
-        ) : null}
-
         <PageTitle
           className="mb-6"
           actions={
-            <>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label="Search"
-                onClick={() => setSearchOpen(true)}
-              >
-                <Search className="h-4 w-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label="Create"
-                onClick={() => setCreateOpen(true)}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-              {currentFolder ? (
-                <OverflowMenu
-                  label={`Actions for ${currentFolder.name}`}
-                  items={[
-                    {
-                      label: "Rename",
-                      icon: <Pencil />,
-                      onSelect: () => setRenameTarget(currentFolder),
-                    },
-                    {
-                      label: "Move to…",
-                      icon: <FolderInput />,
-                      onSelect: () =>
-                        setMoveTarget({
-                          kind: "folder",
-                          id: currentFolder.id,
-                          name: currentFolder.name,
-                          parentId: currentFolder.parentId,
-                        }),
-                    },
-                    {
-                      label: "Delete",
-                      icon: <Trash2 />,
-                      destructive: true,
-                      onSelect: () => onDeleteFolder(currentFolder),
-                    },
-                  ]}
-                />
-              ) : null}
-            </>
+            currentFolder ? undefined : (
+              createButton
+            )
           }
         >
           {currentFolder ? currentFolder.name : "My sets"}

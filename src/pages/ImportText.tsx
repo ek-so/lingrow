@@ -6,13 +6,14 @@ import {
   type DuplicateImportChoice,
 } from "@/components/DuplicateImportSheet"
 import { ConfirmLeaveImportSheet } from "@/components/ConfirmLeaveImportSheet"
+import { AppHeader } from "@/components/AppHeader"
 import { PageBody, PageTitle } from "@/components/PageTitle"
 import { langLabel } from "@/lib/languages"
 import { classifyImport, loadImportDraft, saveImportResult } from "@/lib/import-bridge"
 import { parseImportText } from "@/lib/parse-import"
 import type { WordPair } from "@/lib/collection-form"
 import type { LangCode } from "@/types"
-import { ArrowLeft, ClipboardPaste, Trash2 } from "lucide-react"
+import { ClipboardPaste, Trash2 } from "lucide-react"
 
 const PLACEHOLDER =
   "the apple — der Apfel (Ich esse einen Apfel.)\nto run — laufen (Ich laufe jeden Morgen.)"
@@ -141,51 +142,44 @@ export default function ImportText() {
   }
 
   const canClear = text.trim().length > 0 || pairs.length > 0
+  const backLabel = returnTo.startsWith("/edit")
+    ? "Edit set"
+    : returnTo.startsWith("/new")
+      ? "New set"
+      : "Back"
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="fixed inset-x-0 top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-2xl items-center px-5 py-3">
-          <button
-            type="button"
-            onClick={requestBack}
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </button>
-        </div>
-      </header>
+      <AppHeader
+        leading={{ kind: "back", label: backLabel, onBack: requestBack }}
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Paste from clipboard"
+              onClick={() => void onPasteClipboard()}
+            >
+              <ClipboardPaste className="h-5 w-5" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Clear text and preview"
+              disabled={!canClear}
+              onClick={clearAll}
+              className="text-destructive hover:bg-transparent hover:text-destructive disabled:text-destructive/40"
+            >
+              <Trash2 className="h-5 w-5" />
+            </Button>
+          </>
+        }
+      />
 
       <PageBody>
-        <PageTitle
-          actions={
-            <>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label="Paste from clipboard"
-                onClick={() => void onPasteClipboard()}
-              >
-                <ClipboardPaste className="h-5 w-5" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label="Clear text and preview"
-                disabled={!canClear}
-                onClick={clearAll}
-                className="text-destructive hover:bg-transparent hover:text-destructive disabled:text-destructive/40"
-              >
-                <Trash2 className="h-5 w-5" />
-              </Button>
-            </>
-          }
-        >
-          Paste text
-        </PageTitle>
+        <PageTitle>Paste text</PageTitle>
 
         <div className="mt-6 flex flex-col gap-3">
           <label className="flex flex-col gap-1.5">

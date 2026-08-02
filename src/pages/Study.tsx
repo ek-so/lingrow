@@ -3,9 +3,11 @@ import { Link, useNavigate, useParams } from "react-router-dom"
 import { useCollections } from "@/lib/collections-context"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import { AppHeader } from "@/components/AppHeader"
 import { FlipCard } from "@/components/FlipCard"
 import { OverflowMenu } from "@/components/OverflowMenu"
 import { MoveToFolderSheet } from "@/components/MoveToFolderSheet"
+import { PageTitle } from "@/components/PageTitle"
 import { StudyStats, type StudyRating } from "@/components/StudyStats"
 import { playClingSound } from "@/lib/cling"
 import { downloadCollectionExcel } from "@/lib/export-collection"
@@ -19,7 +21,6 @@ import {
 } from "@/lib/study-progress"
 import { useWakeLock } from "@/lib/use-wake-lock"
 import {
-  ArrowLeft,
   Download,
   FolderInput,
   Pause,
@@ -490,13 +491,10 @@ export default function Study() {
 
   return (
     <div className="h-dvh overflow-hidden bg-background">
-      <header className="fixed inset-x-0 top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-2xl w-full items-center justify-between gap-3 px-5 py-3">
-          <Link to={backTo} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" />
-            {backLabel}
-          </Link>
-          <div className="flex items-center gap-1">
+      <AppHeader
+        leading={{ kind: "back", label: backLabel, to: backTo }}
+        actions={
+          <>
             <Button
               type="button"
               variant="ghost"
@@ -534,12 +532,13 @@ export default function Study() {
                 },
               ]}
             />
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
-      <div className="absolute inset-x-0 top-[3.75rem] bottom-[4.75rem] flex flex-col overflow-hidden">
+      <div className="absolute inset-x-0 top-14 bottom-[4.75rem] flex flex-col overflow-hidden">
         <div className="mx-auto w-full max-w-2xl shrink-0 px-5 pt-3">
+          <PageTitle className="mb-3">{collection.name}</PageTitle>
           <Progress value={progressPct} className="mb-2" />
           <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
             <span>{pairLabel(collection.wordLang, collection.translationLang)}</span>
