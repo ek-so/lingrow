@@ -10,6 +10,7 @@ import type { LangCode } from "@/types"
 
 const DRAFT_KEY = "lingrow.import.draft.v1"
 const RESULT_KEY = "lingrow.import.result.v1"
+const STAGING_KEY = "lingrow.import.staging.v1"
 
 export interface ImportDraft {
   returnTo: string
@@ -22,6 +23,15 @@ export interface ImportResult {
   /** Optional language override detected from the pasted/imported text. */
   wordLang?: LangCode
   translationLang?: LangCode
+}
+
+/** File-import parse result parked before the results screen opens. */
+export interface ImportStaging {
+  pairs: WordPair[]
+  fileLabel?: string | null
+  wordLang?: LangCode
+  translationLang?: LangCode
+  error?: string | null
 }
 
 function canUseStorage() {
@@ -65,6 +75,27 @@ export function consumeImportResult(): ImportResult | null {
     sessionStorage.removeItem(RESULT_KEY)
     return null
   }
+}
+
+export function saveImportStaging(staging: ImportStaging) {
+  if (!canUseStorage()) return
+  sessionStorage.setItem(STAGING_KEY, JSON.stringify(staging))
+}
+
+export function loadImportStaging(): ImportStaging | null {
+  if (!canUseStorage()) return null
+  try {
+    const raw = sessionStorage.getItem(STAGING_KEY)
+    if (!raw) return null
+    return JSON.parse(raw) as ImportStaging
+  } catch {
+    return null
+  }
+}
+
+export function clearImportStaging() {
+  if (!canUseStorage()) return
+  sessionStorage.removeItem(STAGING_KEY)
 }
 
 export function wordKey(word: string) {

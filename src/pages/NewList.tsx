@@ -27,7 +27,7 @@ export default function NewList() {
     if (allowNavRef.current) return false
     if (!dirty) return false
     // Import flow saves its own bridge draft; don't interrupt it.
-    if (nextLocation.pathname === "/import") return false
+    if (nextLocation.pathname.startsWith("/import/")) return false
     return true
   })
 

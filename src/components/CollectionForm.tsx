@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type MutableRefObject } from "react"
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type MutableRefObject } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { LANG_CODES, LANGS, langLabel } from "@/lib/languages"
@@ -15,9 +15,11 @@ import {
   consumeImportResult,
   loadImportDraft,
   saveImportDraft,
+  saveImportStaging,
 } from "@/lib/import-bridge"
 import { clearNewSetDraft, loadNewSetDraft, saveNewSetDraft } from "@/lib/new-set-draft"
 import { examplesFromTextarea } from "@/lib/examples"
+import { detectPairLanguages, isSpreadsheetFile, parseSpreadsheetFile } from "@/lib/parse-import"
 import {
   appendCommaItem,
   applyGermanPlural,
@@ -29,7 +31,7 @@ import {
 } from "@/lib/suggest-format"
 import { useWordSuggest } from "@/lib/use-word-suggest"
 import type { LangCode } from "@/types"
-import { Info, Loader2, Plus, Sparkles, Trash2, Upload } from "lucide-react"
+import { ClipboardPaste, FileSpreadsheet, Info, Loader2, Plus, Sparkles, Trash2 } from "lucide-react"
 
 const selectClassName =
   "h-10 w-full rounded-md border border-input bg-card px-3 text-base outline-none focus:ring-2 focus:ring-ring"
@@ -523,12 +525,58 @@ export function CollectionForm({
     setWords((prev) => (prev.length <= 1 ? prev : prev.filter((w) => w.key !== key)))
   }
 
-  function openImport() {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [importBusy, setImportBusy] = useState(false)
+  const [importPickError, setImportPickError] = useState<string | null>(null)
+
+  function saveDraftForImport() {
     saveImportDraft({
       returnTo: location.pathname + location.search,
       values: { name, description, wordLang, translationLang, words },
     })
-    navigate("/import")
+  }
+
+  function openImportText() {
+    setImportPickError(null)
+    saveDraftForImport()
+    navigate("/import/text")
+  }
+
+  function openImportFile() {
+    setImportPickError(null)
+    saveDraftForImport()
+    fileInputRef.current?.click()
+  }
+
+  async function onImportFilePicked(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (!file) return
+    if (!isSpreadsheetFile(file)) {
+      setImportPickError("Use an Excel (.xlsx / .xls) or CSV file.")
+      return
+    }
+    setImportBusy(true)
+    setImportPickError(null)
+    try {
+      const parsed = await parseSpreadsheetFile(file)
+      const langs = detectPairLanguages(parsed)
+      saveImportStaging({
+        pairs: parsed,
+        fileLabel: file.name,
+        wordLang: langs.wordLang,
+        translationLang: langs.translationLang,
+        error:
+          parsed.length === 0
+            ? "No word pairs found. Expect columns: word, translation, optional examples."
+            : null,
+      })
+      navigate("/import/file")
+    } catch {
+      setImportPickError("Could not read that file. Try exporting as .xlsx or .csv.")
+    } finally {
+      setImportBusy(false)
+    }
   }
 
   function trySubmit(): boolean {
@@ -633,7 +681,40 @@ export function CollectionForm({
           Type a bare word — we’ll suggest translations, light article/“to” chips you can accept,
           and example sentences. Tap translations to stack them with commas.
         </p>
-        <div className="mt-3 flex flex-col gap-4">
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+          className="hidden"
+          onChange={(e) => void onImportFilePicked(e)}
+        />
+
+        <div className="mt-3 flex h-12 w-full overflow-hidden rounded-xl border border-dashed border-border bg-card text-sm font-medium text-muted-foreground">
+          <button
+            type="button"
+            disabled={importBusy}
+            onClick={openImportFile}
+            className="flex min-w-0 flex-1 items-center justify-center gap-2 transition-colors hover:border-primary/40 hover:bg-secondary hover:text-foreground disabled:opacity-60"
+          >
+            <FileSpreadsheet className="h-4 w-4 shrink-0" />
+            {importBusy ? "Reading…" : "Import file"}
+          </button>
+          <div className="w-px self-stretch bg-border" aria-hidden />
+          <button
+            type="button"
+            onClick={openImportText}
+            className="flex min-w-0 flex-1 items-center justify-center gap-2 transition-colors hover:border-primary/40 hover:bg-secondary hover:text-foreground"
+          >
+            <ClipboardPaste className="h-4 w-4 shrink-0" />
+            Paste text
+          </button>
+        </div>
+        {importPickError ? (
+          <p className="mt-2 text-xs text-destructive">{importPickError}</p>
+        ) : null}
+
+        <div className="mt-4 flex flex-col gap-4">
           {words.map((w) => (
             <WordRow
               key={w.key}
@@ -654,10 +735,6 @@ export function CollectionForm({
         <Button type="button" variant="outline" onClick={() => setWords((w) => [...w, emptyDraftWord()])}>
           <Plus className="h-4 w-4" />
           Add row
-        </Button>
-        <Button type="button" variant="outline" onClick={openImport}>
-          <Upload className="h-4 w-4" />
-          Import
         </Button>
         <Button type="submit" size="lg">
           {submitLabel}

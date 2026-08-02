@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent } from "react"
+import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import {
@@ -7,36 +7,22 @@ import {
 } from "@/components/DuplicateImportSheet"
 import { ConfirmLeaveImportSheet } from "@/components/ConfirmLeaveImportSheet"
 import { langLabel } from "@/lib/languages"
-import {
-  classifyImport,
-  loadImportDraft,
-  saveImportResult,
-} from "@/lib/import-bridge"
-import {
-  detectPairLanguages,
-  isSpreadsheetFile,
-  parseImportText,
-  parseSpreadsheetFile,
-} from "@/lib/parse-import"
+import { classifyImport, loadImportDraft, saveImportResult } from "@/lib/import-bridge"
+import { parseImportText } from "@/lib/parse-import"
 import type { WordPair } from "@/lib/collection-form"
 import type { LangCode } from "@/types"
-import { ArrowLeft, FileSpreadsheet, List, Upload } from "lucide-react"
+import { ArrowLeft, ClipboardPaste } from "lucide-react"
 
-type ImportMode = "file" | "text"
-
-export default function ImportWords() {
+export default function ImportText() {
   const navigate = useNavigate()
   const draft = loadImportDraft()
-  const fileRef = useRef<HTMLInputElement>(null)
 
-  const [mode, setMode] = useState<ImportMode>("file")
   const [text, setText] = useState("")
   const [pairs, setPairs] = useState<WordPair[]>([])
   const [detectedWordLang, setDetectedWordLang] = useState<LangCode | null>(null)
   const [detectedTranslationLang, setDetectedTranslationLang] = useState<LangCode | null>(null)
-  const [fileLabel, setFileLabel] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  const [pasteHint, setPasteHint] = useState<string | null>(null)
   const [duplicateChoice, setDuplicateChoice] = useState<DuplicateImportChoice>("skip")
   const [pendingDuplicates, setPendingDuplicates] = useState<{
     pairs: WordPair[]
@@ -47,7 +33,7 @@ export default function ImportWords() {
 
   if (!draft) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-5">
+      <div className="flex min-h-screen items-center justify-center bg-background px-5">
         <div className="text-center">
           <p className="text-muted-foreground">Nothing to import into.</p>
           <Button className="mt-4" onClick={() => navigate("/new")}>
@@ -61,7 +47,7 @@ export default function ImportWords() {
   const { values, returnTo } = draft
   const wordLang = detectedWordLang ?? values.wordLang
   const translationLang = detectedTranslationLang ?? values.translationLang
-  const hasUnsaved = pairs.length > 0
+  const hasUnsaved = pairs.length > 0 || text.trim().length > 0
   const langsChanged =
     (detectedWordLang != null && detectedWordLang !== values.wordLang) ||
     (detectedTranslationLang != null && detectedTranslationLang !== values.translationLang)
@@ -94,47 +80,40 @@ export default function ImportWords() {
     setLeaveOpen(true)
   }
 
-  async function onFileChange(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    e.target.value = ""
-    if (!file) return
-    if (!isSpreadsheetFile(file)) {
-      setError("Use an Excel (.xlsx / .xls) or CSV file with two columns.")
-      return
-    }
-    setBusy(true)
-    setError(null)
-    try {
-      const parsed = await parseSpreadsheetFile(file)
-      const langs = detectPairLanguages(parsed)
-      setPairs(parsed)
-      setDetectedWordLang(langs.wordLang ?? null)
-      setDetectedTranslationLang(langs.translationLang ?? null)
-      setFileLabel(file.name)
-      if (parsed.length === 0) {
-        setError("No word pairs found. Expect columns: word, translation, optional examples.")
-      }
-    } catch {
-      setError("Could not read that file. Try exporting as .xlsx or .csv.")
-      setPairs([])
-      setFileLabel(null)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  function onParseText() {
-    const parsed = parseImportText(text)
+  function applyParsedText(raw: string) {
+    const parsed = parseImportText(raw)
     setPairs(parsed.pairs)
     setDetectedWordLang(parsed.wordLang ?? null)
     setDetectedTranslationLang(parsed.translationLang ?? null)
-    setFileLabel(null)
     if (parsed.pairs.length === 0) {
       setError(
         "No pairs found. Use alternating lines (word, then translation), or one pair per line like “apple — яблоко”.",
       )
     } else {
       setError(null)
+    }
+  }
+
+  function onParseText() {
+    applyParsedText(text)
+  }
+
+  async function onPasteClipboard() {
+    setPasteHint(null)
+    try {
+      if (!navigator.clipboard?.readText) {
+        setPasteHint("Clipboard paste isn’t available here — use the text box.")
+        return
+      }
+      const clip = await navigator.clipboard.readText()
+      if (!clip.trim()) {
+        setPasteHint("Clipboard is empty.")
+        return
+      }
+      setText(clip)
+      applyParsedText(clip)
+    } catch {
+      setPasteHint("Couldn’t read the clipboard. Paste into the box manually.")
     }
   }
 
@@ -154,89 +133,40 @@ export default function ImportWords() {
       </header>
 
       <div className="mx-auto max-w-2xl px-5 pb-6 pt-[4.75rem]">
-        <h1 className="text-2xl font-semibold tracking-tight">Import words</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Paste text</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Upload a spreadsheet or paste a bullet list. Imported pairs are added to your list.
+          Alternating lines (word, then translation) or one pair per line. Language pair is detected
+          when possible.
         </p>
 
-        <div className="mt-6 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => setMode("file")}
-            className={`inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
-              mode === "file"
-                ? "border-primary bg-accent text-accent-foreground"
-                : "border-border hover:bg-secondary"
-            }`}
-          >
-            <FileSpreadsheet className="h-4 w-4" />
-            Excel / CSV
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("text")}
-            className={`inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
-              mode === "text"
-                ? "border-primary bg-accent text-accent-foreground"
-                : "border-border hover:bg-secondary"
-            }`}
-          >
-            <List className="h-4 w-4" />
-            Bullet text
-          </button>
-        </div>
+        <div className="mt-6 flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={() => void onPasteClipboard()}>
+              <ClipboardPaste className="h-4 w-4" />
+              Paste
+            </Button>
+            <Button type="button" variant="outline" onClick={onParseText} disabled={!text.trim()}>
+              Parse text
+            </Button>
+          </div>
+          {pasteHint ? <p className="text-xs text-muted-foreground">{pasteHint}</p> : null}
 
-        <div className="mt-6">
-          {mode === "file" ? (
-            <div className="rounded-xl border border-dashed border-border p-5">
-              <p className="text-sm font-medium">Spreadsheet</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Columns: {langLabel(wordLang)}, {langLabel(translationLang)}, optional examples
-                (separate sentences with || or newlines). Header optional.
-              </p>
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
-                className="hidden"
-                onChange={(e) => void onFileChange(e)}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="mt-4"
-                disabled={busy}
-                onClick={() => fileRef.current?.click()}
-              >
-                <Upload className="h-4 w-4" />
-                {busy ? "Reading…" : "Choose file"}
-              </Button>
-              {fileLabel ? <p className="mt-2 text-xs text-muted-foreground">{fileLabel}</p> : null}
-            </div>
-          ) : (
-            <div>
-              <label className="flex flex-col gap-1.5">
-                <span className="text-sm font-medium">Paste bullet list</span>
-                <textarea
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  rows={10}
-                  placeholder={
-                    "jingoist\nшовинист, ура-патриот\nflaccid\nвялый, дряблый\n\n— or —\n\n- the apple — der Apfel || Ich esse einen Apfel."
-                  }
-                  className="w-full rounded-md border border-input bg-card px-3 py-2 text-base outline-none focus:ring-2 focus:ring-ring"
-                />
-              </label>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Alternating lines work (word, then translation). Or one pair per line with —, –, -,
-                :, =, or tab. Commas inside translations are kept. Language pair is detected when
-                possible (e.g. English → Russian).
-              </p>
-              <Button type="button" variant="outline" className="mt-3" onClick={onParseText}>
-                Parse text
-              </Button>
-            </div>
-          )}
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium">Your list</span>
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              rows={12}
+              placeholder={
+                "jingoist\nшовинист, ура-патриот\nflaccid\nвялый, дряблый\n\n— or —\n\n- the apple — der Apfel || Ich esse einen Apfel."
+              }
+              className="w-full rounded-md border border-input bg-card px-3 py-2 text-base outline-none focus:ring-2 focus:ring-ring"
+            />
+          </label>
+          <p className="text-xs text-muted-foreground">
+            Separators for one-line pairs: —, –, -, :, =, or tab. Commas inside translations are
+            kept.
+          </p>
         </div>
 
         {pairs.length > 0 ? (
@@ -250,10 +180,9 @@ export default function ImportWords() {
                   setPairs([])
                   setDetectedWordLang(null)
                   setDetectedTranslationLang(null)
-                  setFileLabel(null)
                 }}
               >
-                Clear
+                Clear preview
               </button>
             </div>
             {langsChanged ? (
@@ -301,7 +230,7 @@ export default function ImportWords() {
           disabled={pairs.length === 0}
           onClick={() => {
             if (pairs.length === 0) {
-              setError("Import or paste at least one word pair first.")
+              setError("Paste or parse at least one word pair first.")
               return
             }
             tryCommit(pairs)
@@ -337,7 +266,8 @@ export default function ImportWords() {
         }}
         onSave={() => {
           setLeaveOpen(false)
-          tryCommit(pairs)
+          if (pairs.length > 0) tryCommit(pairs)
+          else navigate(returnTo)
         }}
       />
     </div>

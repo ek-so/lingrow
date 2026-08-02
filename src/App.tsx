@@ -6,7 +6,8 @@ import Home from "@/pages/Home"
 import Study from "@/pages/Study"
 import NewList from "@/pages/NewList"
 import EditList from "@/pages/EditList"
-import ImportWords from "@/pages/ImportWords"
+import ImportFile from "@/pages/ImportFile"
+import ImportText from "@/pages/ImportText"
 import Profile from "@/pages/Profile"
 
 function AppLayout() {
@@ -26,7 +27,8 @@ const router = createHashRouter([
       { path: "/folder/:folderId", element: <Home /> },
       { path: "/new", element: <NewList /> },
       { path: "/edit/:id", element: <EditList /> },
-      { path: "/import", element: <ImportWords /> },
+      { path: "/import/file", element: <ImportFile /> },
+      { path: "/import/text", element: <ImportText /> },
       { path: "/study/:id", element: <Study /> },
       { path: "/profile", element: <Profile /> },
     ],
