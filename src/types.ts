@@ -23,6 +23,10 @@ export interface Collection {
   /** Folder containing this set; null/undefined means Home (root). */
   folderId?: string | null
   words: Word[]
+  /** ISO timestamp when the set was created. */
+  createdAt: string
+  /** ISO timestamp when the set was last edited (content or placement). */
+  updatedAt: string
 }
 
 /** Nested folder for organizing sets. `parentId` null means Home (root). */
@@ -30,6 +34,10 @@ export interface Folder {
   id: string
   name: string
   parentId: string | null
+  /** ISO timestamp when the folder was created. */
+  createdAt: string
+  /** ISO timestamp when the folder was last edited (name or placement). */
+  updatedAt: string
 }
 
 /** Local + cloud library bundle (sets and folders). */

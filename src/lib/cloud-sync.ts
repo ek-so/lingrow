@@ -19,6 +19,8 @@ type CollectionRow = {
   theme: string | null
   folder_id: string | null
   sort_order: number
+  created_at?: string | null
+  updated_at?: string | null
 }
 
 type FolderRow = {
@@ -26,6 +28,8 @@ type FolderRow = {
   name: string
   parent_id: string | null
   sort_order: number
+  created_at?: string | null
+  updated_at?: string | null
 }
 
 type WordRow = {
@@ -41,6 +45,14 @@ type SettingsRow = {
   pronounce_first: string
 }
 
+const EPOCH_ISO = "1970-01-01T00:00:00.000Z"
+
+function readIso(value: string | null | undefined, fallback: string = EPOCH_ISO): string {
+  if (!value) return fallback
+  const ms = Date.parse(value)
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : fallback
+}
+
 export function cloudHasData(bundle: CloudBundle) {
   return bundle.collections.length > 0 || bundle.folders.length > 0 || bundle.settings != null
 }
@@ -50,17 +62,45 @@ export async function loadCloudBundle(userId: string): Promise<CloudBundle> {
 
   let collectionRowsRaw: CollectionRow[] = []
   {
-    const withFolder = await supabase
+    const withMeta = await supabase
       .from("collections")
-      .select("id,name,description,word_lang,translation_lang,level,theme,folder_id,sort_order")
+      .select(
+        "id,name,description,word_lang,translation_lang,level,theme,folder_id,sort_order,created_at,updated_at",
+      )
       .eq("user_id", userId)
       .order("sort_order", { ascending: true })
 
-    if (withFolder.error && /folder_id/i.test(withFolder.error.message)) {
+    if (withMeta.error && /created_at|updated_at/i.test(withMeta.error.message)) {
+      const withoutCreated = await supabase
+        .from("collections")
+        .select(
+          "id,name,description,word_lang,translation_lang,level,theme,folder_id,sort_order,updated_at",
+        )
+        .eq("user_id", userId)
+        .order("sort_order", { ascending: true })
+      if (withoutCreated.error && /folder_id/i.test(withoutCreated.error.message)) {
+        const legacy = await supabase
+          .from("collections")
+          .select("id,name,description,word_lang,translation_lang,level,theme,sort_order,updated_at")
+          .eq("user_id", userId)
+          .order("sort_order", { ascending: true })
+        if (legacy.error) throw new Error(legacy.error.message)
+        collectionRowsRaw = ((legacy.data ?? []) as Omit<CollectionRow, "folder_id">[]).map(
+          (row) => ({
+            ...row,
+            folder_id: null,
+          }),
+        )
+      } else if (withoutCreated.error) {
+        throw new Error(withoutCreated.error.message)
+      } else {
+        collectionRowsRaw = (withoutCreated.data ?? []) as CollectionRow[]
+      }
+    } else if (withMeta.error && /folder_id/i.test(withMeta.error.message)) {
       // Older schemas may not have folder_id yet.
       const legacy = await supabase
         .from("collections")
-        .select("id,name,description,word_lang,translation_lang,level,theme,sort_order")
+        .select("id,name,description,word_lang,translation_lang,level,theme,sort_order,updated_at")
         .eq("user_id", userId)
         .order("sort_order", { ascending: true })
       if (legacy.error) throw new Error(legacy.error.message)
@@ -68,17 +108,17 @@ export async function loadCloudBundle(userId: string): Promise<CloudBundle> {
         ...row,
         folder_id: null,
       }))
-    } else if (withFolder.error) {
-      throw new Error(withFolder.error.message)
+    } else if (withMeta.error) {
+      throw new Error(withMeta.error.message)
     } else {
-      collectionRowsRaw = (withFolder.data ?? []) as CollectionRow[]
+      collectionRowsRaw = (withMeta.data ?? []) as CollectionRow[]
     }
   }
 
   const [foldersRes, wordsRes, settingsRes] = await Promise.all([
     supabase
       .from("folders")
-      .select("id,name,parent_id,sort_order")
+      .select("id,name,parent_id,sort_order,created_at,updated_at")
       .eq("user_id", userId)
       .order("sort_order", { ascending: true }),
     supabase
@@ -99,17 +139,37 @@ export async function loadCloudBundle(userId: string): Promise<CloudBundle> {
   const foldersUnavailable =
     foldersRes.error != null &&
     /relation .*folders.* does not exist|Could not find the table/i.test(foldersRes.error.message)
-  if (foldersRes.error && !foldersUnavailable) throw new Error(foldersRes.error.message)
+
+  let folderRows: FolderRow[] = []
+  if (foldersRes.error && !foldersUnavailable) {
+    if (/created_at|updated_at/i.test(foldersRes.error.message)) {
+      const legacyFolders = await supabase
+        .from("folders")
+        .select("id,name,parent_id,sort_order,updated_at")
+        .eq("user_id", userId)
+        .order("sort_order", { ascending: true })
+      if (legacyFolders.error) throw new Error(legacyFolders.error.message)
+      folderRows = (legacyFolders.data ?? []) as FolderRow[]
+    } else {
+      throw new Error(foldersRes.error.message)
+    }
+  } else if (!foldersUnavailable) {
+    folderRows = (foldersRes.data ?? []) as FolderRow[]
+  }
 
   const collectionRows = collectionRowsRaw
-  const folderRows = (foldersUnavailable ? [] : (foldersRes.data ?? [])) as FolderRow[]
   const wordRows = (wordsRes.data ?? []) as WordRow[]
 
-  const folders: Folder[] = folderRows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    parentId: row.parent_id,
-  }))
+  const folders: Folder[] = folderRows.map((row) => {
+    const createdAt = readIso(row.created_at, readIso(row.updated_at))
+    return {
+      id: row.id,
+      name: row.name,
+      parentId: row.parent_id,
+      createdAt,
+      updatedAt: readIso(row.updated_at, createdAt),
+    }
+  })
   const folderIds = new Set(folders.map((f) => f.id))
 
   const wordsByCollection = new Map<string, Word[]>()
@@ -131,6 +191,7 @@ export async function loadCloudBundle(userId: string): Promise<CloudBundle> {
       : "en"
     const folderId =
       row.folder_id && folderIds.has(row.folder_id) ? row.folder_id : null
+    const createdAt = readIso(row.created_at, readIso(row.updated_at))
     return {
       id: row.id,
       name: row.name,
@@ -141,6 +202,8 @@ export async function loadCloudBundle(userId: string): Promise<CloudBundle> {
       theme: row.theme || undefined,
       folderId,
       words: wordsByCollection.get(row.id) ?? [],
+      createdAt,
+      updatedAt: readIso(row.updated_at, createdAt),
     }
   })
 
@@ -177,15 +240,27 @@ export async function saveCloudBundle(
   if (deleteFoldersError && !foldersTableMissing) throw new Error(deleteFoldersError.message)
 
   if (!foldersTableMissing && folders.length > 0) {
-    const folderRows = folders.map((f, index) => ({
+    const folderRowsWithCreated = folders.map((f, index) => ({
       id: f.id,
       user_id: userId,
       name: f.name,
       parent_id: f.parentId,
       sort_order: index,
-      updated_at: new Date().toISOString(),
+      created_at: f.createdAt,
+      updated_at: f.updatedAt,
     }))
-    const { error: folderError } = await supabase.from("folders").insert(folderRows)
+    let { error: folderError } = await supabase.from("folders").insert(folderRowsWithCreated)
+    if (folderError && /created_at/i.test(folderError.message)) {
+      const folderRows = folders.map((f, index) => ({
+        id: f.id,
+        user_id: userId,
+        name: f.name,
+        parent_id: f.parentId,
+        sort_order: index,
+        updated_at: f.updatedAt,
+      }))
+      ;({ error: folderError } = await supabase.from("folders").insert(folderRows))
+    }
     if (folderError) throw new Error(folderError.message)
   }
 
@@ -201,10 +276,27 @@ export async function saveCloudBundle(
       theme: c.theme ?? null,
       folder_id: foldersTableMissing ? null : (c.folderId ?? null),
       sort_order: index,
-      updated_at: new Date().toISOString(),
+      created_at: c.createdAt,
+      updated_at: c.updatedAt,
     }))
 
     let { error: collectionError } = await supabase.from("collections").insert(withFolderId)
+    if (collectionError && /created_at/i.test(collectionError.message)) {
+      const withoutCreated = collections.map((c, index) => ({
+        id: c.id,
+        user_id: userId,
+        name: c.name,
+        description: c.description,
+        word_lang: c.wordLang,
+        translation_lang: c.translationLang,
+        level: c.level ?? null,
+        theme: c.theme ?? null,
+        folder_id: foldersTableMissing ? null : (c.folderId ?? null),
+        sort_order: index,
+        updated_at: c.updatedAt,
+      }))
+      ;({ error: collectionError } = await supabase.from("collections").insert(withoutCreated))
+    }
     if (collectionError && /folder_id/i.test(collectionError.message)) {
       const legacyRows = collections.map((c, index) => ({
         id: c.id,
@@ -216,7 +308,7 @@ export async function saveCloudBundle(
         level: c.level ?? null,
         theme: c.theme ?? null,
         sort_order: index,
-        updated_at: new Date().toISOString(),
+        updated_at: c.updatedAt,
       }))
       ;({ error: collectionError } = await supabase.from("collections").insert(legacyRows))
     }

@@ -7,6 +7,7 @@ create table if not exists public.folders (
   name text not null,
   parent_id text,
   sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
@@ -21,11 +22,14 @@ create table if not exists public.collections (
   theme text,
   folder_id text,
   sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 -- Existing projects created before folders: add the column if missing.
 alter table public.collections add column if not exists folder_id text;
+alter table public.folders add column if not exists created_at timestamptz not null default now();
+alter table public.collections add column if not exists created_at timestamptz not null default now();
 
 create table if not exists public.words (
   id text primary key,

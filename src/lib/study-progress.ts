@@ -49,6 +49,11 @@ export function loadStudyProgress(collectionId: string): StudyProgress | null {
   return loadAll()[collectionId] ?? null
 }
 
+/** Full progress map (used for “recently exercised” sorting). */
+export function loadStudyProgressMap(): ProgressMap {
+  return loadAll()
+}
+
 export function saveStudyProgress(collectionId: string, index: number) {
   if (!collectionId) return
   const map = loadAll()

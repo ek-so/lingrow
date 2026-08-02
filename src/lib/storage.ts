@@ -12,8 +12,20 @@ const defaultSettings: AppSettings = {
   pronounceFirst: "translation",
 }
 
+const EPOCH_ISO = "1970-01-01T00:00:00.000Z"
+
 function canUseStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined"
+}
+
+function readIsoTimestamp(value: unknown, fallback: string = EPOCH_ISO): string {
+  if (typeof value !== "string" || !value) return fallback
+  const ms = Date.parse(value)
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : fallback
+}
+
+export function nowIso(): string {
+  return new Date().toISOString()
 }
 
 function migrateWord(raw: Record<string, unknown>): Word | null {
@@ -56,6 +68,9 @@ function migrateCollection(raw: unknown): Collection | null {
   const folderId =
     typeof c.folderId === "string" && c.folderId.length > 0 ? c.folderId : null
 
+  const createdAt = readIsoTimestamp(c.createdAt)
+  const updatedAt = readIsoTimestamp(c.updatedAt, createdAt)
+
   return {
     id: c.id,
     name: c.name,
@@ -66,6 +81,8 @@ function migrateCollection(raw: unknown): Collection | null {
     theme: typeof c.theme === "string" ? c.theme : undefined,
     folderId,
     words,
+    createdAt,
+    updatedAt,
   }
 }
 
@@ -75,7 +92,9 @@ function migrateFolder(raw: unknown): Folder | null {
   if (typeof f.id !== "string" || typeof f.name !== "string") return null
   const parentId =
     typeof f.parentId === "string" && f.parentId.length > 0 ? f.parentId : null
-  return { id: f.id, name: f.name, parentId }
+  const createdAt = readIsoTimestamp(f.createdAt)
+  const updatedAt = readIsoTimestamp(f.updatedAt, createdAt)
+  return { id: f.id, name: f.name, parentId, createdAt, updatedAt }
 }
 
 function migrateCollectionsList(raw: unknown): Collection[] {

@@ -12,6 +12,7 @@ import {
   loadLibrary,
   loadSettings,
   newId,
+  nowIso,
   saveLibrary,
   saveSettings,
 } from "@/lib/storage"
@@ -291,6 +292,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
       typeof input.folderId === "string" && foldersRef.current.some((f) => f.id === input.folderId)
         ? input.folderId
         : null
+    const stamp = nowIso()
     const collection: Collection = {
       id: newId("list"),
       name: input.name.trim(),
@@ -299,6 +301,8 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
       translationLang: input.translationLang,
       folderId,
       words: normalizeWords(input.words),
+      createdAt: stamp,
+      updatedAt: stamp,
     }
     setCollections((prev) => {
       const next = [collection, ...prev]
@@ -328,6 +332,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
           translationLang: input.translationLang,
           folderId,
           words: normalizeWords(input.words, c.words),
+          updatedAt: nowIso(),
         }
         return updated
       })
@@ -348,8 +353,11 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
   function moveCollection(id: string, folderId: string | null) {
     const target =
       folderId == null || foldersRef.current.some((f) => f.id === folderId) ? folderId : null
+    const stamp = nowIso()
     setCollections((prev) => {
-      const next = prev.map((c) => (c.id === id ? { ...c, folderId: target } : c))
+      const next = prev.map((c) =>
+        c.id === id ? { ...c, folderId: target, updatedAt: stamp } : c,
+      )
       commitLibrary(next, foldersRef.current)
       return next
     })
@@ -377,10 +385,13 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
     const trimmed = name.trim() || "Untitled folder"
     const parent =
       parentId != null && foldersRef.current.some((f) => f.id === parentId) ? parentId : null
+    const stamp = nowIso()
     const folder: Folder = {
       id: newId("folder"),
       name: trimmed,
       parentId: parent,
+      createdAt: stamp,
+      updatedAt: stamp,
     }
     setFolders((prev) => {
       const next = [folder, ...prev]
@@ -394,8 +405,11 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
   function renameFolder(id: string, name: string) {
     const trimmed = name.trim()
     if (!trimmed) return
+    const stamp = nowIso()
     setFolders((prev) => {
-      const next = prev.map((f) => (f.id === id ? { ...f, name: trimmed } : f))
+      const next = prev.map((f) =>
+        f.id === id ? { ...f, name: trimmed, updatedAt: stamp } : f,
+      )
       foldersRef.current = next
       commitLibrary(collectionsRef.current, next)
       return next
@@ -406,8 +420,11 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
     if (wouldCreateFolderCycle(foldersRef.current, id, parentId)) return
     const target =
       parentId == null || foldersRef.current.some((f) => f.id === parentId) ? parentId : null
+    const stamp = nowIso()
     setFolders((prev) => {
-      const next = prev.map((f) => (f.id === id ? { ...f, parentId: target } : f))
+      const next = prev.map((f) =>
+        f.id === id ? { ...f, parentId: target, updatedAt: stamp } : f,
+      )
       foldersRef.current = next
       commitLibrary(collectionsRef.current, next)
       return next

@@ -1,5 +1,8 @@
+import { isLibrarySortMode, type LibrarySortMode } from "@/lib/library-sort"
+
 const LOGIN_PROMPT_KEY = "lingrow.loginPrompt.v1"
 const QUIET_MODE_KEY = "lingrow.quietMode.v1"
+const LIBRARY_SORT_KEY = "lingrow.librarySort.v1"
 
 export interface LoginPromptState {
   /** User dismissed the first-visit login suggestion. */
@@ -52,4 +55,19 @@ export function loadQuietMode(): boolean {
 export function saveQuietMode(quiet: boolean) {
   if (!canUseStorage()) return
   localStorage.setItem(QUIET_MODE_KEY, quiet ? "1" : "0")
+}
+
+export function loadLibrarySortMode(): LibrarySortMode {
+  if (!canUseStorage()) return "manual"
+  try {
+    const raw = localStorage.getItem(LIBRARY_SORT_KEY)
+    return isLibrarySortMode(raw) ? raw : "manual"
+  } catch {
+    return "manual"
+  }
+}
+
+export function saveLibrarySortMode(mode: LibrarySortMode) {
+  if (!canUseStorage()) return
+  localStorage.setItem(LIBRARY_SORT_KEY, mode)
 }
