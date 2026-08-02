@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent } from "react"
+import { useEffect, useRef, useState, type FormEvent, type MutableRefObject } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { LANG_CODES, LANGS, langLabel } from "@/lib/languages"
 import {
   emptyDraftWord,
+  hasEnteredProgress,
   pairsFromDraft,
   type CollectionFormValues,
   type DraftWord,
@@ -404,6 +405,10 @@ interface CollectionFormProps {
     translationLang: LangCode
     words: Array<{ word: string; translation: string; examples?: string[] }>
   }) => void
+  /** Fires when typed content appears or clears (language-only changes ignored). */
+  onDirtyChange?: (dirty: boolean) => void
+  /** Parent can call this to run the same validation + submit as the Save button. */
+  submitRef?: MutableRefObject<(() => boolean) | null>
 }
 
 function resolveInitial(fallback: CollectionFormValues, pathname: string): CollectionFormValues {
@@ -426,7 +431,13 @@ function resolveInitial(fallback: CollectionFormValues, pathname: string): Colle
   return fallback
 }
 
-export function CollectionForm({ initial, submitLabel, onSubmit }: CollectionFormProps) {
+export function CollectionForm({
+  initial,
+  submitLabel,
+  onSubmit,
+  onDirtyChange,
+  submitRef,
+}: CollectionFormProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const [boot] = useState(() => resolveInitial(initial, location.pathname))
@@ -447,6 +458,10 @@ export function CollectionForm({ initial, submitLabel, onSubmit }: CollectionFor
 
   const sameLanguage = wordLang === translationLang
 
+  useEffect(() => {
+    onDirtyChange?.(hasEnteredProgress({ name, description, words }))
+  }, [name, description, words, onDirtyChange])
+
   function updateWord(key: string, field: "word" | "translation" | "examplesText", value: string) {
     setWords((prev) => prev.map((w) => (w.key === key ? { ...w, [field]: value } : w)))
   }
@@ -463,13 +478,12 @@ export function CollectionForm({ initial, submitLabel, onSubmit }: CollectionFor
     navigate("/import")
   }
 
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault()
+  function trySubmit(): boolean {
     const trimmedName = name.trim()
     const validWords = pairsFromDraft(words)
     if (!trimmedName) {
       setError("Give your list a name.")
-      return
+      return false
     }
     if (validWords.length === 0) {
       setError(
@@ -477,7 +491,7 @@ export function CollectionForm({ initial, submitLabel, onSubmit }: CollectionFor
           ? `Add at least one pair with both sides filled in (${langLabel(wordLang)}).`
           : `Add at least one pair with both ${langLabel(wordLang)} and ${langLabel(translationLang)}.`,
       )
-      return
+      return false
     }
     setError(null)
     onSubmit({
@@ -487,6 +501,20 @@ export function CollectionForm({ initial, submitLabel, onSubmit }: CollectionFor
       translationLang,
       words: validWords,
     })
+    return true
+  }
+
+  useEffect(() => {
+    if (!submitRef) return
+    submitRef.current = trySubmit
+    return () => {
+      submitRef.current = null
+    }
+  })
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    trySubmit()
   }
 
   return (

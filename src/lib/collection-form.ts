@@ -42,6 +42,18 @@ export function emptyDraftWord(): DraftWord {
   }
 }
 
+/** True when the user typed something on the set form (langs alone don’t count). */
+export function hasEnteredProgress(values: {
+  name: string
+  description: string
+  words: Array<{ word: string; translation: string; examplesText: string }>
+}): boolean {
+  if (values.name.trim() || values.description.trim()) return true
+  return values.words.some(
+    (w) => w.word.trim() || w.translation.trim() || w.examplesText.trim(),
+  )
+}
+
 export function draftFromWords(words: Word[]): DraftWord[] {
   if (words.length === 0) return [emptyDraftWord()]
   return words.map((w) => ({

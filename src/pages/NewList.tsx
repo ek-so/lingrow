@@ -1,6 +1,8 @@
-import { Link, useNavigate, useSearchParams } from "react-router-dom"
+import { useCallback, useRef, useState } from "react"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { useCollections } from "@/lib/collections-context"
 import { CollectionForm } from "@/components/CollectionForm"
+import { ConfirmSaveProgressSheet } from "@/components/ConfirmSaveProgressSheet"
 import { emptyDraftWord } from "@/lib/collection-form"
 import { ArrowLeft } from "lucide-react"
 
@@ -13,17 +15,31 @@ export default function NewList() {
   const folderId = folder?.id ?? null
   const backTo = folderId ? `/folder/${folderId}` : "/"
 
+  const [dirty, setDirty] = useState(false)
+  const [leaveOpen, setLeaveOpen] = useState(false)
+  const submitRef = useRef<(() => boolean) | null>(null)
+  const onDirtyChange = useCallback((next: boolean) => setDirty(next), [])
+
+  function requestBack() {
+    if (!dirty) {
+      navigate(backTo)
+      return
+    }
+    setLeaveOpen(true)
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="fixed inset-x-0 top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-2xl items-center px-5 py-3">
-          <Link
-            to={backTo}
+          <button
+            type="button"
+            onClick={requestBack}
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
             {folder ? folder.name : "My sets"}
-          </Link>
+          </button>
         </div>
       </header>
 
@@ -49,6 +65,8 @@ export default function NewList() {
               words: [emptyDraftWord(), emptyDraftWord(), emptyDraftWord()],
             }}
             submitLabel="Save set"
+            onDirtyChange={onDirtyChange}
+            submitRef={submitRef}
             onSubmit={(values) => {
               const created = addCollection({ ...values, folderId })
               navigate(`/study/${created.id}`)
@@ -56,6 +74,19 @@ export default function NewList() {
           />
         </div>
       </div>
+
+      <ConfirmSaveProgressSheet
+        open={leaveOpen}
+        onCancel={() => setLeaveOpen(false)}
+        onNo={() => {
+          setLeaveOpen(false)
+          navigate(backTo)
+        }}
+        onYes={() => {
+          setLeaveOpen(false)
+          submitRef.current?.()
+        }}
+      />
     </div>
   )
 }
