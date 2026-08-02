@@ -21,6 +21,11 @@ import {
   loadStudyProgress,
   saveStudyProgress,
 } from "@/lib/study-progress"
+import {
+  estimateSpeechMs,
+  getPronouncePlayer,
+  type SpeechPlayItem,
+} from "@/lib/speech-audio"
 import { useWakeLock } from "@/lib/use-wake-lock"
 import {
   Download,
@@ -92,20 +97,21 @@ export default function Study() {
   const [view, setView] = useState<StudyView>("cards")
   const [ratings, setRatings] = useState<Record<string, StudyRating>>({})
   const [quiet, setQuiet] = useState(() => loadQuietMode())
-  const voicesRef = useRef<SpeechSynthesisVoice[]>([])
-  const timeoutRef = useRef<number | null>(null)
   const clingPlayed = useRef(false)
-  const speakGen = useRef(0)
   const quietRef = useRef(quiet)
+  const playingRef = useRef(playing)
+  const indexRef = useRef(index)
+  const collectionRef = useRef(collection)
   quietRef.current = quiet
+  playingRef.current = playing
+  indexRef.current = index
+  collectionRef.current = collection
 
-  // Keep the screen on during play so speechSynthesis is not suspended by lock.
+  // Nice-to-have while unlocked; lock-screen audio uses <audio> media sessions.
   useWakeLock(playing && view === "cards")
 
   function stopSpeech() {
-    speakGen.current += 1
-    window.speechSynthesis.cancel()
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    getPronouncePlayer().stop()
   }
 
   function resetToFirstWord() {
@@ -157,18 +163,6 @@ export default function Study() {
   }, [id, index, view, collection])
 
   useEffect(() => {
-    function loadVoices() {
-      voicesRef.current = window.speechSynthesis.getVoices()
-    }
-    loadVoices()
-    window.speechSynthesis.onvoiceschanged = loadVoices
-    return () => {
-      window.speechSynthesis.cancel()
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    }
-  }, [])
-
-  useEffect(() => {
     if (!playing) return
     setFlipped(phase === "second" || phase === "pause")
   }, [playing, phase])
@@ -180,80 +174,6 @@ export default function Study() {
     if (id) saveStudyProgress(id, 0)
     if (!quietRef.current) playClingSound()
   }, [view, id])
-
-  function speak(text: string, lang: string, onEnd?: () => void) {
-    const gen = speakGen.current
-
-    if (quietRef.current) {
-      if (!onEnd) return
-      const ms = Math.min(1100, Math.max(280, text.trim().split(/\s+/).length * 260))
-      timeoutRef.current = window.setTimeout(() => {
-        if (speakGen.current !== gen) return
-        onEnd()
-      }, ms)
-      return
-    }
-
-    const utter = new SpeechSynthesisUtterance(text)
-    utter.lang = lang
-    const prefix = lang.toLowerCase().slice(0, 2)
-    const voice =
-      voicesRef.current.find((v) => v.lang.toLowerCase().startsWith(lang.toLowerCase())) ??
-      voicesRef.current.find((v) => v.lang.toLowerCase().startsWith(prefix))
-    if (voice) utter.voice = voice
-    utter.rate = 0.95
-    if (onEnd) {
-      utter.onend = () => {
-        if (speakGen.current !== gen) return
-        onEnd()
-      }
-    }
-    window.speechSynthesis.speak(utter)
-  }
-
-  function speakOnce(text: string, lang: string) {
-    window.speechSynthesis.cancel()
-    speak(text, lang)
-  }
-
-  /** Always audible — used for the per-side play buttons. */
-  function speakAudio(text: string, lang: string) {
-    speakGen.current += 1
-    window.speechSynthesis.cancel()
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
-
-    const utter = new SpeechSynthesisUtterance(text)
-    utter.lang = lang
-    const prefix = lang.toLowerCase().slice(0, 2)
-    const voice =
-      voicesRef.current.find((v) => v.lang.toLowerCase().startsWith(lang.toLowerCase())) ??
-      voicesRef.current.find((v) => v.lang.toLowerCase().startsWith(prefix))
-    if (voice) utter.voice = voice
-    utter.rate = 0.95
-    window.speechSynthesis.speak(utter)
-  }
-
-  function speakVisibleSide(wordIndex: number, showBack: boolean) {
-    if (!collection) return
-    const word = collection.words[wordIndex]
-    if (!word) return
-    const sides = sidesForWord(collection, word)
-    const side = showBack ? sides.second : sides.first
-    speakOnce(side.text, side.lang)
-  }
-
-  function playCardSide(showBack: boolean) {
-    if (!collection) return
-    if (playing) {
-      stopSpeech()
-      setPlaying(false)
-    }
-    const word = collection.words[index]
-    if (!word) return
-    const sides = sidesForWord(collection, word)
-    const side = showBack ? sides.second : sides.first
-    speakAudio(side.text, side.lang)
-  }
 
   function sidesForWord(collection: Collection, word: Word) {
     const examples = word.examples?.length ? word.examples : undefined
@@ -294,6 +214,101 @@ export default function Study() {
     }
   }
 
+  function buildAutoplayQueue(col: Collection, fromIndex: number): SpeechPlayItem[] {
+    const items: SpeechPlayItem[] = []
+    const quietMode = quietRef.current
+
+    for (let i = fromIndex; i < col.words.length; i++) {
+      const word = col.words[i]
+      if (!word) continue
+      const sides = sidesForWord(col, word)
+
+      if (quietMode) {
+        items.push({
+          kind: "silence",
+          ms: estimateSpeechMs(sides.first.text),
+          text: sides.first.text,
+          onStart: () => {
+            setIndex(i)
+            setPhase("first")
+            setFlipped(false)
+          },
+        })
+      } else {
+        items.push({
+          kind: "tts",
+          text: sides.first.text,
+          lang: sides.first.lang,
+          onStart: () => {
+            setIndex(i)
+            setPhase("first")
+            setFlipped(false)
+          },
+        })
+      }
+
+      items.push({ kind: "silence", ms: BETWEEN_SIDES_MS })
+
+      if (quietMode) {
+        items.push({
+          kind: "silence",
+          ms: estimateSpeechMs(sides.second.text),
+          text: sides.second.text,
+          onStart: () => setPhase("second"),
+        })
+      } else {
+        items.push({
+          kind: "tts",
+          text: sides.second.text,
+          lang: sides.second.lang,
+          onStart: () => setPhase("second"),
+        })
+      }
+
+      items.push({
+        kind: "silence",
+        ms: AFTER_SECOND_SIDE_MS,
+        onStart: () => setPhase("pause"),
+      })
+      items.push({ kind: "silence", ms: BETWEEN_CARDS_MS })
+    }
+
+    return items
+  }
+
+  /** Start/replace the audio queue. Prefer calling from a user gesture (Play tap). */
+  function startAutoplayQueue(fromIndex: number) {
+    const col = collectionRef.current
+    if (!col) return
+    const player = getPronouncePlayer()
+    player.setSessionMeta({ title: col.name, album: col.name })
+    player.startQueue(buildAutoplayQueue(col, fromIndex), () => {
+      finishAutoSession(col.words)
+    })
+  }
+
+  function speakVisibleSide(wordIndex: number, showBack: boolean) {
+    if (!collection) return
+    const word = collection.words[wordIndex]
+    if (!word) return
+    const sides = sidesForWord(collection, word)
+    const side = showBack ? sides.second : sides.first
+    getPronouncePlayer().speakOne(side.text, side.lang)
+  }
+
+  function playCardSide(showBack: boolean) {
+    if (!collection) return
+    if (playing) {
+      stopSpeech()
+      setPlaying(false)
+    }
+    const word = collection.words[index]
+    if (!word) return
+    const sides = sidesForWord(collection, word)
+    const side = showBack ? sides.second : sides.first
+    getPronouncePlayer().speakOne(side.text, side.lang)
+  }
+
   function finishAutoSession(words: Word[]) {
     setRatings((prev) => {
       const next = { ...prev }
@@ -316,47 +331,11 @@ export default function Study() {
       setView("stats")
       return
     }
-    setIndex((i) => i + 1)
+    const nextIndex = index + 1
+    setIndex(nextIndex)
     setPhase("first")
+    if (playing) startAutoplayQueue(nextIndex)
   }
-
-  useEffect(() => {
-    if (!playing || !collection || view !== "cards") return
-    const word = collection.words[index]
-    if (!word) return
-    const sides = sidesForWord(collection, word)
-    const gen = speakGen.current
-
-    if (phase === "first") {
-      window.speechSynthesis.cancel()
-      speak(sides.first.text, sides.first.lang, () => {
-        timeoutRef.current = window.setTimeout(() => {
-          if (speakGen.current !== gen) return
-          setPhase("second")
-        }, BETWEEN_SIDES_MS)
-      })
-    } else if (phase === "second") {
-      speak(sides.second.text, sides.second.lang, () => {
-        timeoutRef.current = window.setTimeout(() => {
-          if (speakGen.current !== gen) return
-          setPhase("pause")
-        }, AFTER_SECOND_SIDE_MS)
-      })
-    } else if (phase === "pause") {
-      const totalWords = collection.words.length
-      timeoutRef.current = window.setTimeout(() => {
-        if (speakGen.current !== gen) return
-        if (index < totalWords - 1) {
-          setIndex((i) => i + 1)
-          setPhase("first")
-          setFlipped(false)
-        } else {
-          finishAutoSession(collection.words)
-        }
-      }, BETWEEN_CARDS_MS)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, phase, index, pronounceFirst, view, quiet])
 
   // Manual study: pronounce the front side once when landing on a card.
   useEffect(() => {
@@ -366,6 +345,65 @@ export default function Study() {
     speakVisibleSide(index, false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, playing, view, id, pronounceFirst, quiet])
+
+  useEffect(() => {
+    const player = getPronouncePlayer()
+    player.setMediaSessionHandlers({
+      onPlay: () => {
+        if (playingRef.current) return
+        if (!collectionRef.current) return
+        setPhase("first")
+        setFlipped(false)
+        setPlaying(true)
+        startAutoplayQueue(indexRef.current)
+      },
+      onPause: () => {
+        stopSpeech()
+        setPlaying(false)
+      },
+      onNext: () => {
+        const col = collectionRef.current
+        if (!col) return
+        const i = indexRef.current
+        const current = col.words[i]
+        stopSpeech()
+        setRatings((prev) => {
+          const next = { ...prev }
+          if (current && !next[current.id]) next[current.id] = "skipped"
+          if (i >= col.words.length - 1) {
+            for (const w of col.words) {
+              if (!next[w.id]) next[w.id] = "skipped"
+            }
+          }
+          return next
+        })
+        if (i >= col.words.length - 1) {
+          setPlaying(false)
+          setView("stats")
+          return
+        }
+        const nextIndex = i + 1
+        setIndex(nextIndex)
+        setPhase("first")
+        setFlipped(false)
+        if (playingRef.current) startAutoplayQueue(nextIndex)
+      },
+      onPrevious: () => {
+        const i = indexRef.current
+        if (i <= 0) return
+        stopSpeech()
+        setIndex(i - 1)
+        setPhase("first")
+        setFlipped(false)
+        if (playingRef.current) startAutoplayQueue(i - 1)
+      },
+    })
+    return () => {
+      player.stop()
+      player.setMediaSessionHandlers({})
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function handleFlip(next: boolean) {
     setFlipped(next)
@@ -379,10 +417,9 @@ export default function Study() {
     const next = !quiet
     saveQuietMode(next)
     setQuiet(next)
-    // Cancel any in-flight utterance; auto-play effect restarts via `quiet` dep.
-    speakGen.current += 1
-    window.speechSynthesis.cancel()
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    quietRef.current = next
+    stopSpeech()
+    if (playingRef.current) startAutoplayQueue(indexRef.current)
   }
 
   if (!collection) {
@@ -444,6 +481,8 @@ export default function Study() {
       setPhase("first")
       setFlipped(false)
       setPlaying(true)
+      // Must start audio in this tap stack so iOS allows background playback.
+      startAutoplayQueue(index)
     }
   }
 
@@ -451,9 +490,11 @@ export default function Study() {
     if (!collection) return
     // Keep auto-play on; only Pause should stop it.
     stopSpeech()
-    setIndex(Math.max(0, Math.min(collection.words.length - 1, newIndex)))
+    const clamped = Math.max(0, Math.min(collection.words.length - 1, newIndex))
+    setIndex(clamped)
     setPhase("first")
     setFlipped(false)
+    if (playing) startAutoplayQueue(clamped)
   }
 
   function goNext() {
@@ -475,9 +516,11 @@ export default function Study() {
       setView("stats")
       return
     }
-    setIndex(index + 1)
+    const nextIndex = index + 1
+    setIndex(nextIndex)
     setPhase("first")
     setFlipped(false)
+    if (playing) startAutoplayQueue(nextIndex)
   }
 
   function onDelete() {
@@ -667,7 +710,7 @@ export default function Study() {
               />
               <p className="mt-3 text-center text-xs text-muted-foreground">
                 {playing
-                  ? "Auto play — swipe to rate · Tap to flip"
+                  ? "Auto play continues with the screen locked · Swipe to rate · Tap to flip"
                   : "Tap to flip · Swipe right if you know it · Left if you don’t"}
               </p>
             </div>

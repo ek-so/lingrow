@@ -4,7 +4,7 @@ export interface LangMeta {
   code: LangCode
   name: string
   nativeName: string
-  /** BCP-47 tag for speechSynthesis */
+  /** BCP-47 tag for TTS / speech (e.g. de-DE) */
   speech: string
   short: string
 }

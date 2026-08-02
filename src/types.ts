@@ -46,7 +46,7 @@ export interface Library {
   folders: Folder[]
 }
 
-/** What speechSynthesis says first during study playback. */
+/** Which side is spoken first during study playback. */
 export type PronounceFirst = "word" | "translation"
 
 export interface AppSettings {

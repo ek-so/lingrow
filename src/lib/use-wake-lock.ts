@@ -4,6 +4,8 @@ import { useEffect } from "react"
  * Keep the screen awake while `active` is true (Screen Wake Lock API).
  * No-ops when unsupported or when the browser denies the request.
  * Re-acquires after the tab becomes visible again (browsers release on hide).
+ *
+ * Lock-screen pronunciation does not depend on this — see `speech-audio.ts`.
  */
 export function useWakeLock(active: boolean) {
   useEffect(() => {
