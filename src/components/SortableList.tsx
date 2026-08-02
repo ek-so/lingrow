@@ -93,7 +93,8 @@ export function SortableItem({
   handleLabel = "Drag to reorder",
 }: {
   id: UniqueIdentifier
-  children: ReactNode
+  /** Receives the grip control so callers can place it inside their card/row. */
+  children: (dragHandle: ReactNode) => ReactNode
   className?: string
   handleClassName?: string
   handleLabel?: string
@@ -109,29 +110,28 @@ export function SortableItem({
     position: "relative",
   }
 
+  const dragHandle = (
+    <button
+      type="button"
+      aria-label={handleLabel}
+      className={cn(
+        "-ml-1.5 inline-flex h-10 w-8 shrink-0 cursor-grab touch-none select-none items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground active:cursor-grabbing",
+        handleClassName,
+      )}
+      {...attributes}
+      {...listeners}
+    >
+      <GripVertical className="h-4 w-4" aria-hidden />
+    </button>
+  )
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={cn(
-        "flex items-start gap-1",
-        isDragging && "opacity-90 shadow-md",
-        className,
-      )}
+      className={cn(isDragging && "opacity-90 shadow-md", className)}
     >
-      <button
-        type="button"
-        aria-label={handleLabel}
-        className={cn(
-          "mt-3 inline-flex h-10 w-8 shrink-0 cursor-grab touch-none select-none items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground active:cursor-grabbing",
-          handleClassName,
-        )}
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical className="h-4 w-4" aria-hidden />
-      </button>
-      <div className="min-w-0 flex-1">{children}</div>
+      {children(dragHandle)}
     </div>
   )
 }

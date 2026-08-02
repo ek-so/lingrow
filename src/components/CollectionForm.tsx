@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type MutableRefObject } from "react"
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type MutableRefObject,
+  type ReactNode,
+} from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { LANG_CODES, LANGS, langLabel } from "@/lib/languages"
@@ -134,6 +142,7 @@ function WordRow({
   canRemove,
   onChange,
   onRemove,
+  dragHandle,
 }: {
   draft: DraftWord
   wordLang: LangCode
@@ -141,6 +150,7 @@ function WordRow({
   canRemove: boolean
   onChange: (field: "word" | "translation" | "examplesText", value: string) => void
   onRemove: () => void
+  dragHandle?: ReactNode
 }) {
   const { status, suggestion } = useWordSuggest(draft.word, wordLang, translationLang)
   const sameLanguage = wordLang === translationLang
@@ -229,7 +239,8 @@ function WordRow({
 
   return (
     <div className="rounded-lg border border-border bg-card p-3">
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-1">
+        {dragHandle}
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-col gap-1">
             <input
@@ -730,16 +741,18 @@ export function CollectionForm({
               key={w.key}
               id={w.key}
               handleLabel={`Reorder word ${w.word || "row"}`}
-              handleClassName="mt-3"
             >
-              <WordRow
-                draft={w}
-                wordLang={wordLang}
-                translationLang={translationLang}
-                canRemove={words.length > 1}
-                onChange={(field, value) => updateWord(w.key, field, value)}
-                onRemove={() => removeWord(w.key)}
-              />
+              {(dragHandle) => (
+                <WordRow
+                  draft={w}
+                  wordLang={wordLang}
+                  translationLang={translationLang}
+                  canRemove={words.length > 1}
+                  onChange={(field, value) => updateWord(w.key, field, value)}
+                  onRemove={() => removeWord(w.key)}
+                  dragHandle={dragHandle}
+                />
+              )}
             </SortableItem>
           ))}
         </SortableList>

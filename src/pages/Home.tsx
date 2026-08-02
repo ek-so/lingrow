@@ -291,46 +291,49 @@ export default function Home() {
                     id={folder.id}
                     handleLabel={`Reorder folder ${folder.name}`}
                   >
-                    <Card className="transition-colors hover:border-primary/50">
-                      <CardHeader>
-                        <div className="flex items-start justify-between gap-3">
-                          <Link to={`/folder/${folder.id}`} className="min-w-0 flex-1">
-                            <CardTitle className="flex items-center gap-2">
-                              <FolderIcon className="h-5 w-5 shrink-0 text-primary" />
-                              <span className="truncate">{folder.name}</span>
-                            </CardTitle>
-                            <CardDescription className="mt-1">{itemLabel}</CardDescription>
-                          </Link>
-                          <OverflowMenu
-                            label={`Actions for ${folder.name}`}
-                            items={[
-                              {
-                                label: "Rename",
-                                icon: <Pencil />,
-                                onSelect: () => setRenameTarget(folder),
-                              },
-                              {
-                                label: "Move to…",
-                                icon: <FolderInput />,
-                                onSelect: () =>
-                                  setMoveTarget({
-                                    kind: "folder",
-                                    id: folder.id,
-                                    name: folder.name,
-                                    parentId: folder.parentId,
-                                  }),
-                              },
-                              {
-                                label: "Delete",
-                                icon: <Trash2 />,
-                                destructive: true,
-                                onSelect: () => onDeleteFolder(folder),
-                              },
-                            ]}
-                          />
-                        </div>
-                      </CardHeader>
-                    </Card>
+                    {(dragHandle) => (
+                      <Card className="transition-colors hover:border-primary/50">
+                        <CardHeader>
+                          <div className="flex items-start gap-1">
+                            {dragHandle}
+                            <Link to={`/folder/${folder.id}`} className="min-w-0 flex-1 pt-2">
+                              <CardTitle className="flex items-center gap-2">
+                                <FolderIcon className="h-5 w-5 shrink-0 text-primary" />
+                                <span className="truncate">{folder.name}</span>
+                              </CardTitle>
+                              <CardDescription className="mt-1">{itemLabel}</CardDescription>
+                            </Link>
+                            <OverflowMenu
+                              label={`Actions for ${folder.name}`}
+                              items={[
+                                {
+                                  label: "Rename",
+                                  icon: <Pencil />,
+                                  onSelect: () => setRenameTarget(folder),
+                                },
+                                {
+                                  label: "Move to…",
+                                  icon: <FolderInput />,
+                                  onSelect: () =>
+                                    setMoveTarget({
+                                      kind: "folder",
+                                      id: folder.id,
+                                      name: folder.name,
+                                      parentId: folder.parentId,
+                                    }),
+                                },
+                                {
+                                  label: "Delete",
+                                  icon: <Trash2 />,
+                                  destructive: true,
+                                  onSelect: () => onDeleteFolder(folder),
+                                },
+                              ]}
+                            />
+                          </div>
+                        </CardHeader>
+                      </Card>
+                    )}
                   </SortableItem>
                 )
               })}
@@ -345,71 +348,74 @@ export default function Home() {
             >
               {childCollections.map((c) => (
                 <SortableItem key={c.id} id={c.id} handleLabel={`Reorder set ${c.name}`}>
-                  <Card className="transition-colors hover:border-primary/50">
-                    <CardHeader>
-                      <div className="flex items-start justify-between gap-3">
-                        <Link to={`/study/${c.id}`} className="min-w-0 flex-1">
-                          <CardTitle>{c.name}</CardTitle>
-                          {c.description ? (
-                            <CardDescription className="mt-1">{c.description}</CardDescription>
-                          ) : null}
-                        </Link>
-                        <OverflowMenu
-                          label={`Actions for ${c.name}`}
-                          items={[
-                            {
-                              label: "Edit",
-                              icon: <Pencil />,
-                              onSelect: () => navigate(`/edit/${c.id}`),
-                            },
-                            {
-                              label: "Move to…",
-                              icon: <FolderInput />,
-                              onSelect: () =>
-                                setMoveTarget({
-                                  kind: "collection",
-                                  id: c.id,
-                                  name: c.name,
-                                  folderId: c.folderId ?? null,
-                                }),
-                            },
-                            {
-                              label: "Export",
-                              icon: <Download />,
-                              onSelect: () => onExport(c),
-                            },
-                            {
-                              label: "Delete",
-                              icon: <Trash2 />,
-                              destructive: true,
-                              onSelect: () => onDeleteSet(c.id, c.name),
-                            },
-                          ]}
-                        />
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <Link
-                        to={`/study/${c.id}`}
-                        className="flex flex-wrap gap-2 text-xs text-muted-foreground"
-                      >
-                        <span className="rounded-full bg-accent px-2.5 py-1 text-accent-foreground font-medium">
-                          {pairLabel(c.wordLang, c.translationLang)}
-                        </span>
-                        {c.level && (
-                          <span className="rounded-full bg-secondary px-2.5 py-1 font-medium">
-                            {c.level}
+                  {(dragHandle) => (
+                    <Card className="transition-colors hover:border-primary/50">
+                      <CardHeader>
+                        <div className="flex items-start gap-1">
+                          {dragHandle}
+                          <Link to={`/study/${c.id}`} className="min-w-0 flex-1 pt-2">
+                            <CardTitle>{c.name}</CardTitle>
+                            {c.description ? (
+                              <CardDescription className="mt-1">{c.description}</CardDescription>
+                            ) : null}
+                          </Link>
+                          <OverflowMenu
+                            label={`Actions for ${c.name}`}
+                            items={[
+                              {
+                                label: "Edit",
+                                icon: <Pencil />,
+                                onSelect: () => navigate(`/edit/${c.id}`),
+                              },
+                              {
+                                label: "Move to…",
+                                icon: <FolderInput />,
+                                onSelect: () =>
+                                  setMoveTarget({
+                                    kind: "collection",
+                                    id: c.id,
+                                    name: c.name,
+                                    folderId: c.folderId ?? null,
+                                  }),
+                              },
+                              {
+                                label: "Export",
+                                icon: <Download />,
+                                onSelect: () => onExport(c),
+                              },
+                              {
+                                label: "Delete",
+                                icon: <Trash2 />,
+                                destructive: true,
+                                onSelect: () => onDeleteSet(c.id, c.name),
+                              },
+                            ]}
+                          />
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <Link
+                          to={`/study/${c.id}`}
+                          className="flex flex-wrap gap-2 text-xs text-muted-foreground"
+                        >
+                          <span className="rounded-full bg-accent px-2.5 py-1 text-accent-foreground font-medium">
+                            {pairLabel(c.wordLang, c.translationLang)}
                           </span>
-                        )}
-                        {c.theme && (
-                          <span className="rounded-full bg-secondary px-2.5 py-1">{c.theme}</span>
-                        )}
-                        <span className="rounded-full bg-secondary px-2.5 py-1">
-                          {c.words.length} words
-                        </span>
-                      </Link>
-                    </CardContent>
-                  </Card>
+                          {c.level && (
+                            <span className="rounded-full bg-secondary px-2.5 py-1 font-medium">
+                              {c.level}
+                            </span>
+                          )}
+                          {c.theme && (
+                            <span className="rounded-full bg-secondary px-2.5 py-1">{c.theme}</span>
+                          )}
+                          <span className="rounded-full bg-secondary px-2.5 py-1">
+                            {c.words.length} words
+                          </span>
+                        </Link>
+                      </CardContent>
+                    </Card>
+                  )}
                 </SortableItem>
               ))}
             </SortableList>
