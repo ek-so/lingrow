@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom"
 import { useCollections } from "@/lib/collections-context"
 import { CollectionForm } from "@/components/CollectionForm"
 import { ConfirmSaveProgressSheet } from "@/components/ConfirmSaveProgressSheet"
+import { PageBody, PageTitle } from "@/components/PageTitle"
 import { emptyDraftWord } from "@/lib/collection-form"
 import { clearNewSetDraft, newSetDraftKey } from "@/lib/new-set-draft"
 import { useUnsavedChangesGuard } from "@/lib/use-unsaved-changes"
@@ -51,17 +52,22 @@ export default function NewList() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-2xl px-5 pb-6 pt-[4.75rem]">
-        <h1 className="text-2xl font-semibold tracking-tight">New set</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Choose languages, then add word pairs — or import from a file or bullet list.
-          {folder ? (
+      <PageBody>
+        <PageTitle
+          description={
             <>
-              {" "}
-              Saving into <span className="font-medium text-foreground">{folder.name}</span>.
+              Choose languages, then add word pairs — or import from a file or bullet list.
+              {folder ? (
+                <>
+                  {" "}
+                  Saving into <span className="font-medium text-foreground">{folder.name}</span>.
+                </>
+              ) : null}
             </>
-          ) : null}
-        </p>
+          }
+        >
+          New set
+        </PageTitle>
 
         <div className="mt-8">
           <CollectionForm
@@ -84,7 +90,7 @@ export default function NewList() {
             }}
           />
         </div>
-      </div>
+      </PageBody>
 
       <ConfirmSaveProgressSheet
         open={leaveOpen}

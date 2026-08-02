@@ -6,6 +6,7 @@ import {
   type DuplicateImportChoice,
 } from "@/components/DuplicateImportSheet"
 import { ConfirmLeaveImportSheet } from "@/components/ConfirmLeaveImportSheet"
+import { PageBody, PageTitle } from "@/components/PageTitle"
 import { langLabel } from "@/lib/languages"
 import {
   classifyImport,
@@ -158,11 +159,10 @@ export default function ImportFile() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-2xl px-5 pb-6 pt-[4.75rem]">
-        <h1 className="text-2xl font-semibold tracking-tight">Import file</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Spreadsheet columns: word, translation, optional examples. Header optional.
-        </p>
+      <PageBody>
+        <PageTitle description="Spreadsheet columns: word, translation, optional examples. Header optional.">
+          Import file
+        </PageTitle>
 
         <input
           ref={fileRef}
@@ -260,7 +260,7 @@ export default function ImportFile() {
         >
           Add {pairs.length > 0 ? `${pairs.length} ` : ""}to list
         </Button>
-      </div>
+      </PageBody>
 
       <DuplicateImportSheet
         open={pendingDuplicates != null}

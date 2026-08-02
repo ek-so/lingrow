@@ -6,6 +6,7 @@ import {
   type DuplicateImportChoice,
 } from "@/components/DuplicateImportSheet"
 import { ConfirmLeaveImportSheet } from "@/components/ConfirmLeaveImportSheet"
+import { PageBody, PageTitle } from "@/components/PageTitle"
 import { langLabel } from "@/lib/languages"
 import { classifyImport, loadImportDraft, saveImportResult } from "@/lib/import-bridge"
 import { parseImportText } from "@/lib/parse-import"
@@ -156,32 +157,35 @@ export default function ImportText() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-2xl px-5 pb-6 pt-[4.75rem]">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">Paste text</h1>
-          <div className="flex items-center gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Paste from clipboard"
-              onClick={() => void onPasteClipboard()}
-            >
-              <ClipboardPaste className="h-5 w-5" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Clear text and preview"
-              disabled={!canClear}
-              onClick={clearAll}
-              className="text-destructive hover:bg-transparent hover:text-destructive disabled:text-destructive/40"
-            >
-              <Trash2 className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
+      <PageBody>
+        <PageTitle
+          actions={
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Paste from clipboard"
+                onClick={() => void onPasteClipboard()}
+              >
+                <ClipboardPaste className="h-5 w-5" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Clear text and preview"
+                disabled={!canClear}
+                onClick={clearAll}
+                className="text-destructive hover:bg-transparent hover:text-destructive disabled:text-destructive/40"
+              >
+                <Trash2 className="h-5 w-5" />
+              </Button>
+            </>
+          }
+        >
+          Paste text
+        </PageTitle>
 
         <div className="mt-6 flex flex-col gap-3">
           <label className="flex flex-col gap-1.5">
@@ -259,7 +263,7 @@ export default function ImportText() {
         >
           Add {pairs.length > 0 ? `${pairs.length} ` : ""}to list
         </Button>
-      </div>
+      </PageBody>
 
       <DuplicateImportSheet
         open={pendingDuplicates != null}

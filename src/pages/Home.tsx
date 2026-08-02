@@ -10,6 +10,7 @@ import { MoveHereSheet } from "@/components/MoveHereSheet"
 import { MoveToFolderSheet } from "@/components/MoveToFolderSheet"
 import { NameFolderSheet } from "@/components/NameFolderSheet"
 import { SearchSheet } from "@/components/SearchSheet"
+import { PageBody, PageTitle } from "@/components/PageTitle"
 import { downloadCollectionExcel } from "@/lib/export-collection"
 import { countItemsInFolder, descendantFolderIds } from "@/lib/folders"
 import { pairLabel } from "@/lib/languages"
@@ -179,7 +180,7 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-2xl px-5 pb-8 pt-[4.75rem]">
+      <PageBody className="pb-8">
         {currentFolder ? (
           <div className="mb-4">
             <Link
@@ -194,31 +195,33 @@ export default function Home() {
           </div>
         ) : null}
 
-        <div className="mb-6 flex items-center justify-between gap-3">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            {currentFolder ? currentFolder.name : "My sets"}
-          </h1>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="icon"
-              aria-label="Search"
-              onClick={() => setSearchOpen(true)}
-            >
-              <Search className="h-4 w-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="icon"
-              aria-label="Create"
-              onClick={() => setCreateOpen(true)}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+        <PageTitle
+          className="mb-6"
+          actions={
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon"
+                aria-label="Search"
+                onClick={() => setSearchOpen(true)}
+              >
+                <Search className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon"
+                aria-label="Create"
+                onClick={() => setCreateOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </>
+          }
+        >
+          {currentFolder ? currentFolder.name : "My sets"}
+        </PageTitle>
 
         <div className="flex flex-col gap-3">
           {childFolders.map((folder) => {
@@ -367,7 +370,7 @@ export default function Home() {
             </button>
           </div>
         </div>
-      </div>
+      </PageBody>
 
       <SearchSheet
         open={searchOpen}

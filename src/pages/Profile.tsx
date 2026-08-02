@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
+import { PageBody, PageTitle } from "@/components/PageTitle"
 import { useAuth } from "@/lib/auth-context"
 import { useCollections } from "@/lib/collections-context"
 import type { PronounceFirst } from "@/types"
@@ -57,13 +58,13 @@ export default function Profile() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-2xl px-5 pb-8 pt-[4.75rem]">
-        <header className="mb-8">
-          <h1 className="text-3xl font-semibold tracking-tight">Profile</h1>
-          <p className="mt-1 text-muted-foreground">
-            Account, cloud storage, and study settings for this user.
-          </p>
-        </header>
+      <PageBody className="pb-8">
+        <PageTitle
+          className="mb-8"
+          description="Account, cloud storage, and study settings for this user."
+        >
+          Profile
+        </PageTitle>
 
         <section className="mb-8">
           <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
@@ -245,7 +246,7 @@ export default function Profile() {
             </a>
           </p>
         </section>
-      </div>
+      </PageBody>
     </div>
   )
 }

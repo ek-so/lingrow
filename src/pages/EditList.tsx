@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom"
 import { useCollections } from "@/lib/collections-context"
 import { CollectionForm } from "@/components/CollectionForm"
 import { ConfirmSaveProgressSheet } from "@/components/ConfirmSaveProgressSheet"
+import { PageBody, PageTitle } from "@/components/PageTitle"
 import { draftFromWords } from "@/lib/collection-form"
 import { useUnsavedChangesGuard } from "@/lib/use-unsaved-changes"
 import { ArrowLeft } from "lucide-react"
@@ -61,9 +62,8 @@ export default function EditList() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-2xl px-5 pb-6 pt-[4.75rem]">
-        <h1 className="text-2xl font-semibold tracking-tight">Edit set</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Update languages, name, or word pairs.</p>
+      <PageBody>
+        <PageTitle description="Update languages, name, or word pairs.">Edit set</PageTitle>
 
         <div className="mt-8">
           <CollectionForm
@@ -85,7 +85,7 @@ export default function EditList() {
             }}
           />
         </div>
-      </div>
+      </PageBody>
 
       <ConfirmSaveProgressSheet
         open={leaveOpen}
