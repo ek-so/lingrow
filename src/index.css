@@ -78,8 +78,8 @@ html {
   width: 100%;
   height: 100%;
   max-width: 100%;
-  overflow: hidden;
-  overscroll-behavior: none;
+  /* Keep x-clip only — full overflow:hidden / overscroll-none blocks pull-to-refresh. */
+  overflow-x: hidden;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -91,15 +91,14 @@ body {
   width: 100%;
   height: 100%;
   max-width: 100%;
-  overflow: hidden;
-  overscroll-behavior: none;
+  overflow-x: hidden;
 }
 
 #root {
   width: 100%;
   height: 100%;
   max-width: 100%;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 /* Keep ≥16px so iOS doesn’t zoom the layout when focusing form fields. */
