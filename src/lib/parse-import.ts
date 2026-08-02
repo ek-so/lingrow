@@ -123,12 +123,31 @@ function splitPairLine(raw: string): WordPair | null {
 
 function pairFromRest(word: string, rest: string): WordPair | null {
   if (!word || !rest) return null
+
+  // Legacy: translation || example1 || example2
   const pipeIdx = rest.search(/\s*\|\|\s*/)
   if (pipeIdx >= 0) {
     const translation = rest.slice(0, pipeIdx).trim()
     const examplesRaw = rest.slice(pipeIdx).replace(/^\s*\|\|\s*/, "")
     return pairFromParts(word, translation, splitExamplesCell(examplesRaw))
   }
+
+  // Preferred: translation (Example one.) (Example two.)
+  let translation = rest
+  const bracketExamples: string[] = []
+  while (true) {
+    const match = translation.match(/\s*[(\[]([^)\]]+)[)\]]\s*$/)
+    if (!match || match.index == null) break
+    const inner = match[1]!.trim()
+    if (!inner) break
+    bracketExamples.unshift(inner)
+    translation = translation.slice(0, match.index).trim()
+  }
+  if (bracketExamples.length > 0 && translation) {
+    const examples = bracketExamples.flatMap((part) => splitExamplesCell(part))
+    return pairFromParts(word, translation, examples)
+  }
+
   return pairFromParts(word, rest)
 }
 

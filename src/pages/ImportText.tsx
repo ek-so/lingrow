@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import {
@@ -13,9 +13,13 @@ import type { WordPair } from "@/lib/collection-form"
 import type { LangCode } from "@/types"
 import { ArrowLeft, ClipboardPaste } from "lucide-react"
 
+const PLACEHOLDER =
+  "the apple — der Apfel (Ich esse einen Apfel.)\nto run — laufen (Ich laufe jeden Morgen.)"
+
 export default function ImportText() {
   const navigate = useNavigate()
   const draft = loadImportDraft()
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const [text, setText] = useState("")
   const [pairs, setPairs] = useState<WordPair[]>([])
@@ -30,6 +34,13 @@ export default function ImportText() {
     fresh: WordPair[]
   } | null>(null)
   const [leaveOpen, setLeaveOpen] = useState(false)
+
+  useEffect(() => {
+    const id = window.requestAnimationFrame(() => {
+      textareaRef.current?.focus()
+    })
+    return () => window.cancelAnimationFrame(id)
+  }, [])
 
   if (!draft) {
     return (
@@ -87,7 +98,7 @@ export default function ImportText() {
     setDetectedTranslationLang(parsed.translationLang ?? null)
     if (parsed.pairs.length === 0) {
       setError(
-        "No pairs found. Use alternating lines (word, then translation), or one pair per line like “apple — яблоко”.",
+        "No pairs found. Use lines like “the apple — der Apfel (Ich esse einen Apfel.)”.",
       )
     } else {
       setError(null)
@@ -112,6 +123,7 @@ export default function ImportText() {
       }
       setText(clip)
       applyParsedText(clip)
+      textareaRef.current?.focus()
     } catch {
       setPasteHint("Couldn’t read the clipboard. Paste into the box manually.")
     }
@@ -120,7 +132,7 @@ export default function ImportText() {
   return (
     <div className="min-h-screen bg-background">
       <header className="fixed inset-x-0 top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-2xl items-center px-5 py-3">
+        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-5 py-3">
           <button
             type="button"
             onClick={requestBack}
@@ -129,44 +141,37 @@ export default function ImportText() {
             <ArrowLeft className="h-4 w-4" />
             Back
           </button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Paste from clipboard"
+            onClick={() => void onPasteClipboard()}
+          >
+            <ClipboardPaste className="h-5 w-5" />
+          </Button>
         </div>
       </header>
 
       <div className="mx-auto max-w-2xl px-5 pb-6 pt-[4.75rem]">
         <h1 className="text-2xl font-semibold tracking-tight">Paste text</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Alternating lines (word, then translation) or one pair per line. Language pair is detected
-          when possible.
-        </p>
 
         <div className="mt-6 flex flex-col gap-3">
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={() => void onPasteClipboard()}>
-              <ClipboardPaste className="h-4 w-4" />
-              Paste
-            </Button>
-            <Button type="button" variant="outline" onClick={onParseText} disabled={!text.trim()}>
-              Parse text
-            </Button>
-          </div>
-          {pasteHint ? <p className="text-xs text-muted-foreground">{pasteHint}</p> : null}
-
           <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">Your list</span>
+            <span className="sr-only">Your list</span>
             <textarea
+              ref={textareaRef}
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={12}
-              placeholder={
-                "jingoist\nшовинист, ура-патриот\nflaccid\nвялый, дряблый\n\n— or —\n\n- the apple — der Apfel || Ich esse einen Apfel."
-              }
+              placeholder={PLACEHOLDER}
               className="w-full rounded-md border border-input bg-card px-3 py-2 text-base outline-none focus:ring-2 focus:ring-ring"
             />
           </label>
-          <p className="text-xs text-muted-foreground">
-            Separators for one-line pairs: —, –, -, :, =, or tab. Commas inside translations are
-            kept.
-          </p>
+          {pasteHint ? <p className="text-xs text-muted-foreground">{pasteHint}</p> : null}
+          <Button type="button" variant="outline" onClick={onParseText} disabled={!text.trim()}>
+            Parse
+          </Button>
         </div>
 
         {pairs.length > 0 ? (
