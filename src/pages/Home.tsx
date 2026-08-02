@@ -201,7 +201,7 @@ export default function Home() {
             <>
               <Button
                 type="button"
-                variant="secondary"
+                variant="ghost"
                 size="icon"
                 aria-label="Search"
                 onClick={() => setSearchOpen(true)}
@@ -210,13 +210,42 @@ export default function Home() {
               </Button>
               <Button
                 type="button"
-                variant="secondary"
+                variant="ghost"
                 size="icon"
                 aria-label="Create"
                 onClick={() => setCreateOpen(true)}
               >
                 <Plus className="h-4 w-4" />
               </Button>
+              {currentFolder ? (
+                <OverflowMenu
+                  label={`Actions for ${currentFolder.name}`}
+                  items={[
+                    {
+                      label: "Rename",
+                      icon: <Pencil />,
+                      onSelect: () => setRenameTarget(currentFolder),
+                    },
+                    {
+                      label: "Move to…",
+                      icon: <FolderInput />,
+                      onSelect: () =>
+                        setMoveTarget({
+                          kind: "folder",
+                          id: currentFolder.id,
+                          name: currentFolder.name,
+                          parentId: currentFolder.parentId,
+                        }),
+                    },
+                    {
+                      label: "Delete",
+                      icon: <Trash2 />,
+                      destructive: true,
+                      onSelect: () => onDeleteFolder(currentFolder),
+                    },
+                  ]}
+                />
+              ) : null}
             </>
           }
         >
