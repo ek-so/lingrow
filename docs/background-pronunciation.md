@@ -13,17 +13,18 @@ standalone PWA).
 
 ## How Lingrow does it
 
-1. **TTS clips as audio** — Word/translation text is turned into MP3 URLs via
-   Google Translate’s public TTS endpoint (`translate.google.com/translate_tts`,
-   `client=tw-ob`), the same unofficial Google family used for word suggestions.
-2. **Queued playback** — Play builds a full remaining-session queue of speech
-   clips plus near-silent gap WAVs (so the session never looks “finished” to iOS).
-3. **Media Session** — Lock-screen play/pause/next/previous controls are wired
+1. **Control plane** — Auto-play speaks with `speechSynthesis` and advances with
+   timers so a stuck network request can never freeze the session on-screen.
+2. **Best-effort TTS audio** — In parallel, each phrase tries Google Translate’s
+   public TTS MP3 (`translate.googleapis.com/translate_tts`, `client=gtx`). If
+   that `<audio>` starts almost immediately with a real duration, we switch to
+   it (better for lock-screen continuity); otherwise speechSynthesis keeps going.
+3. **Keepalive + gaps** — A near-silent looping track and short gap clips keep a
+   media session warm between phrases.
+4. **Media Session** — Lock-screen play/pause/next/previous controls are wired
    through `navigator.mediaSession`.
-4. **User gesture** — Starting Play calls `audio.play()` in the tap stack so iOS
-   unlocks background audio.
-5. **Fallback** — If a TTS URL fails (network/block), we fall back to
-   `speechSynthesis` while foregrounded; that path will still stop when locked.
+5. **User gesture** — Starting Play kicks audio in the tap stack so iOS can
+   unlock background playback.
 
 Relevant code: `src/lib/speech-audio.ts`, `src/pages/Study.tsx`.
 

@@ -399,10 +399,17 @@ export default function Study() {
       },
     })
     return () => {
-      player.stop()
+      // Clear handlers only — avoid stop() here so React Strict Mode remount
+      // does not cancel a pronunciation kicked off by the mount effect.
       player.setMediaSessionHandlers({})
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      getPronouncePlayer().stop()
+    }
   }, [])
 
   function handleFlip(next: boolean) {
