@@ -139,7 +139,6 @@ export function AuthForm({ size = "default", layout = "stack" }: AuthFormProps) 
             clearConfirmEmail()
             setMode("sign_in")
             setPassword("")
-            setConfirmPassword("")
             setLocalError(null)
           }}
         >
@@ -228,10 +227,6 @@ export function AuthForm({ size = "default", layout = "stack" }: AuthFormProps) 
       onSubmit={(e) => {
         e.preventDefault()
         setLocalError(null)
-        if (isSignUp && password !== confirmPassword) {
-          setLocalError("Passwords do not match.")
-          return
-        }
         const action = isSignUp ? signUp : signIn
         void action(email, password).catch(() => undefined)
       }}
@@ -303,24 +298,7 @@ export function AuthForm({ size = "default", layout = "stack" }: AuthFormProps) 
         className={inputClassName}
       />
 
-      {isSignUp ? (
-        <>
-          <label className="sr-only" htmlFor={`${idPrefix}-confirm-password`}>
-            Confirm password
-          </label>
-          <input
-            id={`${idPrefix}-confirm-password`}
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={MIN_PASSWORD_LENGTH}
-            placeholder="Confirm password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className={inputClassName}
-          />
-        </>
-      ) : (
+      {!isSignUp ? (
         <button
           type="button"
           className="self-start text-sm text-primary underline-offset-2 hover:underline"
@@ -332,7 +310,7 @@ export function AuthForm({ size = "default", layout = "stack" }: AuthFormProps) 
         >
           Forgot password?
         </button>
-      )}
+      ) : null}
 
       {localError ? <p className="text-sm text-destructive">{localError}</p> : null}
 
