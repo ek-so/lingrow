@@ -32,6 +32,7 @@ import {
 } from "@/lib/suggest-format"
 import { useWordSuggest } from "@/lib/use-word-suggest"
 import type { LangCode } from "@/types"
+import { SortableItem, SortableList } from "@/components/SortableList"
 import { ClipboardPaste, FileSpreadsheet, Info, Loader2, Plus, Sparkles, Trash2 } from "lucide-react"
 
 const selectClassName =
@@ -521,6 +522,19 @@ export function CollectionForm({
     setWords((prev) => (prev.length <= 1 ? prev : prev.filter((w) => w.key !== key)))
   }
 
+  function reorderWords(orderedKeys: string[]) {
+    setWords((prev) => {
+      const byKey = new Map(prev.map((w) => [w.key, w]))
+      if (
+        orderedKeys.length !== prev.length ||
+        orderedKeys.some((key) => !byKey.has(key))
+      ) {
+        return prev
+      }
+      return orderedKeys.map((key) => byKey.get(key)!)
+    })
+  }
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [importBusy, setImportBusy] = useState(false)
   const [importPickError, setImportPickError] = useState<string | null>(null)
@@ -706,19 +720,29 @@ export function CollectionForm({
           <p className="mt-2 text-xs text-destructive">{importPickError}</p>
         ) : null}
 
-        <div className="mt-4 flex flex-col gap-4">
+        <SortableList
+          ids={words.map((w) => w.key)}
+          onReorder={reorderWords}
+          className="mt-4 flex flex-col gap-4"
+        >
           {words.map((w) => (
-            <WordRow
+            <SortableItem
               key={w.key}
-              draft={w}
-              wordLang={wordLang}
-              translationLang={translationLang}
-              canRemove={words.length > 1}
-              onChange={(field, value) => updateWord(w.key, field, value)}
-              onRemove={() => removeWord(w.key)}
-            />
+              id={w.key}
+              handleLabel={`Reorder word ${w.word || "row"}`}
+              handleClassName="mt-3"
+            >
+              <WordRow
+                draft={w}
+                wordLang={wordLang}
+                translationLang={translationLang}
+                canRemove={words.length > 1}
+                onChange={(field, value) => updateWord(w.key, field, value)}
+                onRemove={() => removeWord(w.key)}
+              />
+            </SortableItem>
           ))}
-        </div>
+        </SortableList>
       </div>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}

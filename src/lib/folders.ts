@@ -84,9 +84,7 @@ export function flattenFolderTree(folders: Folder[]): { folder: Folder; depth: n
     list.push(f)
     childrenByParent.set(f.parentId, list)
   }
-  for (const list of childrenByParent.values()) {
-    list.sort((a, b) => a.name.localeCompare(b.name))
-  }
+  // Preserve library array order (user-defined via drag-and-drop).
 
   const out: { folder: Folder; depth: number }[] = []
   function walk(parentId: string | null, depth: number) {
