@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { useCollections } from "@/lib/collections-context"
 import { Button } from "@/components/ui/button"
@@ -33,6 +33,31 @@ import {
   VolumeX,
 } from "lucide-react"
 import type { Collection, PronounceFirst, Word } from "@/types"
+
+/** Small speak control that doesn’t flip the card. */
+function CardSidePlay({ label, onPlay }: { label: string; onPlay: () => void }) {
+  function stopCardGesture(e: MouseEvent | PointerEvent) {
+    e.stopPropagation()
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-background/80 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+      onPointerDown={stopCardGesture}
+      onPointerUp={stopCardGesture}
+      onPointerCancel={stopCardGesture}
+      onClick={(e) => {
+        stopCardGesture(e)
+        e.preventDefault()
+        onPlay()
+      }}
+    >
+      <Play className="h-3.5 w-3.5 fill-current" />
+    </button>
+  )
+}
 
 type SpeakPhase = "first" | "second" | "pause"
 type StudyView = "cards" | "stats"
@@ -186,6 +211,23 @@ export default function Study() {
     speak(text, lang)
   }
 
+  /** Always audible — used for the per-side play buttons. */
+  function speakAudio(text: string, lang: string) {
+    speakGen.current += 1
+    window.speechSynthesis.cancel()
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+
+    const utter = new SpeechSynthesisUtterance(text)
+    utter.lang = lang
+    const prefix = lang.toLowerCase().slice(0, 2)
+    const voice =
+      voicesRef.current.find((v) => v.lang.toLowerCase().startsWith(lang.toLowerCase())) ??
+      voicesRef.current.find((v) => v.lang.toLowerCase().startsWith(prefix))
+    if (voice) utter.voice = voice
+    utter.rate = 0.95
+    window.speechSynthesis.speak(utter)
+  }
+
   function speakVisibleSide(wordIndex: number, showBack: boolean) {
     if (!collection) return
     const word = collection.words[wordIndex]
@@ -193,6 +235,19 @@ export default function Study() {
     const sides = sidesForWord(collection, word)
     const side = showBack ? sides.second : sides.first
     speakOnce(side.text, side.lang)
+  }
+
+  function playCardSide(showBack: boolean) {
+    if (!collection) return
+    if (playing) {
+      stopSpeech()
+      setPlaying(false)
+    }
+    const word = collection.words[index]
+    if (!word) return
+    const sides = sidesForWord(collection, word)
+    const side = showBack ? sides.second : sides.first
+    speakAudio(side.text, side.lang)
   }
 
   function sidesForWord(collection: Collection, word: Word) {
@@ -511,7 +566,13 @@ export default function Study() {
               front={
                 <>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">{sides.frontHint}</p>
-                  <p className="mt-3 text-3xl font-semibold tracking-tight">{sides.frontText}</p>
+                  <div className="mt-3 flex items-center justify-center gap-2">
+                    <p className="text-3xl font-semibold tracking-tight">{sides.frontText}</p>
+                    <CardSidePlay
+                      label={`Play ${sides.frontText}`}
+                      onPlay={() => playCardSide(false)}
+                    />
+                  </div>
                   {sides.frontExamples?.length ? (
                     <ul className="mt-4 w-full space-y-1.5 text-left text-sm leading-snug text-muted-foreground">
                       {sides.frontExamples.map((ex) => (
@@ -526,7 +587,13 @@ export default function Study() {
               back={
                 <>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">{sides.backHint}</p>
-                  <p className="mt-3 text-3xl font-semibold tracking-tight">{sides.backText}</p>
+                  <div className="mt-3 flex items-center justify-center gap-2">
+                    <p className="text-3xl font-semibold tracking-tight">{sides.backText}</p>
+                    <CardSidePlay
+                      label={`Play ${sides.backText}`}
+                      onPlay={() => playCardSide(true)}
+                    />
+                  </div>
                   {sides.backExamples?.length ? (
                     <ul className="mt-4 w-full space-y-1.5 text-left text-sm leading-snug text-muted-foreground">
                       {sides.backExamples.map((ex) => (
