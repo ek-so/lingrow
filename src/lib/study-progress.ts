@@ -71,3 +71,19 @@ export function clearStudyProgress(collectionId: string) {
   delete map[collectionId]
   saveAll(map)
 }
+
+/** Short relative label for when a set was last practiced. */
+export function formatLastRepetition(iso: string, nowMs = Date.now()): string {
+  const t = Date.parse(iso)
+  if (!Number.isFinite(t)) return ""
+  const diff = Math.max(0, nowMs - t)
+  const minutes = Math.floor(diff / 60_000)
+  if (minutes < 1) return "Just now"
+  if (minutes < 60) return `${minutes} min ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days === 1) return "Yesterday"
+  if (days < 7) return `${days} days ago`
+  return new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+}

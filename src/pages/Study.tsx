@@ -176,7 +176,8 @@ export default function Study() {
   useEffect(() => {
     if (view !== "stats" || clingPlayed.current) return
     clingPlayed.current = true
-    if (id) clearStudyProgress(id)
+    // Keep a progress stamp so set lists can show “last repetition”, reset cursor to start.
+    if (id) saveStudyProgress(id, 0)
     if (!quietRef.current) playClingSound()
   }, [view, id])
 

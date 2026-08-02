@@ -4,7 +4,6 @@ import { useCollections } from "@/lib/collections-context"
 import { useAuth } from "@/lib/auth-context"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
 import { OverflowMenu } from "@/components/OverflowMenu"
 import { CreateItemSheet } from "@/components/CreateItemSheet"
 import { MoveHereSheet } from "@/components/MoveHereSheet"
@@ -21,7 +20,7 @@ import { pairLabel } from "@/lib/languages"
 import { sortCollections, sortFolders, type LibrarySortMode } from "@/lib/library-sort"
 import { loadLibrarySortMode, saveLibrarySortMode } from "@/lib/prefs"
 import { recordRecentOpen } from "@/lib/recent"
-import { loadStudyProgressMap } from "@/lib/study-progress"
+import { formatLastRepetition, loadStudyProgressMap } from "@/lib/study-progress"
 import {
   Folder as FolderIcon,
   FolderInput,
@@ -344,11 +343,8 @@ export default function Home() {
           })}
 
           {childCollections.map((c) => {
-            const total = c.words.length
             const saved = progressById[c.id]
-            const at = saved ? Math.min(saved.index, Math.max(0, total - 1)) : 0
-            const showProgress = Boolean(saved && total > 0)
-            const progressPct = total > 0 ? ((at + 1) / total) * 100 : 0
+            const lastRep = saved?.updatedAt ? formatLastRepetition(saved.updatedAt) : ""
 
             return (
               <Card key={c.id} className="transition-colors hover:border-primary/50">
@@ -395,33 +391,17 @@ export default function Home() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <Link to={`/study/${c.id}`} className="block">
-                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                      <span className="rounded-full bg-accent px-2.5 py-1 font-medium text-accent-foreground">
-                        {pairLabel(c.wordLang, c.translationLang)}
+                  <Link
+                    to={`/study/${c.id}`}
+                    className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2"
+                  >
+                    <span className="rounded-full bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground">
+                      {pairLabel(c.wordLang, c.translationLang)}
+                    </span>
+                    {lastRep ? (
+                      <span className="text-xs text-muted-foreground">
+                        Last repetition · {lastRep}
                       </span>
-                      {c.level && (
-                        <span className="rounded-full bg-secondary px-2.5 py-1 font-medium">
-                          {c.level}
-                        </span>
-                      )}
-                      {c.theme && (
-                        <span className="rounded-full bg-secondary px-2.5 py-1">{c.theme}</span>
-                      )}
-                      <span className="rounded-full bg-secondary px-2.5 py-1">
-                        {total} words
-                      </span>
-                    </div>
-                    {showProgress ? (
-                      <div className="mt-3">
-                        <div className="mb-1.5 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                          <span>Left off</span>
-                          <span className="tabular-nums">
-                            {at + 1} / {total}
-                          </span>
-                        </div>
-                        <Progress value={progressPct} className="h-1.5" />
-                      </div>
                     ) : null}
                   </Link>
                 </CardContent>
