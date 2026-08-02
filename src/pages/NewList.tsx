@@ -7,17 +7,19 @@ import { CollectionForm } from "@/components/CollectionForm"
 import { ConfirmSaveProgressSheet } from "@/components/ConfirmSaveProgressSheet"
 import { PageBody, PageTitle } from "@/components/PageTitle"
 import { emptyDraftWord } from "@/lib/collection-form"
+import { folderTrailUp } from "@/lib/folders"
 import { clearNewSetDraft, newSetDraftKey } from "@/lib/new-set-draft"
 import { useUnsavedChangesGuard } from "@/lib/use-unsaved-changes"
 
 export default function NewList() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { addCollection, getFolder } = useCollections()
+  const { addCollection, getFolder, folders } = useCollections()
   const folderParam = searchParams.get("folder")
   const folder = folderParam ? getFolder(folderParam) : undefined
   const folderId = folder?.id ?? null
   const backTo = folderId ? `/folder/${folderId}` : "/"
+  const backTrail = folderTrailUp(folders, folderId)
   const draftKey = newSetDraftKey(folderId)
 
   const [dirty, setDirty] = useState(false)
@@ -47,6 +49,8 @@ export default function NewList() {
               kind: "back",
               label: folder ? folder.name : "My sets",
               onBack: () => requestLeave(backTo),
+              trail: backTrail,
+              onTrailSelect: (to) => requestLeave(to),
             }}
           />
         }

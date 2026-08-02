@@ -12,6 +12,7 @@ import { PageTitle } from "@/components/PageTitle"
 import { StudyStats, type StudyRating } from "@/components/StudyStats"
 import { playClingSound } from "@/lib/cling"
 import { downloadCollectionExcel } from "@/lib/export-collection"
+import { folderTrailUp } from "@/lib/folders"
 import { LANGS, langLabel, pairLabel } from "@/lib/languages"
 import { loadQuietMode, saveQuietMode } from "@/lib/prefs"
 import { recordRecentOpen } from "@/lib/recent"
@@ -81,6 +82,7 @@ export default function Study() {
   const parentFolder = collection?.folderId ? getFolder(collection.folderId) : undefined
   const backTo = parentFolder ? `/folder/${parentFolder.id}` : "/"
   const backLabel = parentFolder?.name ?? "My sets"
+  const backTrail = folderTrailUp(folders, collection?.folderId ?? null)
 
   const [index, setIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
@@ -497,7 +499,7 @@ export default function Study() {
         scroll={false}
         header={
           <AppHeader
-            leading={{ kind: "back", label: backLabel, to: backTo }}
+            leading={{ kind: "back", label: backLabel, to: backTo, trail: backTrail }}
             actions={
               <>
                 <Button

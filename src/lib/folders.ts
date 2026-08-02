@@ -49,6 +49,33 @@ export function folderAncestors(folders: Folder[], folderId: string | null): Fol
   return chain
 }
 
+export type FolderTrailItem = {
+  /** `null` for the library root (“My sets”). */
+  id: string | null
+  label: string
+  to: string
+}
+
+/**
+ * Jump targets from `fromFolderId` up through home: nearest parent first,
+ * then each ancestor, ending with “My sets”.
+ */
+export function folderTrailUp(
+  folders: Folder[],
+  fromFolderId: string | null,
+): FolderTrailItem[] {
+  const chain = folderAncestors(folders, fromFolderId)
+  const items: FolderTrailItem[] = [...chain]
+    .reverse()
+    .map((f) => ({
+      id: f.id,
+      label: f.name,
+      to: `/folder/${f.id}`,
+    }))
+  items.push({ id: null, label: "My sets", to: "/" })
+  return items
+}
+
 /** Flatten folders depth-first for pickers. */
 export function flattenFolderTree(folders: Folder[]): { folder: Folder; depth: number }[] {
   const childrenByParent = new Map<string | null, Folder[]>()
