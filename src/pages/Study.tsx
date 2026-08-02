@@ -716,9 +716,7 @@ export default function Study() {
                 }
               />
               <p className="mt-3 text-center text-xs text-muted-foreground">
-                {playing
-                  ? "Auto play continues with the screen locked · Swipe to rate · Tap to flip"
-                  : "Tap to flip · Swipe right if you know it · Left if you don’t"}
+                {playing ? "Autoplay" : "Tap to flip · Swipe left or right to rate"}
               </p>
             </div>
           </div>
