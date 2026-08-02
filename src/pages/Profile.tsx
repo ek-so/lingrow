@@ -11,7 +11,6 @@ import {
   LoaderCircle,
   LogIn,
   LogOut,
-  RefreshCw,
   UserRound,
 } from "lucide-react"
 
@@ -34,7 +33,7 @@ function GitHubMark({ className }: { className?: string }) {
 
 export default function Profile() {
   const { user, error, syncing, signingIn, signIn, signOut, configured } = useAuth()
-  const { settings, setPronounceFirst, syncStatus, syncError, refreshFromCloud } = useCollections()
+  const { settings, setPronounceFirst, syncStatus, syncError } = useCollections()
 
   function onPronounceChange(value: PronounceFirst) {
     setPronounceFirst(value)
@@ -60,16 +59,16 @@ export default function Profile() {
           </h2>
           <div className="mt-3 rounded-xl border border-border bg-card p-4">
             {signedIn && user ? (
-              <div className="flex items-start gap-3">
+              <div className="flex items-center gap-3">
                 {user.picture ? (
                   <img
                     src={user.picture}
                     alt=""
-                    className="h-12 w-12 rounded-full border border-border object-cover"
+                    className="h-12 w-12 shrink-0 rounded-full border border-border object-cover"
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-muted-foreground">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary text-muted-foreground">
                     <UserRound className="h-6 w-6" />
                   </div>
                 )}
@@ -83,7 +82,7 @@ export default function Profile() {
                       {user.email.replace("@", "\u200B@")}
                     </p>
                   ) : null}
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     {busy ? (
                       <span className="inline-flex items-center gap-1 text-primary">
                         <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
@@ -102,6 +101,17 @@ export default function Profile() {
                     )}
                   </div>
                 </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="shrink-0 text-destructive hover:bg-transparent hover:text-destructive"
+                  onClick={() => {
+                    void signOut()
+                  }}
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sign out
+                </Button>
               </div>
             ) : (
               <div>
@@ -124,33 +134,8 @@ export default function Profile() {
               </p>
             ) : null}
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              {signedIn ? (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => {
-                      void refreshFromCloud().catch(() => undefined)
-                    }}
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Refresh from cloud
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="text-destructive hover:bg-transparent hover:text-destructive"
-                    onClick={() => {
-                      void signOut()
-                    }}
-                  >
-                    <LogOut className="h-4 w-4" />
-                    Sign out
-                  </Button>
-                </>
-              ) : (
+            {!signedIn ? (
+              <div className="mt-4">
                 <Button
                   type="button"
                   disabled={signingIn || !configured}
@@ -161,8 +146,8 @@ export default function Profile() {
                   {signingIn ? <LogIn className="h-4 w-4" /> : <GitHubMark className="h-4 w-4" />}
                   {signingIn ? "Connecting…" : "Sign in with GitHub"}
                 </Button>
-              )}
-            </div>
+              </div>
+            ) : null}
           </div>
         </section>
 
