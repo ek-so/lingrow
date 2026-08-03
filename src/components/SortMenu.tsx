@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { ArrowUpDown, Check } from "lucide-react"
+import { ArrowDownWideNarrow, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   LIBRARY_SORT_OPTIONS,
@@ -48,7 +48,7 @@ export function SortMenu({ value, onChange, className }: SortMenuProps) {
         aria-haspopup="menu"
         onClick={() => setOpen((v) => !v)}
       >
-        <ArrowUpDown className="h-4 w-4" />
+        <ArrowDownWideNarrow className="h-4 w-4" />
       </Button>
 
       {open ? (
