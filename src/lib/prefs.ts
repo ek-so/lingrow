@@ -58,8 +58,6 @@ export function loadLibrarySortMode(): LibrarySortMode {
   if (!canUseStorage()) return DEFAULT_LIBRARY_SORT
   try {
     const raw = localStorage.getItem(LIBRARY_SORT_KEY)
-    // Migrate removed “manual” preference to alphabetical.
-    if (raw === "manual") return DEFAULT_LIBRARY_SORT
     return isLibrarySortMode(raw) ? raw : DEFAULT_LIBRARY_SORT
   } catch {
     return DEFAULT_LIBRARY_SORT

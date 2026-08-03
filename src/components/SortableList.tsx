@@ -1,4 +1,4 @@
-/** Drag-and-drop list used to reorder words in the set editor (not the library). */
+/** Drag-and-drop list used to reorder words, sets, and folders. */
 import {
   DndContext,
   KeyboardSensor,

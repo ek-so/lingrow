@@ -19,6 +19,7 @@ import {
 import type { WordPair } from "@/lib/collection-form"
 import { normalizeExamples } from "@/lib/examples"
 import { wouldCreateFolderCycle } from "@/lib/folders"
+import { reorderSiblingsByIds } from "@/lib/reorder"
 import { useAuth } from "@/lib/auth-context"
 import { cloudHasData, loadCloudBundle, saveCloudBundle } from "@/lib/cloud-sync"
 
@@ -45,9 +46,11 @@ interface CollectionsContextValue {
   updateCollection: (id: string, input: CollectionFields) => Collection | undefined
   deleteCollection: (id: string) => void
   moveCollection: (id: string, folderId: string | null) => void
+  reorderCollections: (folderId: string | null, orderedIds: string[]) => void
   addFolder: (name: string, parentId?: string | null) => Folder
   renameFolder: (id: string, name: string) => void
   moveFolder: (id: string, parentId: string | null) => void
+  reorderFolders: (parentId: string | null, orderedIds: string[]) => void
   deleteFolder: (id: string) => void
   setPronounceFirst: (value: PronounceFirst) => void
   refreshFromCloud: () => Promise<void>
@@ -360,6 +363,24 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
     })
   }
 
+  function reorderCollections(folderId: string | null, orderedIds: string[]) {
+    const siblingIds = collectionsRef.current
+      .filter((c) => (c.folderId ?? null) === folderId)
+      .map((c) => c.id)
+    if (
+      orderedIds.length !== siblingIds.length ||
+      orderedIds.some((id) => !siblingIds.includes(id))
+    ) {
+      return
+    }
+    setCollections((prev) => {
+      const next = reorderSiblingsByIds(prev, orderedIds)
+      collectionsRef.current = next
+      commitLibrary(next, foldersRef.current)
+      return next
+    })
+  }
+
   function addFolder(name: string, parentId: string | null = null) {
     const trimmed = name.trim() || "Untitled folder"
     const parent =
@@ -410,6 +431,24 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
     })
   }
 
+  function reorderFolders(parentId: string | null, orderedIds: string[]) {
+    const siblingIds = foldersRef.current
+      .filter((f) => f.parentId === parentId)
+      .map((f) => f.id)
+    if (
+      orderedIds.length !== siblingIds.length ||
+      orderedIds.some((id) => !siblingIds.includes(id))
+    ) {
+      return
+    }
+    setFolders((prev) => {
+      const next = reorderSiblingsByIds(prev, orderedIds)
+      foldersRef.current = next
+      commitLibrary(collectionsRef.current, next)
+      return next
+    })
+  }
+
   function deleteFolder(id: string) {
     const folder = foldersRef.current.find((f) => f.id === id)
     if (!folder) return
@@ -452,9 +491,11 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
         updateCollection,
         deleteCollection,
         moveCollection,
+        reorderCollections,
         addFolder,
         renameFolder,
         moveFolder,
+        reorderFolders,
         deleteFolder,
         setPronounceFirst,
         refreshFromCloud,
