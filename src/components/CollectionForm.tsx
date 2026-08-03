@@ -143,6 +143,7 @@ function WordRow({
   onChange,
   onRemove,
   dragHandle,
+  collapsed = false,
 }: {
   draft: DraftWord
   wordLang: LangCode
@@ -151,6 +152,8 @@ function WordRow({
   onChange: (field: "word" | "translation" | "examplesText", value: string) => void
   onRemove: () => void
   dragHandle?: ReactNode
+  /** Compact grip + label view while reordering. */
+  collapsed?: boolean
 }) {
   const { status, suggestion } = useWordSuggest(draft.word, wordLang, translationLang)
   const sameLanguage = wordLang === translationLang
@@ -236,6 +239,20 @@ function WordRow({
         suggestion.translationPrefix ||
         suggestion.translationPlural)
     )
+
+  const collapsedLabel =
+    draft.word.trim() || draft.translation.trim() || `Empty ${langLabel(wordLang)} row`
+
+  if (collapsed) {
+    return (
+      <div className="rounded-lg border border-border bg-card px-3 py-1.5">
+        <div className="flex items-center gap-1">
+          {dragHandle}
+          <p className="min-w-0 flex-1 truncate text-sm font-medium">{collapsedLabel}</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="rounded-lg border border-border bg-card p-3">
@@ -732,27 +749,33 @@ export function CollectionForm({
         <SortableList
           ids={words.map((w) => w.key)}
           onReorder={reorderWords}
-          className="mt-4 flex flex-col gap-4"
+          className="mt-4"
         >
-          {words.map((w) => (
-            <SortableItem
-              key={w.key}
-              id={w.key}
-              handleLabel={`Reorder word ${w.word || "row"}`}
-            >
-              {(dragHandle) => (
-                <WordRow
-                  draft={w}
-                  wordLang={wordLang}
-                  translationLang={translationLang}
-                  canRemove={words.length > 1}
-                  onChange={(field, value) => updateWord(w.key, field, value)}
-                  onRemove={() => removeWord(w.key)}
-                  dragHandle={dragHandle}
-                />
-              )}
-            </SortableItem>
-          ))}
+          {(isSorting) => (
+            <div className={isSorting ? "flex flex-col gap-2" : "flex flex-col gap-4"}>
+              {words.map((w) => (
+                <SortableItem
+                  key={w.key}
+                  id={w.key}
+                  handleLabel={`Reorder word ${w.word || "row"}`}
+                  handleClassName={isSorting ? "mt-0 h-9" : undefined}
+                >
+                  {(dragHandle) => (
+                    <WordRow
+                      draft={w}
+                      wordLang={wordLang}
+                      translationLang={translationLang}
+                      canRemove={words.length > 1}
+                      onChange={(field, value) => updateWord(w.key, field, value)}
+                      onRemove={() => removeWord(w.key)}
+                      dragHandle={dragHandle}
+                      collapsed={isSorting}
+                    />
+                  )}
+                </SortableItem>
+              ))}
+            </div>
+          )}
         </SortableList>
       </div>
 

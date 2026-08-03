@@ -20,7 +20,7 @@ import {
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { GripVertical } from "lucide-react"
-import type { CSSProperties, ReactNode } from "react"
+import { useState, type CSSProperties, type ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
 function setDraggingUserSelect(dragging: boolean) {
@@ -37,9 +37,11 @@ export function SortableList({
 }: {
   ids: UniqueIdentifier[]
   onReorder: (orderedIds: string[]) => void
-  children: ReactNode
+  /** Receives whether a drag is in progress so rows can collapse. */
+  children: (isSorting: boolean) => ReactNode
   className?: string
 }) {
+  const [isSorting, setIsSorting] = useState(false)
   const sensors = useSensors(
     useSensor(MouseSensor, {
       // Allow taps/clicks on links and inputs; only start after a short drag.
@@ -54,10 +56,12 @@ export function SortableList({
   )
 
   function handleDragStart(_event: DragStartEvent) {
+    setIsSorting(true)
     setDraggingUserSelect(true)
   }
 
   function handleDragEnd(event: DragEndEvent) {
+    setIsSorting(false)
     setDraggingUserSelect(false)
     const { active, over } = event
     if (!over || active.id === over.id) return
@@ -68,6 +72,7 @@ export function SortableList({
   }
 
   function handleDragCancel() {
+    setIsSorting(false)
     setDraggingUserSelect(false)
   }
 
@@ -80,7 +85,7 @@ export function SortableList({
       onDragCancel={handleDragCancel}
     >
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-        <div className={className}>{children}</div>
+        <div className={className}>{children(isSorting)}</div>
       </SortableContext>
     </DndContext>
   )
