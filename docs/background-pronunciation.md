@@ -1,44 +1,68 @@
-# Background pronunciation (screen lock)
+# Study pronunciation & background audio
 
-Study auto-play uses an HTML `<audio>` queue rather than the Web Speech API
-(`speechSynthesis`), so pronunciation can continue when the phone screen locks.
+## Verdict
 
-## Why
+| Goal | Status on a plain web app |
+| --- | --- |
+| Hear words with screen **on** | Reliable via `speechSynthesis` |
+| Keep **advancing** cards when locked | Often yes (timers + keepalive `<audio>`) |
+| Keep **hearing words** when locked | Only if real TTS **MP3s** play through `<audio>` — not guaranteed on all phones |
+| Offline lock-screen speech | Not supported without a backend or native app |
 
-On iOS Safari, `speechSynthesis.speak()` is tied to page JavaScript execution.
-When the screen locks or the tab is backgrounded, that JS is suspended and speech
-stops. An `<audio>` element with a real audio source is a media session, which
-iOS is willing to keep alive in the background (especially for a Home Screen /
-standalone PWA).
+Mobile OSes (iOS Safari, Android Chrome / Samsung Internet) treat Web Speech and HTML media differently. `speechSynthesis` is not a media session; it is typically muted or stopped when the screen locks. HTML `<audio>` can continue as a media session (music/podcast style), subject to battery policies and network.
 
-## How Lingrow does it
+## Current architecture
 
-1. **Control plane** — Auto-play speaks with `speechSynthesis` and advances with
-   timers so a stuck network request can never freeze the session on-screen.
-2. **Best-effort TTS audio** — In parallel, each phrase tries Google Translate’s
-   public TTS MP3 (`translate.googleapis.com/translate_tts`, `client=gtx`). If
-   that `<audio>` starts almost immediately with a real duration, we switch to
-   it (better for lock-screen continuity); otherwise speechSynthesis keeps going.
-3. **Keepalive + gaps** — A near-silent looping track and short gap clips keep a
-   media session warm between phrases.
-4. **Media Session** — Lock-screen play/pause/next/previous controls are wired
-   through `navigator.mediaSession`.
-5. **User gesture** — Starting Play kicks audio in the tap stack so iOS can
-   unlock background playback.
+Lingrow uses a **split control / media plane** on purpose:
 
-Relevant code: `src/lib/speech-audio.ts`, `src/pages/Study.tsx`.
+1. **Control plane — `speechSynthesis` + timers**  
+   Speaks immediately when visible so Play never depends on a network TTS URL. Gaps and safety timeouts always advance the queue.
 
-## Tips for reliable lock-screen play on iPhone
+2. **Media plane — Google TTS MP3 via `<audio>`**  
+   In parallel, each phrase tries `translate.googleapis.com/translate_tts`. If that clip **actually progresses** within ~1.5s, we switch to it (better for lock-screen). Otherwise Web Speech keeps going.
 
-- Start with the **Play** button (don’t rely on automatic speech alone).
-- Prefer **Add to Home Screen** (standalone). The app links a web manifest.
-- Keep the network available so TTS clips can load (or preload while unlocked).
-- Quiet mode still advances on near-silent audio timings (no spoken audio).
+3. **Keepalive + Media Session**  
+   A near-silent loop and gap clips try to keep an OS media session alive; lock-screen play/pause/next/previous are wired when supported.
 
-## Limits
+4. **User gesture**  
+   Play must start from a tap so browsers unlock audio.
 
-- Unofficial Google TTS can throttle, change, or block clients; clips are capped
-  around ~180 characters.
-- True offline lock-screen speech would need pre-downloaded audio or a native app.
-- Screen Wake Lock (when supported) still keeps the display on while unlocked; it
-  is not what enables locked playback.
+Relevant code: `src/lib/speech-audio.ts`, `src/pages/Study.tsx`, `app.html`.
+
+## Critical footgun (fixed in app entry)
+
+Google’s TTS endpoint returns **HTTP 404** when the request includes a `Referer` from `ek-so.github.io`. A normal `<audio src=…>` from the GitHub Pages app sends that Referer, so MP3s fail, the player stays on `speechSynthesis`, and lock-screen speech never works.
+
+**Mitigation:** `<meta name="referrer" content="no-referrer">` in `app.html`, plus `referrerpolicy="no-referrer"` on audio elements.
+
+## Platform notes
+
+- **Desktop Chrome/Firefox/Safari** — Web Speech is fine; lock-screen less relevant.
+- **iOS Safari / Home Screen PWA** — Web Speech stops when locked; `<audio>` MP3s can continue if loaded. Prefer Add to Home Screen. Start with Play.
+- **Android Chrome / Samsung Internet** — Same split. OEMs may still kill background media (battery “sleeping apps”) even when TTS MP3s work. That is OS policy, not missing Settings copy in-app.
+- **Quiet mode** — Advances on estimated timings with near-silent clips (no spoken audio).
+
+## Recommendations (senior / product)
+
+**Keep (short term)**  
+- Split plane: Web Speech for foreground reliability.  
+- Referer omission for Google TTS.  
+- Safety timeouts so a hung URL cannot freeze Play.  
+- Take over to `<audio>` only after `currentTime` progresses (not metadata alone).
+
+**Do next for real cross-platform lock-screen speech**  
+1. **Owned TTS backend** (e.g. Supabase Edge Function → Cloud TTS / Azure / similar) that returns MP3/OGG with CORS or same-origin URLs. Prefetch blobs on Play, play only `<audio>`. Drop unofficial Google TTS.  
+2. **Single media pipeline** while auto-playing: no Web Speech during the locked session — only queued `<audio>` (A/B double-buffer so the session never gaps to “idle”).  
+3. **Optional Capacitor/native shell** if you need guaranteed background audio and offline packs.
+
+**Avoid**  
+- Depending on unofficial Google TTS as a product guarantee.  
+- Flipping “audio-first” vs “synth-first” without automated device tests.  
+- Promising lock-screen speech on all Samsung builds without a backend media pipeline.
+
+## Manual test checklist
+
+1. Hard-refresh app → Play with screen on → every card speaks.  
+2. Play → lock after 2–3 words → words continue **or** only clicks/gaps (document which).  
+3. Airplane mode after preloading a few words → observe behavior.  
+4. Quiet mode → session still advances silently.
