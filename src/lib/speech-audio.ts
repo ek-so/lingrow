@@ -1,12 +1,14 @@
 /**
- * Study pronunciation player.
+ * Study pronunciation player — lock-screen capable.
  *
- * Control plane (advances the session): speechSynthesis + timers — reliable while
- * the page is in the foreground.
+ * Phones (Samsung/Android Chrome, iOS Safari) will keep an HTML <audio> media
+ * session playing after the screen locks. They will NOT keep Web Speech
+ * (`speechSynthesis`) audible — that API is tied to the page’s foreground JS
+ * and gets muted/stopped on lock. Timers may still run, which is why a session
+ * can advance silently while you only hear tiny keepalive/gap “clicks”.
  *
- * Media plane (helps iOS keep audio alive when locked): a near-silent keepalive
- * loop, Media Session metadata, and best-effort TTS MP3 playback via <audio>.
- * If a TTS URL hangs or fails, we never block the queue on it.
+ * So auto-play prefers real TTS MP3s through <audio>, preloads upcoming clips,
+ * and only falls back to speechSynthesis while the page is visible.
  */
 
 export type SpeechPlayItem =
@@ -25,12 +27,14 @@ export type SpeechPlayItem =
     }
 
 const SILENCE_CACHE = new Map<number, string>()
-/** How long to wait for remote TTS audio before using speechSynthesis. */
-const AUDIO_START_MS = 1500
-/** Hard cap so a stuck utterance can never freeze auto-play. */
-const ITEM_SAFETY_MS = 12000
+/** Wait this long for remote TTS <audio> to start before falling back. */
+const AUDIO_START_MS = 2500
+/** Hard cap so a stuck clip can never freeze auto-play. */
+const ITEM_SAFETY_MS = 20000
+/** How many upcoming TTS clips to warm in parallel. */
+const PRELOAD_AHEAD = 8
 
-/** Near-silent WAV so iOS treats gaps as active media (true digital silence can be dropped). */
+/** Near-silent WAV so the OS keeps a media session across gaps. */
 export function nearSilentWavDataUri(durationMs: number): string {
   const ms = Math.max(50, Math.round(durationMs))
   const cached = SILENCE_CACHE.get(ms)
@@ -56,7 +60,8 @@ export function nearSilentWavDataUri(durationMs: number): string {
   writeAscii(view, 36, "data")
   view.setUint32(40, dataSize, true)
 
-  const amp = 40 // of 32767
+  // Tiny amplitude — enough that some OEMs don’t drop the track as “silent”.
+  const amp = 8
   for (let i = 0; i < numSamples; i++) {
     const t = i / sampleRate
     const sample = Math.sin(2 * Math.PI * 180 * t) * amp
@@ -80,7 +85,7 @@ export function estimateSpeechMs(text: string): number {
   return Math.min(1100, Math.max(280, text.trim().split(/\s+/).filter(Boolean).length * 260))
 }
 
-/** Unofficial Google Translate TTS MP3 URL (best-effort; may be empty/blocked). */
+/** Unofficial Google Translate TTS MP3 URL (same family as word suggestions). */
 export function ttsAudioUrl(text: string, lang: string): string {
   const tl = (lang.split("-")[0] || "en").toLowerCase()
   const q = text.trim().slice(0, 180)
@@ -104,11 +109,12 @@ export type MediaSessionHandlers = {
 /**
  * Queued pronunciation for study auto-play and one-off side plays.
  * Call {@link PronouncePlayer.startQueue} / {@link PronouncePlayer.speakOne}
- * from a user gesture when possible (unlocks background audio on iOS).
+ * from a user gesture when possible (unlocks background audio).
  */
 export class PronouncePlayer {
   private main = new Audio()
   private keepAlive = new Audio()
+  private warmers = new Map<string, HTMLAudioElement>()
   private queue: SpeechPlayItem[] = []
   private index = 0
   private gen = 0
@@ -125,7 +131,7 @@ export class PronouncePlayer {
     this.keepAlive.setAttribute("playsinline", "true")
     this.keepAlive.loop = true
     this.keepAlive.preload = "auto"
-    this.keepAlive.volume = 0.02
+    this.keepAlive.volume = 0.01
     this.keepAlive.src = nearSilentWavDataUri(2000)
 
     const loadVoices = () => {
@@ -155,6 +161,7 @@ export class PronouncePlayer {
     this.onQueueEnd = onQueueEnd ?? null
     void this.ensureKeepAlive()
     this.bindMediaSession()
+    this.preloadAhead(0)
     this.playCurrent(this.gen)
   }
 
@@ -187,6 +194,7 @@ export class PronouncePlayer {
     this.onQueueEnd = null
     this.clearItemTimer()
     this.pauseMain()
+    this.clearWarmers()
     this.stopKeepAlive()
     try {
       window.speechSynthesis.cancel()
@@ -213,11 +221,25 @@ export class PronouncePlayer {
     }
   }
 
+  private clearWarmers() {
+    for (const el of this.warmers.values()) {
+      try {
+        el.pause()
+        el.removeAttribute("src")
+        el.load()
+      } catch {
+        // ignore
+      }
+    }
+    this.warmers.clear()
+  }
+
   private pauseMain() {
     try {
       this.main.onended = null
       this.main.onerror = null
       this.main.onplaying = null
+      this.main.onloadedmetadata = null
       this.main.pause()
       this.main.removeAttribute("src")
       this.main.load()
@@ -230,7 +252,7 @@ export class PronouncePlayer {
     try {
       if (this.keepAlive.paused) await this.keepAlive.play()
     } catch {
-      // Autoplay restrictions — speechSynthesis still works in the foreground.
+      // Autoplay restrictions — main clip play() from the gesture usually still works.
     }
   }
 
@@ -269,12 +291,51 @@ export class PronouncePlayer {
     }
   }
 
+  /** Warm upcoming TTS URLs so lock-screen playback isn’t waiting on the network. */
+  private preloadAhead(fromIndex: number) {
+    let warmed = 0
+    const keep = new Set<string>()
+
+    for (let i = fromIndex; i < this.queue.length && warmed < PRELOAD_AHEAD; i++) {
+      const item = this.queue[i]
+      if (!item || item.kind !== "tts") continue
+      const url = ttsAudioUrl(item.text, item.lang)
+      keep.add(url)
+      if (!this.warmers.has(url)) {
+        const el = new Audio()
+        el.preload = "auto"
+        el.setAttribute("playsinline", "true")
+        el.src = url
+        try {
+          el.load()
+        } catch {
+          // ignore
+        }
+        this.warmers.set(url, el)
+      }
+      warmed += 1
+    }
+
+    for (const [url, el] of this.warmers) {
+      if (keep.has(url)) continue
+      try {
+        el.pause()
+        el.removeAttribute("src")
+        el.load()
+      } catch {
+        // ignore
+      }
+      this.warmers.delete(url)
+    }
+  }
+
   private playCurrent(gen: number) {
     if (this.gen !== gen || !this.active) return
 
     const item = this.queue[this.index]
     if (!item) {
       this.active = false
+      this.clearWarmers()
       this.stopKeepAlive()
       const ended = this.onQueueEnd
       this.onQueueEnd = null
@@ -291,6 +352,8 @@ export class PronouncePlayer {
 
     item.onStart?.()
     if (this.gen !== gen) return
+
+    this.preloadAhead(this.index + 1)
 
     const advance = () => {
       if (this.gen !== gen) return
@@ -309,12 +372,13 @@ export class PronouncePlayer {
     this.speakText(item.text, item.lang, gen, advance)
   }
 
-  /** Gap: timer is authoritative; near-silent audio keeps the media session warm. */
+  /** Gap: timer advances; near-silent audio keeps the media session continuous. */
   private playSilence(ms: number, gen: number, onDone: () => void) {
     this.clearItemTimer()
     this.pauseMain()
 
     try {
+      this.main.volume = 0.01
       this.main.src = nearSilentWavDataUri(ms)
       void this.main.play().catch(() => undefined)
     } catch {
@@ -330,9 +394,8 @@ export class PronouncePlayer {
   }
 
   /**
-   * Speak immediately via speechSynthesis (reliable on-screen).
-   * Also try remote TTS <audio>; if it starts with a real duration while synth
-   * is still warming up, switch to audio (better for lock-screen continuity).
+   * Prefer TTS <audio> (survives screen lock). Fall back to speechSynthesis only
+   * while visible. If locked and audio fails, advance after an estimated gap.
    */
   private speakText(text: string, lang: string, gen: number, onDone: () => void) {
     this.clearItemTimer()
@@ -344,8 +407,7 @@ export class PronouncePlayer {
     }
 
     let settled = false
-    let source: "synth" | "audio" = "synth"
-    let synthStartedAt = 0
+    let source: "none" | "audio" | "synth" | "gap" = "none"
 
     const finish = () => {
       if (settled || this.gen !== gen) return
@@ -354,6 +416,7 @@ export class PronouncePlayer {
       this.main.onended = null
       this.main.onerror = null
       this.main.onplaying = null
+      this.main.onloadedmetadata = null
       try {
         window.speechSynthesis.cancel()
       } catch {
@@ -362,67 +425,108 @@ export class PronouncePlayer {
       onDone()
     }
 
-    // Never hang the queue on a stuck network/voice.
     this.itemTimer = window.setTimeout(finish, ITEM_SAFETY_MS)
 
-    try {
-      const utter = new SpeechSynthesisUtterance(text)
-      utter.lang = lang
-      utter.rate = 0.95
-      const prefix = lang.toLowerCase().slice(0, 2)
-      const voice =
-        this.voices.find((v) => v.lang.toLowerCase().startsWith(lang.toLowerCase())) ??
-        this.voices.find((v) => v.lang.toLowerCase().startsWith(prefix)) ??
-        window.speechSynthesis.getVoices().find((v) =>
-          v.lang.toLowerCase().startsWith(lang.toLowerCase()),
-        )
-      if (voice) utter.voice = voice
-      utter.onend = () => {
-        if (source === "synth") finish()
+    const startSynthOrGap = () => {
+      if (settled || this.gen !== gen || source === "audio") return
+
+      // Locked / background: speechSynthesis won’t be heard — don’t pretend.
+      if (document.visibilityState !== "visible") {
+        source = "gap"
+        this.playSilence(estimateSpeechMs(text), gen, finish)
+        return
       }
-      utter.onerror = () => {
-        if (source === "synth") finish()
+
+      source = "synth"
+      this.pauseMain()
+      try {
+        const utter = new SpeechSynthesisUtterance(text)
+        utter.lang = lang
+        utter.rate = 0.95
+        const prefix = lang.toLowerCase().slice(0, 2)
+        const voice =
+          this.voices.find((v) => v.lang.toLowerCase().startsWith(lang.toLowerCase())) ??
+          this.voices.find((v) => v.lang.toLowerCase().startsWith(prefix)) ??
+          window.speechSynthesis.getVoices().find((v) =>
+            v.lang.toLowerCase().startsWith(lang.toLowerCase()),
+          )
+        if (voice) utter.voice = voice
+        utter.onend = finish
+        utter.onerror = finish
+        window.speechSynthesis.speak(utter)
+      } catch {
+        finish()
       }
-      synthStartedAt = performance.now()
-      window.speechSynthesis.speak(utter)
-    } catch {
-      finish()
-      return
     }
 
-    // Best-effort audio path — only steal the turn if it starts almost immediately.
     const url = ttsAudioUrl(text, lang)
-    this.main.onplaying = () => {
+    let audioTimer: number | null = window.setTimeout(() => {
+      audioTimer = null
+      startSynthOrGap()
+    }, AUDIO_START_MS)
+
+    const commitAudio = () => {
       if (settled || this.gen !== gen) return
       const dur = this.main.duration
-      if (!Number.isFinite(dur) || dur < 0.08) {
-        this.main.pause()
-        return
-      }
-      // If synth has already been audible for a bit, don't double-speak.
-      if (performance.now() - synthStartedAt > AUDIO_START_MS) {
-        this.main.pause()
-        return
+      if (!Number.isFinite(dur) || dur < 0.08) return false
+      if (audioTimer != null) {
+        window.clearTimeout(audioTimer)
+        audioTimer = null
       }
       source = "audio"
+      this.main.volume = 1
       try {
         window.speechSynthesis.cancel()
       } catch {
         // ignore
+      }
+      return true
+    }
+
+    this.main.onloadedmetadata = () => {
+      // Some browsers know duration before playing.
+      if (source === "none") commitAudio()
+    }
+    this.main.onplaying = () => {
+      if (!commitAudio()) {
+        // Empty/bogus stream — don’t get stuck; fall back.
+        if (audioTimer != null) {
+          window.clearTimeout(audioTimer)
+          audioTimer = null
+        }
+        startSynthOrGap()
       }
     }
     this.main.onended = () => {
       if (source === "audio") finish()
     }
     this.main.onerror = () => {
-      // Synth remains in control.
+      if (audioTimer != null) {
+        window.clearTimeout(audioTimer)
+        audioTimer = null
+      }
+      startSynthOrGap()
     }
 
     try {
+      this.main.volume = 1
       this.main.src = url
-      void this.main.play().catch(() => undefined)
+      const playPromise = this.main.play()
+      if (playPromise) {
+        void playPromise.catch(() => {
+          if (audioTimer != null) {
+            window.clearTimeout(audioTimer)
+            audioTimer = null
+          }
+          startSynthOrGap()
+        })
+      }
     } catch {
-      // ignore — synth already running
+      if (audioTimer != null) {
+        window.clearTimeout(audioTimer)
+        audioTimer = null
+      }
+      startSynthOrGap()
     }
   }
 }
