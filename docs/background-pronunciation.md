@@ -1,44 +1,42 @@
 # Background pronunciation (screen lock)
 
-Study auto-play uses an HTML `<audio>` queue rather than the Web Speech API
-(`speechSynthesis`), so pronunciation can continue when the phone screen locks.
+## Why words stop when the phone locks
 
-## Why
+There are two different “speech” mechanisms in a web app:
 
-On iOS Safari, `speechSynthesis.speak()` is tied to page JavaScript execution.
-When the screen locks or the tab is backgrounded, that JS is suspended and speech
-stops. An `<audio>` element with a real audio source is a media session, which
-iOS is willing to keep alive in the background (especially for a Home Screen /
-standalone PWA).
+| Mechanism | What it is | Survives screen lock? |
+| --- | --- | --- |
+| **Web Speech** (`speechSynthesis`) | Browser/OS voice engine driven by page JavaScript | **No** — Android (incl. Samsung) and iOS mute or stop it when the screen locks or the tab backgrounds |
+| **HTML `<audio>`** | A real media file (MP3/WAV) played as a media session | **Yes** — the OS treats it like music/podcast playback |
 
-## How Lingrow does it
+Earlier Lingrow used `speechSynthesis` as the main voice. On a locked Samsung phone that produced exactly what you heard:
 
-1. **Control plane** — Auto-play speaks with `speechSynthesis` and advances with
-   timers so a stuck network request can never freeze the session on-screen.
-2. **Best-effort TTS audio** — In parallel, each phrase tries Google Translate’s
-   public TTS MP3 (`translate.googleapis.com/translate_tts`, `client=gtx`). If
-   that `<audio>` starts almost immediately with a real duration, we switch to
-   it (better for lock-screen continuity); otherwise speechSynthesis keeps going.
-3. **Keepalive + gaps** — A near-silent looping track and short gap clips keep a
-   media session warm between phrases.
-4. **Media Session** — Lock-screen play/pause/next/previous controls are wired
-   through `navigator.mediaSession`.
-5. **User gesture** — Starting Play kicks audio in the tap stack so iOS can
-   unlock background playback.
+1. **Words go silent** — `speechSynthesis` is no longer allowed to make sound.
+2. **The session still advances** — gaps use timers (`setTimeout`), which often keep running while a tiny keepalive `<audio>` loop holds a media session.
+3. **Occasional clicks** — that keepalive / between-card gap track is a near-silent tone, not the vocabulary audio.
+
+So the queue was alive; only the *spoken* channel was the wrong kind of audio for lock-screen.
+
+## What we do now
+
+Auto-play **prefers real TTS MP3s through `<audio>`** (Google Translate’s public TTS endpoint, same unofficial family as word suggestions):
+
+1. **Preload** upcoming clips when you tap Play (while still unlocked / online).
+2. **Play each word/translation as `<audio>`** so Android/iOS can keep the media session after lock.
+3. **Near-silent gap clips + Media Session** so the session doesn’t look “finished” between cards; lock-screen controls stay available.
+4. **Fallback** — if a TTS URL fails *and* the page is still visible, use `speechSynthesis`. If the screen is already locked and TTS fails, advance after a short estimated gap (still no word audio for that item).
 
 Relevant code: `src/lib/speech-audio.ts`, `src/pages/Study.tsx`.
 
-## Tips for reliable lock-screen play on iPhone
+## Tips
 
-- Start with the **Play** button (don’t rely on automatic speech alone).
-- Prefer **Add to Home Screen** (standalone). The app links a web manifest.
-- Keep the network available so TTS clips can load (or preload while unlocked).
-- Quiet mode still advances on near-silent audio timings (no spoken audio).
+- Start with the **Play** button (user gesture unlocks background audio).
+- Prefer **Add to Home Screen** / standalone when possible.
+- Keep the network available so clips can preload before you lock.
+- On Samsung, Chrome/Samsung Internet battery restrictions can still kill background media — if playback dies after a minute, check battery / “put apps to sleep” settings for the browser.
 
 ## Limits
 
-- Unofficial Google TTS can throttle, change, or block clients; clips are capped
-  around ~180 characters.
-- True offline lock-screen speech would need pre-downloaded audio or a native app.
-- Screen Wake Lock (when supported) still keeps the display on while unlocked; it
-  is not what enables locked playback.
+- Unofficial Google TTS can throttle, change, or block clients; clips are capped ~180 characters.
+- Fully offline lock-screen speech needs pre-downloaded files or a native app.
+- Screen Wake Lock only keeps the display on while unlocked; it is not what enables locked playback.
