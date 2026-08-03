@@ -253,6 +253,8 @@ export default function Home() {
     </button>
   )
 
+  const canReorder = childFolders.length > 1 || childCollections.length > 1
+
   const titleActions = reorderMode
     ? null
     : (
@@ -265,6 +267,7 @@ export default function Home() {
               <SortMenu value={sortMode} onChange={onSortChange} />,
             ),
             titleAction.create(() => setCreateOpen(true)),
+            ...(canReorder ? [titleAction.reorder(startReorderMode)] : []),
             ...(currentFolder
               ? [
                   titleAction.rename(() => setRenameTarget(currentFolder)),
@@ -402,7 +405,6 @@ export default function Home() {
                         <OverflowMenu
                           label={`Actions for ${folder.name}`}
                           items={toOverflowMenuItems([
-                            titleAction.reorder(startReorderMode),
                             titleAction.rename(() => setRenameTarget(folder)),
                             titleAction.move(() =>
                               setMoveTarget({
@@ -460,7 +462,6 @@ export default function Home() {
                       <OverflowMenu
                         label={`Actions for ${c.name}`}
                         items={toOverflowMenuItems([
-                          titleAction.reorder(startReorderMode),
                           titleAction.edit(() => navigate(`/edit/${c.id}`)),
                           titleAction.move(() =>
                             setMoveTarget({
