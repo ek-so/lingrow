@@ -15,17 +15,18 @@ Mobile OSes (iOS Safari, Android Chrome / Samsung Internet) treat Web Speech and
 
 Lingrow uses a **split control / media plane** on purpose:
 
-1. **Control plane — `speechSynthesis` + timers**  
-   Speaks immediately when visible so Play never depends on a network TTS URL. Gaps and safety timeouts always advance the queue.
-
-2. **Media plane — Google TTS MP3 via `<audio>`**  
-   In parallel, each phrase tries `translate.googleapis.com/translate_tts`. If that clip **actually progresses** within ~1.5s, we switch to it (better for lock-screen). Otherwise Web Speech keeps going.
-
+1. **Screen on — `speechSynthesis` only**  
+   Speaks immediately when visible. Does **not** layer Google TTS underneath
+   (that dual path caused an audible echo).
+2. **Screen locked — `<audio>` TTS only**  
+   Uses `translate.googleapis.com/translate_tts` MP3s (Referer omitted — see
+   footgun below). If a clip fails, advance after a short estimated gap.
 3. **Keepalive + Media Session**  
-   A near-silent loop and gap clips try to keep an OS media session alive; lock-screen play/pause/next/previous are wired when supported.
-
+   Near-silent loop/gaps + lock-screen media controls when supported.
 4. **User gesture**  
    Play must start from a tap so browsers unlock audio.
+5. **Preload**  
+   Upcoming TTS URLs are warmed while unlocked for a later locked session.
 
 Relevant code: `src/lib/speech-audio.ts`, `src/pages/Study.tsx`, `app.html`.
 
@@ -45,10 +46,10 @@ Google’s TTS endpoint returns **HTTP 404** when the request includes a `Refere
 ## Recommendations (senior / product)
 
 **Keep (short term)**  
-- Split plane: Web Speech for foreground reliability.  
+- Exclusive sources: Web Speech when visible, `<audio>` when locked — never both.  
 - Referer omission for Google TTS.  
 - Safety timeouts so a hung URL cannot freeze Play.  
-- Take over to `<audio>` only after `currentTime` progresses (not metadata alone).
+- Preload TTS while unlocked for a later locked session.
 
 **Do next for real cross-platform lock-screen speech**  
 1. **Owned TTS backend** (e.g. Supabase Edge Function → Cloud TTS / Azure / similar) that returns MP3/OGG with CORS or same-origin URLs. Prefetch blobs on Play, play only `<audio>`. Drop unofficial Google TTS.  

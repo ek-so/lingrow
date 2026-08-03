@@ -1,18 +1,14 @@
 /**
  * Study pronunciation player.
  *
- * Architecture (deliberate split):
- * - Control plane: `speechSynthesis` + timers. Reliable with the screen on.
- * - Media plane: HTML `<audio>` TTS MP3s + near-silent keepalive + Media Session.
- *   Required for any chance of speech after screen lock (iOS / Android).
- *
- * Lock-screen speech only works when the media plane actually plays real MP3s.
- * Web Speech is muted/stopped by mobile OSes when locked — timers may still run,
- * which looks like “session advances but no words.”
+ * Architecture (deliberate split — never both audible at once):
+ * - Screen visible: `speechSynthesis` only (reliable; no TTS echo).
+ * - Screen locked/hidden: HTML `<audio>` TTS MP3s only (media session).
+ * - Gaps/keepalive: near-silent `<audio>` + timers so the queue still advances.
  *
  * Google Translate TTS 404s if the request sends a github.io Referer. The app
  * entry sets `<meta name="referrer" content="no-referrer">`, and audio elements
- * set `referrerpolicy="no-referrer"` so those MP3s can load.
+ * set `referrerpolicy="no-referrer"` so those MP3s can load when locked.
  */
 
 export type SpeechPlayItem =
@@ -31,8 +27,8 @@ export type SpeechPlayItem =
     }
 
 const SILENCE_CACHE = new Map<number, string>()
-/** Steal from synth only if <audio> is clearly playing within this window. */
-const AUDIO_TAKEOVER_MS = 1500
+/** How long to wait for locked-screen TTS <audio> before advancing with a gap. */
+const AUDIO_TAKEOVER_MS = 2500
 /** Hard cap so a stuck utterance can never freeze auto-play. */
 const ITEM_SAFETY_MS = 12000
 /** Warm this many upcoming TTS URLs while unlocked. */
@@ -413,8 +409,8 @@ export class PronouncePlayer {
   }
 
   /**
-   * Speak via speechSynthesis immediately (on-screen reliability).
-   * If remote TTS <audio> starts progressing quickly, take over for lock-screen.
+   * One audible source at a time (parallel synth + TTS was heard as an echo).
+   * Visible → speechSynthesis only. Hidden/locked → <audio> TTS only (fallback gap).
    */
   private speakText(text: string, lang: string, gen: number, onDone: () => void) {
     this.clearItemTimer()
@@ -426,8 +422,7 @@ export class PronouncePlayer {
     }
 
     let settled = false
-    let source: "synth" | "audio" = "synth"
-    let synthStartedAt = 0
+    let source: "synth" | "audio" | "gap" = "synth"
 
     const finish = () => {
       if (settled || this.gen !== gen) return
@@ -447,71 +442,85 @@ export class PronouncePlayer {
 
     this.itemTimer = window.setTimeout(finish, ITEM_SAFETY_MS)
 
-    try {
-      const utter = new SpeechSynthesisUtterance(text)
-      utter.lang = lang
-      utter.rate = 0.95
-      const prefix = lang.toLowerCase().slice(0, 2)
-      const voice =
-        this.voices.find((v) => v.lang.toLowerCase().startsWith(lang.toLowerCase())) ??
-        this.voices.find((v) => v.lang.toLowerCase().startsWith(prefix)) ??
-        window.speechSynthesis.getVoices().find((v) =>
-          v.lang.toLowerCase().startsWith(lang.toLowerCase()),
-        )
-      if (voice) utter.voice = voice
-      utter.onend = () => {
-        if (source === "synth") finish()
+    // Screen on: Web Speech only — never start TTS audio underneath (that was the echo).
+    if (document.visibilityState === "visible") {
+      source = "synth"
+      try {
+        const utter = new SpeechSynthesisUtterance(text)
+        utter.lang = lang
+        utter.rate = 0.95
+        const prefix = lang.toLowerCase().slice(0, 2)
+        const voice =
+          this.voices.find((v) => v.lang.toLowerCase().startsWith(lang.toLowerCase())) ??
+          this.voices.find((v) => v.lang.toLowerCase().startsWith(prefix)) ??
+          window.speechSynthesis.getVoices().find((v) =>
+            v.lang.toLowerCase().startsWith(lang.toLowerCase()),
+          )
+        if (voice) utter.voice = voice
+        utter.onend = () => {
+          if (source === "synth") finish()
+        }
+        utter.onerror = () => {
+          if (source === "synth") finish()
+        }
+        window.speechSynthesis.speak(utter)
+      } catch {
+        finish()
       }
-      utter.onerror = () => {
-        if (source === "synth") finish()
-      }
-      synthStartedAt = performance.now()
-      window.speechSynthesis.speak(utter)
-    } catch {
-      finish()
+      // Still warm the next clips for a possible later locked session.
       return
     }
 
+    // Screen locked / background: <audio> only (Web Speech won’t be heard).
+    source = "audio"
     const url = ttsAudioUrl(text, lang)
+    let audioTimer: number | null = window.setTimeout(() => {
+      audioTimer = null
+      if (settled || this.gen !== gen || source !== "audio") return
+      source = "gap"
+      this.playSilence(estimateSpeechMs(text), gen, finish)
+    }, AUDIO_TAKEOVER_MS)
 
-    const tryTakeOver = () => {
-      if (settled || this.gen !== gen || source === "audio") return
-      const dur = this.main.duration
-      const t = this.main.currentTime
-      if (!Number.isFinite(dur) || dur < 0.08) return
-      // Require real progress — metadata/playing alone has caused silent sessions.
-      if (t < 0.04) return
-      if (performance.now() - synthStartedAt > AUDIO_TAKEOVER_MS) {
-        this.main.pause()
-        return
-      }
-      source = "audio"
-      this.main.volume = 1
-      try {
-        window.speechSynthesis.cancel()
-      } catch {
-        // ignore
-      }
-    }
-
-    this.main.ontimeupdate = () => tryTakeOver()
-    this.main.onplaying = () => {
-      // Some engines skip early timeupdates; re-check shortly after playing.
-      window.setTimeout(() => tryTakeOver(), 80)
-    }
     this.main.onended = () => {
       if (source === "audio") finish()
     }
     this.main.onerror = () => {
-      // Synth remains in control.
+      if (audioTimer != null) {
+        window.clearTimeout(audioTimer)
+        audioTimer = null
+      }
+      if (settled || this.gen !== gen) return
+      source = "gap"
+      this.playSilence(estimateSpeechMs(text), gen, finish)
+    }
+    this.main.onplaying = () => {
+      const dur = this.main.duration
+      if (!Number.isFinite(dur) || dur < 0.08) return
+      if (audioTimer != null) {
+        window.clearTimeout(audioTimer)
+        audioTimer = null
+      }
     }
 
     try {
       this.main.volume = 1
       this.main.src = url
-      void this.main.play().catch(() => undefined)
+      void this.main.play().catch(() => {
+        if (audioTimer != null) {
+          window.clearTimeout(audioTimer)
+          audioTimer = null
+        }
+        if (settled || this.gen !== gen) return
+        source = "gap"
+        this.playSilence(estimateSpeechMs(text), gen, finish)
+      })
     } catch {
-      // ignore — synth already running
+      if (audioTimer != null) {
+        window.clearTimeout(audioTimer)
+        audioTimer = null
+      }
+      source = "gap"
+      this.playSilence(estimateSpeechMs(text), gen, finish)
     }
   }
 }
