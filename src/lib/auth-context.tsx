@@ -9,7 +9,6 @@ import {
 } from "react"
 import type { User } from "@supabase/supabase-js"
 import { authRedirectTo, getSupabase, isSupabaseConfigured } from "@/lib/supabase"
-import { dismissLoginPrompt, loadLoginPromptState } from "@/lib/prefs"
 
 export interface AuthSession {
   id: string
@@ -27,12 +26,9 @@ interface AuthContextValue {
   error: string | null
   syncing: boolean
   setSyncing: (value: boolean) => void
-  showLoginPrompt: boolean
   signingIn: boolean
   signIn: () => Promise<void>
   signOut: () => Promise<void>
-  dismissPrompt: () => void
-  continueLocally: () => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -64,14 +60,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [signingIn, setSigningIn] = useState(false)
-  const [showLoginPrompt, setShowLoginPrompt] = useState(false)
 
   useEffect(() => {
-    const prompt = loadLoginPromptState()
-
     if (!configured) {
       setStatus("signed_out")
-      setShowLoginPrompt(!prompt.dismissed)
       return
     }
 
@@ -87,18 +79,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data.session?.user) {
           setUser(sessionFromUser(data.session.user))
           setStatus("signed_in")
-          setShowLoginPrompt(false)
-          dismissLoginPrompt()
         } else {
           setUser(null)
           setStatus("signed_out")
-          setShowLoginPrompt(!prompt.dismissed)
         }
       } catch (e) {
         if (cancelled) return
         setError(e instanceof Error ? e.message : "Could not restore session")
         setStatus("error")
-        setShowLoginPrompt(!prompt.dismissed)
       }
     }
 
@@ -109,10 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         setUser(sessionFromUser(session.user))
         setStatus("signed_in")
-        setShowLoginPrompt(false)
         setSigningIn(false)
         setError(null)
-        dismissLoginPrompt()
       } else {
         setUser(null)
         setStatus("signed_out")
@@ -163,16 +149,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus("signed_out")
   }, [configured])
 
-  const dismissPrompt = useCallback(() => {
-    dismissLoginPrompt()
-    setShowLoginPrompt(false)
-  }, [])
-
-  const continueLocally = useCallback(() => {
-    dismissLoginPrompt()
-    setShowLoginPrompt(false)
-  }, [])
-
   const value = useMemo<AuthContextValue>(
     () => ({
       status,
@@ -181,26 +157,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       error,
       syncing,
       setSyncing,
-      showLoginPrompt,
       signingIn,
       signIn,
       signOut,
-      dismissPrompt,
-      continueLocally,
     }),
-    [
-      status,
-      user,
-      configured,
-      error,
-      syncing,
-      showLoginPrompt,
-      signingIn,
-      signIn,
-      signOut,
-      dismissPrompt,
-      continueLocally,
-    ]
+    [status, user, configured, error, syncing, signingIn, signIn, signOut]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

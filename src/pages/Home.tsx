@@ -352,6 +352,23 @@ export default function Home() {
           {currentFolder ? currentFolder.name : "My sets"}
         </PageTitle>
 
+        {!currentFolder && status !== "signed_in" ? (
+          <div className="mb-3 flex items-center gap-3 rounded-xl border border-border bg-secondary/60 px-3.5 py-3">
+            <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+              Progress on this device can be lost if you clear site data. Sign in to sync to the
+              cloud.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              className="shrink-0"
+              onClick={() => navigate("/profile")}
+            >
+              Sign in
+            </Button>
+          </div>
+        ) : null}
+
         <div className={`flex flex-col ${reorderMode ? "gap-2 pb-24" : "gap-3"}`}>
           {reorderMode ? (
             <>

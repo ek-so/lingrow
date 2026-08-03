@@ -1,7 +1,6 @@
 import { createHashRouter, Navigate, Outlet, RouterProvider } from "react-router-dom"
 import { AuthProvider } from "@/lib/auth-context"
 import { CollectionsProvider } from "@/lib/collections-context"
-import { LoginPrompt } from "@/components/LoginPrompt"
 import Home from "@/pages/Home"
 import Study from "@/pages/Study"
 import NewList from "@/pages/NewList"
@@ -11,12 +10,7 @@ import ImportText from "@/pages/ImportText"
 import Profile from "@/pages/Profile"
 
 function AppLayout() {
-  return (
-    <>
-      <Outlet />
-      <LoginPrompt />
-    </>
-  )
+  return <Outlet />
 }
 
 const router = createHashRouter([
