@@ -41,15 +41,16 @@ import {
 import { useWordSuggest } from "@/lib/use-word-suggest"
 import type { LangCode } from "@/types"
 import { OverflowMenu } from "@/components/OverflowMenu"
+import { PageSubtitle } from "@/components/PageTitle"
 import { SortableItem, SortableList } from "@/components/SortableList"
-import { titleAction, toOverflowMenuItems } from "@/components/TitleActions"
+import { TitleActions, titleAction, toOverflowMenuItems } from "@/components/TitleActions"
+import { useKeyboardBottomOffset } from "@/lib/use-keyboard-bottom-offset"
 import {
   ClipboardPaste,
   FileSpreadsheet,
   Info,
   Loader2,
   Plus,
-  Sparkles,
 } from "lucide-react"
 
 const selectClassName =
@@ -108,7 +109,12 @@ function Chip({
       ? "border-border/80 bg-transparent text-muted-foreground hover:border-primary/40 hover:text-foreground"
       : "border-border bg-card text-foreground hover:bg-secondary"
   return (
-    <button type="button" onClick={onClick} className={`${base} ${tone}`}>
+    <button
+      type="button"
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+      className={`${base} ${tone} max-w-full break-words whitespace-normal`}
+    >
       {label}
     </button>
   )
@@ -151,7 +157,6 @@ function WordRow({
   canRemove,
   onChange,
   onRemove,
-  onStartReorder,
   dragHandle,
   mode = "edit",
 }: {
@@ -161,13 +166,15 @@ function WordRow({
   canRemove: boolean
   onChange: (field: "word" | "translation" | "examplesText", value: string) => void
   onRemove: () => void
-  onStartReorder: () => void
   dragHandle?: ReactNode
   /** Full editor vs compact reorder row. */
   mode?: "edit" | "reorder"
 }) {
   const { status, suggestion } = useWordSuggest(draft.word, wordLang, translationLang)
   const sameLanguage = wordLang === translationLang
+  const [focusedField, setFocusedField] = useState<"word" | "translation" | "examples" | null>(
+    null,
+  )
 
   // Values we last auto-filled — kept so a new lookup can replace them without
   // overwriting anything the user typed by hand.
@@ -238,26 +245,33 @@ function WordRow({
       ]
     : []
 
-  const showSuggestChrome =
-    status === "loading" ||
-    status === "error" ||
-    !!(
-      suggestion &&
-      (translationChips.length > 0 ||
-        suggestion.examples.length > 0 ||
-        suggestion.wordPrefix ||
-        suggestion.wordPlural ||
-        suggestion.translationPrefix ||
-        suggestion.translationPlural)
-    )
+  const showWordHints =
+    focusedField === "word" &&
+    !!suggestion &&
+    !!(suggestion.wordPrefix || suggestion.wordPlural)
+
+  const showTranslationHints =
+    focusedField === "translation" &&
+    !!suggestion &&
+    !sameLanguage &&
+    !!(suggestion.translationPrefix || suggestion.translationPlural)
+
+  const showTranslationChips =
+    focusedField === "translation" &&
+    !!suggestion &&
+    !sameLanguage &&
+    translationChips.length > 0
+
+  const showExampleSuggestions =
+    focusedField === "examples" && !!suggestion && unusedExamples.length > 0
+
+  const showLookupStatus =
+    focusedField === "word" && (status === "loading" || status === "error")
 
   const label =
     draft.word.trim() || draft.translation.trim() || `Empty ${langLabel(wordLang)} row`
 
-  const menuItems = [
-    ...(mode === "edit" ? [titleAction.reorder(onStartReorder)] : []),
-    ...(canRemove ? [titleAction.delete(onRemove)] : []),
-  ]
+  const menuItems = canRemove ? [titleAction.delete(onRemove)] : []
 
   const overflow =
     menuItems.length > 0 ? (
@@ -287,6 +301,8 @@ function WordRow({
             <input
               value={draft.word}
               onChange={(e) => onChange("word", e.target.value)}
+              onFocus={() => setFocusedField("word")}
+              onBlur={() => setFocusedField((f) => (f === "word" ? null : f))}
               placeholder={langLabel(wordLang)}
               aria-label={langLabel(wordLang)}
               className={inputClassName}
@@ -294,7 +310,19 @@ function WordRow({
               autoCorrect="off"
               spellCheck={false}
             />
-            {suggestion ? (
+            {showLookupStatus ? (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                {status === "loading" ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+                    <span>Looking up translation…</span>
+                  </>
+                ) : (
+                  <span>Couldn’t fetch suggestions — type them in yourself.</span>
+                )}
+              </div>
+            ) : null}
+            {showWordHints && suggestion ? (
               <PrefixHints
                 prefix={suggestion.wordPrefix}
                 plural={suggestion.wordPlural}
@@ -311,6 +339,8 @@ function WordRow({
                 autoTranslation.current = null
                 onChange("translation", e.target.value)
               }}
+              onFocus={() => setFocusedField("translation")}
+              onBlur={() => setFocusedField((f) => (f === "translation" ? null : f))}
               placeholder={langLabel(translationLang)}
               aria-label={langLabel(translationLang)}
               className={inputClassName}
@@ -318,13 +348,12 @@ function WordRow({
               autoCorrect="off"
               spellCheck={false}
             />
-            {suggestion && !sameLanguage ? (
+            {showTranslationHints && suggestion ? (
               <PrefixHints
                 prefix={suggestion.translationPrefix}
                 plural={suggestion.translationPlural}
                 value={draft.translation}
                 onApplyPrefix={(p) => {
-                  // Apply prefix to the first comma segment only.
                   const parts = draft.translation.split(/\s*,\s*/)
                   const head = parts[0] ?? ""
                   const rest = parts.slice(1)
@@ -340,76 +369,22 @@ function WordRow({
                 }}
               />
             ) : null}
+            {showTranslationChips ? (
+              <div className="flex flex-wrap gap-1.5">
+                {translationChips.map((alt) => (
+                  <Chip
+                    key={alt}
+                    label={alt}
+                    active={commaListIncludes(draft.translation, alt)}
+                    onClick={() => applyTranslation(alt)}
+                  />
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
         {overflow}
       </div>
-
-      {showSuggestChrome ? (
-        <div className="mt-2 flex flex-col gap-2 rounded-md bg-secondary/60 px-2.5 py-2">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            {status === "loading" ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                <span>Looking up translation…</span>
-              </>
-            ) : status === "error" ? (
-              <span>Couldn’t fetch suggestions — type them in yourself.</span>
-            ) : (
-              <>
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>Suggestions</span>
-              </>
-            )}
-          </div>
-
-          {suggestion && !sameLanguage && translationChips.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
-              {translationChips.map((alt) => (
-                <Chip
-                  key={alt}
-                  label={alt}
-                  active={commaListIncludes(draft.translation, alt)}
-                  onClick={() => applyTranslation(alt)}
-                />
-              ))}
-            </div>
-          ) : null}
-
-          {suggestion && unusedExamples.length > 0 ? (
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] text-muted-foreground">
-                  Example sentences (from Google Translate)
-                </span>
-                <button
-                  type="button"
-                  onClick={applyAllExamples}
-                  className="text-xs font-medium text-primary"
-                >
-                  Use all
-                </button>
-              </div>
-              <ul className="flex flex-col gap-1">
-                {unusedExamples.map((ex) => (
-                  <li key={ex}>
-                    <button
-                      type="button"
-                      onClick={() => addExample(ex)}
-                      className="flex w-full items-start gap-2 rounded-md px-1 py-1 text-left text-xs leading-snug text-foreground hover:bg-accent"
-                    >
-                      <span className="mt-0.5 text-muted-foreground" aria-hidden>
-                        •
-                      </span>
-                      <span>{ex}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
 
       <label className="mt-2 flex flex-col gap-1">
         <span className="sr-only">Examples for {draft.word || "word"}</span>
@@ -419,11 +394,48 @@ function WordRow({
             autoExamples.current = null
             onChange("examplesText", e.target.value)
           }}
+          onFocus={() => setFocusedField("examples")}
+          onBlur={() => setFocusedField((f) => (f === "examples" ? null : f))}
           rows={4}
           placeholder="Example sentences (optional, one per line)"
           className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
         />
       </label>
+
+      {showExampleSuggestions ? (
+        <div className="mt-2 flex flex-col gap-1.5 rounded-md bg-secondary/60 px-2.5 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-muted-foreground">
+              Example sentences (from Google Translate)
+            </span>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={applyAllExamples}
+              className="shrink-0 text-xs font-medium text-primary"
+            >
+              Use all
+            </button>
+          </div>
+          <ul className="flex flex-col gap-1">
+            {unusedExamples.map((ex) => (
+              <li key={ex}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => addExample(ex)}
+                  className="flex w-full items-start gap-2 rounded-md px-1 py-1 text-left text-xs leading-snug break-words text-foreground hover:bg-accent"
+                >
+                  <span className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden>
+                    •
+                  </span>
+                  <span className="min-w-0 break-words whitespace-normal">{ex}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -525,6 +537,7 @@ export function CollectionForm({
   const [nameError, setNameError] = useState(false)
   const [reorderMode, setReorderMode] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
+  const keyboardOffset = useKeyboardBottomOffset()
 
   const sameLanguage = wordLang === translationLang
 
@@ -715,7 +728,7 @@ export function CollectionForm({
 
       <div className="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-3">
-          <LangSelect id="from-lang" label="Translates from" value={wordLang} onChange={setWordLang} />
+          <LangSelect id="from-lang" label="From" value={wordLang} onChange={setWordLang} />
           <LangSelect id="into-lang" label="Into" value={translationLang} onChange={setTranslationLang} />
         </div>
         {sameLanguage ? (
@@ -727,7 +740,15 @@ export function CollectionForm({
       </div>
 
       <div>
-        <span className="text-sm font-medium">Words</span>
+        <PageSubtitle
+          actions={
+            !reorderMode && words.length > 1 ? (
+              <TitleActions actions={[titleAction.reorder(() => setReorderMode(true))]} />
+            ) : undefined
+          }
+        >
+          Words
+        </PageSubtitle>
 
         <input
           ref={fileInputRef}
@@ -785,7 +806,6 @@ export function CollectionForm({
                     canRemove={words.length > 1}
                     onChange={(field, value) => updateWord(w.key, field, value)}
                     onRemove={() => removeWord(w.key)}
-                    onStartReorder={() => setReorderMode(true)}
                     dragHandle={dragHandle}
                     mode="reorder"
                   />
@@ -804,7 +824,6 @@ export function CollectionForm({
                 canRemove={words.length > 1}
                 onChange={(field, value) => updateWord(w.key, field, value)}
                 onRemove={() => removeWord(w.key)}
-                onStartReorder={() => setReorderMode(true)}
                 mode="edit"
               />
             ))}
@@ -825,7 +844,10 @@ export function CollectionForm({
         </div>
       )}
 
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border/80 bg-background/90 backdrop-blur-md">
+      <div
+        className="fixed inset-x-0 bottom-0 z-20 border-t border-border/80 bg-background/90 backdrop-blur-md"
+        style={{ bottom: keyboardOffset }}
+      >
         <div className="mx-auto max-w-2xl px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {reorderMode ? (
             <Button

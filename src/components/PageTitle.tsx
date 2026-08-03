@@ -33,6 +33,27 @@ export function PageTitle({
   )
 }
 
+/**
+ * Section heading under a page title — slightly smaller, optional action menu
+ * on the right (same slot pattern as PageTitle).
+ */
+export function PageSubtitle({
+  children,
+  actions,
+  className,
+}: {
+  children: ReactNode
+  actions?: ReactNode
+  className?: string
+}) {
+  return (
+    <div className={cn("flex h-9 items-center justify-between gap-3", className)}>
+      <h2 className="truncate text-lg font-semibold tracking-tight">{children}</h2>
+      {actions ? <div className="flex shrink-0 items-center gap-1">{actions}</div> : null}
+    </div>
+  )
+}
+
 /** Standard content column under the app header. */
 export function PageBody({
   children,

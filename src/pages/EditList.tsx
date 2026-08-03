@@ -76,7 +76,7 @@ export default function EditList() {
         }
       >
         <PageBody>
-          <PageTitle description="Update languages, name, or word pairs.">Edit set</PageTitle>
+          <PageTitle>Edit set</PageTitle>
 
           <div className="mt-8">
             <CollectionForm
