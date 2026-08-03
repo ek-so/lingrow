@@ -128,6 +128,8 @@ export class PronouncePlayer {
   constructor() {
     this.main.preload = "auto"
     this.main.setAttribute("playsinline", "true")
+    // Best-effort: omit Referer on media fetches (Google TTS 404s with github.io Referer).
+    this.main.setAttribute("referrerpolicy", "no-referrer")
     this.keepAlive.setAttribute("playsinline", "true")
     this.keepAlive.loop = true
     this.keepAlive.preload = "auto"
@@ -305,6 +307,7 @@ export class PronouncePlayer {
         const el = new Audio()
         el.preload = "auto"
         el.setAttribute("playsinline", "true")
+        el.setAttribute("referrerpolicy", "no-referrer")
         el.src = url
         try {
           el.load()

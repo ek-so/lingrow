@@ -6,37 +6,43 @@ There are two different “speech” mechanisms in a web app:
 
 | Mechanism | What it is | Survives screen lock? |
 | --- | --- | --- |
-| **Web Speech** (`speechSynthesis`) | Browser/OS voice engine driven by page JavaScript | **No** — Android (incl. Samsung) and iOS mute or stop it when the screen locks or the tab backgrounds |
+| **Web Speech** (`speechSynthesis`) | Browser/OS voice engine driven by page JavaScript | **No** — Android (incl. Samsung) and iOS mute or stop it when the screen locks |
 | **HTML `<audio>`** | A real media file (MP3/WAV) played as a media session | **Yes** — the OS treats it like music/podcast playback |
 
-Earlier Lingrow used `speechSynthesis` as the main voice. On a locked Samsung phone that produced exactly what you heard:
+If auto-play falls back to `speechSynthesis`, you get exactly the broken lock-screen behavior: the session can still advance (timers), you may hear tiny gap “clicks”, but vocabulary audio is gone.
 
-1. **Words go silent** — `speechSynthesis` is no longer allowed to make sound.
-2. **The session still advances** — gaps use timers (`setTimeout`), which often keep running while a tiny keepalive `<audio>` loop holds a media session.
-3. **Occasional clicks** — that keepalive / between-card gap track is a near-silent tone, not the vocabulary audio.
+## Why `<audio>` TTS was failing (the real bug)
 
-So the queue was alive; only the *spoken* channel was the wrong kind of audio for lock-screen.
+Lock-screen speech uses Google Translate’s public TTS MP3 URLs (same unofficial family as word suggestions). Those URLs return **HTTP 404** when the browser sends a `Referer` from `ek-so.github.io`.
 
-## What we do now
+A normal `<audio src="https://translate.googleapis.com/...">` request *does* send that Referer, so:
 
-Auto-play **prefers real TTS MP3s through `<audio>`** (Google Translate’s public TTS endpoint, same unofficial family as word suggestions):
+1. TTS MP3 fails to load  
+2. The player falls back to `speechSynthesis` (works with the screen on)  
+3. You lock the phone → Web Speech is muted → silence  
 
-1. **Preload** upcoming clips when you tap Play (while still unlocked / online).
-2. **Play each word/translation as `<audio>`** so Android/iOS can keep the media session after lock.
-3. **Near-silent gap clips + Media Session** so the session doesn’t look “finished” between cards; lock-screen controls stay available.
-4. **Fallback** — if a TTS URL fails *and* the page is still visible, use `speechSynthesis`. If the screen is already locked and TTS fails, advance after a short estimated gap (still no word audio for that item).
+This is **not** a Samsung battery-settings issue. Battery “sleeping apps” can still kill background media later, but the primary failure was the Referer/404.
 
-Relevant code: `src/lib/speech-audio.ts`, `src/pages/Study.tsx`.
+**Fix:** the app entry sets `<meta name="referrer" content="no-referrer">` so TTS media requests omit Referer and Google returns the MP3. Audio elements also set `referrerPolicy = "no-referrer"` when the browser supports it.
+
+## What Play does now
+
+1. **Preload** upcoming TTS clips when you tap Play  
+2. **Play each word/translation as `<audio>`** (media session → can continue when locked)  
+3. **Near-silent gap clips + Media Session** between cards  
+4. **Fallback** — if TTS still fails while visible, use `speechSynthesis`; if already locked, advance after a short estimated gap  
+
+Relevant code: `src/lib/speech-audio.ts`, `app.html`, `src/pages/Study.tsx`.
 
 ## Tips
 
-- Start with the **Play** button (user gesture unlocks background audio).
-- Prefer **Add to Home Screen** / standalone when possible.
-- Keep the network available so clips can preload before you lock.
-- On Samsung, Chrome/Samsung Internet battery restrictions can still kill background media — if playback dies after a minute, check battery / “put apps to sleep” settings for the browser.
+- Start with **Play** (user gesture unlocks background audio)  
+- Wait a moment for the first words to load before locking  
+- Prefer Add to Home Screen when possible  
+- Keep network available for TTS  
 
 ## Limits
 
-- Unofficial Google TTS can throttle, change, or block clients; clips are capped ~180 characters.
-- Fully offline lock-screen speech needs pre-downloaded files or a native app.
-- Screen Wake Lock only keeps the display on while unlocked; it is not what enables locked playback.
+- Unofficial Google TTS can change or block clients; clips are capped ~180 characters  
+- Fully offline lock-screen speech needs pre-downloaded files or a native app  
+- Screen Wake Lock only keeps the display on while unlocked  
