@@ -116,15 +116,18 @@ export default function Study() {
 
   function resetToFirstWord() {
     const keepPlaying = playing
-    stopSpeech()
     setIndex(0)
     setPhase("first")
     setFlipped(false)
     setRatings({})
     if (id) clearStudyProgress(id)
     // Keep autoplay running from the start; only Pause should stop it.
+    // Don’t stop() first — cancel-then-speak in the same turn drops the first side.
     if (keepPlaying) startAutoplayQueue(0)
-    else setPlaying(false)
+    else {
+      stopSpeech()
+      setPlaying(false)
+    }
   }
 
   function resetSession() {
@@ -326,10 +329,10 @@ export default function Study() {
 
   function rateAndAdvance(wordId: string, rating: StudyRating, total: number) {
     // Jump speech to the next card; keep auto-play running unless the session ends.
-    stopSpeech()
     setRatings((prev) => ({ ...prev, [wordId]: rating }))
     setFlipped(false)
     if (index >= total - 1) {
+      stopSpeech()
       setPlaying(false)
       setView("stats")
       return
@@ -338,6 +341,7 @@ export default function Study() {
     setIndex(nextIndex)
     setPhase("first")
     if (playing) startAutoplayQueue(nextIndex)
+    else stopSpeech()
   }
 
   // Manual study: pronounce the front side once when landing on a card.
@@ -369,7 +373,6 @@ export default function Study() {
         if (!col) return
         const i = indexRef.current
         const current = col.words[i]
-        stopSpeech()
         setRatings((prev) => {
           const next = { ...prev }
           if (current && !next[current.id]) next[current.id] = "skipped"
@@ -381,6 +384,7 @@ export default function Study() {
           return next
         })
         if (i >= col.words.length - 1) {
+          stopSpeech()
           setPlaying(false)
           setView("stats")
           return
@@ -390,15 +394,16 @@ export default function Study() {
         setPhase("first")
         setFlipped(false)
         if (playingRef.current) startAutoplayQueue(nextIndex)
+        else stopSpeech()
       },
       onPrevious: () => {
         const i = indexRef.current
         if (i <= 0) return
-        stopSpeech()
         setIndex(i - 1)
         setPhase("first")
         setFlipped(false)
         if (playingRef.current) startAutoplayQueue(i - 1)
+        else stopSpeech()
       },
     })
     return () => {
@@ -499,18 +504,17 @@ export default function Study() {
   function goTo(newIndex: number) {
     if (!collection) return
     // Keep auto-play on; only Pause should stop it.
-    stopSpeech()
     const clamped = Math.max(0, Math.min(collection.words.length - 1, newIndex))
     setIndex(clamped)
     setPhase("first")
     setFlipped(false)
     if (playing) startAutoplayQueue(clamped)
+    else stopSpeech()
   }
 
   function goNext() {
     if (!collection) return
     const current = collection.words[index]
-    stopSpeech()
     setRatings((prev) => {
       const next = { ...prev }
       if (!next[current.id]) next[current.id] = "skipped"
@@ -522,6 +526,7 @@ export default function Study() {
       return next
     })
     if (index >= collection.words.length - 1) {
+      stopSpeech()
       setPlaying(false)
       setView("stats")
       return
@@ -531,6 +536,7 @@ export default function Study() {
     setPhase("first")
     setFlipped(false)
     if (playing) startAutoplayQueue(nextIndex)
+    else stopSpeech()
   }
 
   function onDelete() {

@@ -365,65 +365,70 @@ export class PronouncePlayer {
     // Never hang the queue on a stuck network/voice.
     this.itemTimer = window.setTimeout(finish, ITEM_SAFETY_MS)
 
-    try {
-      const utter = new SpeechSynthesisUtterance(text)
-      utter.lang = lang
-      utter.rate = 0.95
-      const prefix = lang.toLowerCase().slice(0, 2)
-      const voice =
-        this.voices.find((v) => v.lang.toLowerCase().startsWith(lang.toLowerCase())) ??
-        this.voices.find((v) => v.lang.toLowerCase().startsWith(prefix)) ??
-        window.speechSynthesis.getVoices().find((v) =>
-          v.lang.toLowerCase().startsWith(lang.toLowerCase()),
-        )
-      if (voice) utter.voice = voice
-      utter.onend = () => {
-        if (source === "synth") finish()
-      }
-      utter.onerror = () => {
-        if (source === "synth") finish()
-      }
-      synthStartedAt = performance.now()
-      window.speechSynthesis.speak(utter)
-    } catch {
-      finish()
-      return
-    }
-
-    // Best-effort audio path — only steal the turn if it starts almost immediately.
-    const url = ttsAudioUrl(text, lang)
-    this.main.onplaying = () => {
+    // Defer speak() so cancel() can settle — same-turn speak is often dropped.
+    window.setTimeout(() => {
       if (settled || this.gen !== gen) return
-      const dur = this.main.duration
-      if (!Number.isFinite(dur) || dur < 0.08) {
-        this.main.pause()
-        return
-      }
-      // If synth has already been audible for a bit, don't double-speak.
-      if (performance.now() - synthStartedAt > AUDIO_START_MS) {
-        this.main.pause()
-        return
-      }
-      source = "audio"
-      try {
-        window.speechSynthesis.cancel()
-      } catch {
-        // ignore
-      }
-    }
-    this.main.onended = () => {
-      if (source === "audio") finish()
-    }
-    this.main.onerror = () => {
-      // Synth remains in control.
-    }
 
-    try {
-      this.main.src = url
-      void this.main.play().catch(() => undefined)
-    } catch {
-      // ignore — synth already running
-    }
+      try {
+        const utter = new SpeechSynthesisUtterance(text)
+        utter.lang = lang
+        utter.rate = 0.95
+        const prefix = lang.toLowerCase().slice(0, 2)
+        const voice =
+          this.voices.find((v) => v.lang.toLowerCase().startsWith(lang.toLowerCase())) ??
+          this.voices.find((v) => v.lang.toLowerCase().startsWith(prefix)) ??
+          window.speechSynthesis.getVoices().find((v) =>
+            v.lang.toLowerCase().startsWith(lang.toLowerCase()),
+          )
+        if (voice) utter.voice = voice
+        utter.onend = () => {
+          if (source === "synth") finish()
+        }
+        utter.onerror = () => {
+          if (source === "synth") finish()
+        }
+        synthStartedAt = performance.now()
+        window.speechSynthesis.speak(utter)
+      } catch {
+        finish()
+        return
+      }
+
+      // Best-effort audio path — only steal the turn if it starts almost immediately.
+      const url = ttsAudioUrl(text, lang)
+      this.main.onplaying = () => {
+        if (settled || this.gen !== gen) return
+        const dur = this.main.duration
+        if (!Number.isFinite(dur) || dur < 0.08) {
+          this.main.pause()
+          return
+        }
+        // If synth has already been audible for a bit, don't double-speak.
+        if (performance.now() - synthStartedAt > AUDIO_START_MS) {
+          this.main.pause()
+          return
+        }
+        source = "audio"
+        try {
+          window.speechSynthesis.cancel()
+        } catch {
+          // ignore
+        }
+      }
+      this.main.onended = () => {
+        if (source === "audio") finish()
+      }
+      this.main.onerror = () => {
+        // Synth remains in control.
+      }
+
+      try {
+        this.main.src = url
+        void this.main.play().catch(() => undefined)
+      } catch {
+        // ignore — synth already running
+      }
+    }, 40)
   }
 }
 
