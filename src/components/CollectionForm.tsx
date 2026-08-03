@@ -40,8 +40,18 @@ import {
 } from "@/lib/suggest-format"
 import { useWordSuggest } from "@/lib/use-word-suggest"
 import type { LangCode } from "@/types"
+import { OverflowMenu } from "@/components/OverflowMenu"
 import { SortableItem, SortableList } from "@/components/SortableList"
-import { ClipboardPaste, FileSpreadsheet, Info, Loader2, Plus, Sparkles, Trash2 } from "lucide-react"
+import {
+  ArrowUpDown,
+  ClipboardPaste,
+  FileSpreadsheet,
+  Info,
+  Loader2,
+  Plus,
+  Sparkles,
+  Trash2,
+} from "lucide-react"
 
 const selectClassName =
   "h-10 w-full rounded-md border border-input bg-card px-3 text-base outline-none focus:ring-2 focus:ring-ring"
@@ -142,8 +152,9 @@ function WordRow({
   canRemove,
   onChange,
   onRemove,
+  onStartReorder,
   dragHandle,
-  collapsed = false,
+  mode = "edit",
 }: {
   draft: DraftWord
   wordLang: LangCode
@@ -151,9 +162,10 @@ function WordRow({
   canRemove: boolean
   onChange: (field: "word" | "translation" | "examplesText", value: string) => void
   onRemove: () => void
+  onStartReorder: () => void
   dragHandle?: ReactNode
-  /** Compact grip + label view while reordering. */
-  collapsed?: boolean
+  /** Full editor vs compact reorder row. */
+  mode?: "edit" | "reorder"
 }) {
   const { status, suggestion } = useWordSuggest(draft.word, wordLang, translationLang)
   const sameLanguage = wordLang === translationLang
@@ -240,15 +252,30 @@ function WordRow({
         suggestion.translationPlural)
     )
 
-  const collapsedLabel =
+  const label =
     draft.word.trim() || draft.translation.trim() || `Empty ${langLabel(wordLang)} row`
 
-  if (collapsed) {
+  const menuItems = [
+    ...(mode === "edit"
+      ? [{ label: "Reorder", icon: <ArrowUpDown />, onSelect: onStartReorder }]
+      : []),
+    ...(canRemove
+      ? [{ label: "Delete", icon: <Trash2 />, destructive: true as const, onSelect: onRemove }]
+      : []),
+  ]
+
+  const overflow =
+    menuItems.length > 0 ? (
+      <OverflowMenu label={`Actions for ${label}`} items={menuItems} />
+    ) : null
+
+  if (mode === "reorder") {
     return (
       <div className="rounded-lg border border-border bg-card px-3 py-1.5">
         <div className="flex items-center gap-1">
           {dragHandle}
-          <p className="min-w-0 flex-1 truncate text-sm font-medium">{collapsedLabel}</p>
+          <p className="min-w-0 flex-1 truncate text-sm font-medium">{label}</p>
+          {overflow}
         </div>
       </div>
     )
@@ -257,7 +284,6 @@ function WordRow({
   return (
     <div className="rounded-lg border border-border bg-card p-3">
       <div className="flex items-start gap-1">
-        {dragHandle}
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-col gap-1">
             <input
@@ -318,17 +344,7 @@ function WordRow({
             ) : null}
           </div>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label="Remove word"
-          onClick={onRemove}
-          disabled={!canRemove}
-          className="mt-0 h-10 w-10 shrink-0"
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        {overflow}
       </div>
 
       {showSuggestChrome ? (
@@ -509,6 +525,7 @@ export function CollectionForm({
   )
   const [error, setError] = useState<string | null>(null)
   const [nameError, setNameError] = useState(false)
+  const [reorderMode, setReorderMode] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
   const sameLanguage = wordLang === translationLang
@@ -722,77 +739,115 @@ export function CollectionForm({
           onChange={(e) => void onImportFilePicked(e)}
         />
 
-        <div className="mt-3 flex h-12 w-full overflow-hidden rounded-xl border border-dashed border-border bg-card text-sm font-medium text-muted-foreground">
-          <button
-            type="button"
-            disabled={importBusy}
-            onClick={openImportFile}
-            className="flex min-w-0 flex-1 items-center justify-center gap-2 transition-colors hover:border-primary/40 hover:bg-secondary hover:text-foreground disabled:opacity-60"
-          >
-            <FileSpreadsheet className="h-4 w-4 shrink-0" />
-            {importBusy ? "Reading…" : "Import file"}
-          </button>
-          <div className="w-px self-stretch bg-border" aria-hidden />
-          <button
-            type="button"
-            onClick={openImportText}
-            className="flex min-w-0 flex-1 items-center justify-center gap-2 transition-colors hover:border-primary/40 hover:bg-secondary hover:text-foreground"
-          >
-            <ClipboardPaste className="h-4 w-4 shrink-0" />
-            Paste text
-          </button>
-        </div>
-        {importPickError ? (
-          <p className="mt-2 text-xs text-destructive">{importPickError}</p>
-        ) : null}
-
-        <SortableList
-          ids={words.map((w) => w.key)}
-          onReorder={reorderWords}
-          className="mt-4"
-        >
-          {(isSorting) => (
-            <div className={isSorting ? "flex flex-col gap-2" : "flex flex-col gap-4"}>
-              {words.map((w) => (
-                <SortableItem
-                  key={w.key}
-                  id={w.key}
-                  handleLabel={`Reorder word ${w.word || "row"}`}
-                  handleClassName={isSorting ? "mt-0 h-9" : undefined}
-                >
-                  {(dragHandle) => (
-                    <WordRow
-                      draft={w}
-                      wordLang={wordLang}
-                      translationLang={translationLang}
-                      canRemove={words.length > 1}
-                      onChange={(field, value) => updateWord(w.key, field, value)}
-                      onRemove={() => removeWord(w.key)}
-                      dragHandle={dragHandle}
-                      collapsed={isSorting}
-                    />
-                  )}
-                </SortableItem>
-              ))}
+        {reorderMode ? null : (
+          <>
+            <div className="mt-3 flex h-12 w-full overflow-hidden rounded-xl border border-dashed border-border bg-card text-sm font-medium text-muted-foreground">
+              <button
+                type="button"
+                disabled={importBusy}
+                onClick={openImportFile}
+                className="flex min-w-0 flex-1 items-center justify-center gap-2 transition-colors hover:border-primary/40 hover:bg-secondary hover:text-foreground disabled:opacity-60"
+              >
+                <FileSpreadsheet className="h-4 w-4 shrink-0" />
+                {importBusy ? "Reading…" : "Import file"}
+              </button>
+              <div className="w-px self-stretch bg-border" aria-hidden />
+              <button
+                type="button"
+                onClick={openImportText}
+                className="flex min-w-0 flex-1 items-center justify-center gap-2 transition-colors hover:border-primary/40 hover:bg-secondary hover:text-foreground"
+              >
+                <ClipboardPaste className="h-4 w-4 shrink-0" />
+                Paste text
+              </button>
             </div>
-          )}
-        </SortableList>
+            {importPickError ? (
+              <p className="mt-2 text-xs text-destructive">{importPickError}</p>
+            ) : null}
+          </>
+        )}
+
+        {reorderMode ? (
+          <SortableList
+            ids={words.map((w) => w.key)}
+            onReorder={reorderWords}
+            className="mt-4 flex flex-col gap-2"
+          >
+            {words.map((w) => (
+              <SortableItem
+                key={w.key}
+                id={w.key}
+                handleLabel={`Reorder word ${w.word || "row"}`}
+              >
+                {(dragHandle) => (
+                  <WordRow
+                    draft={w}
+                    wordLang={wordLang}
+                    translationLang={translationLang}
+                    canRemove={words.length > 1}
+                    onChange={(field, value) => updateWord(w.key, field, value)}
+                    onRemove={() => removeWord(w.key)}
+                    onStartReorder={() => setReorderMode(true)}
+                    dragHandle={dragHandle}
+                    mode="reorder"
+                  />
+                )}
+              </SortableItem>
+            ))}
+          </SortableList>
+        ) : (
+          <div className="mt-4 flex flex-col gap-4">
+            {words.map((w) => (
+              <WordRow
+                key={w.key}
+                draft={w}
+                wordLang={wordLang}
+                translationLang={translationLang}
+                canRemove={words.length > 1}
+                onChange={(field, value) => updateWord(w.key, field, value)}
+                onRemove={() => removeWord(w.key)}
+                onStartReorder={() => setReorderMode(true)}
+                mode="edit"
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      <div className="flex flex-col gap-3 pb-24">
-        <Button type="button" variant="outline" onClick={() => setWords((w) => [...w, emptyDraftWord()])}>
-          <Plus className="h-4 w-4" />
-          Add row
-        </Button>
-      </div>
+      {reorderMode ? (
+        <div className="pb-24" aria-hidden />
+      ) : (
+        <div className="flex flex-col gap-3 pb-24">
+          <Button type="button" variant="outline" onClick={() => setWords((w) => [...w, emptyDraftWord()])}>
+            <Plus className="h-4 w-4" />
+            Add row
+          </Button>
+        </div>
+      )}
 
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border/80 bg-background/90 backdrop-blur-md">
         <div className="mx-auto max-w-2xl px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <Button type="submit" size="lg" className="w-full">
-            {submitLabel}
-          </Button>
+          {reorderMode ? (
+            <Button
+              key="save-order"
+              type="button"
+              size="lg"
+              className="w-full"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setReorderMode(false)
+              }}
+            >
+              Save order
+            </Button>
+          ) : (
+            <Button key="save-set" type="submit" size="lg" className="w-full">
+              {submitLabel}
+            </Button>
+          )}
         </div>
       </div>
     </form>

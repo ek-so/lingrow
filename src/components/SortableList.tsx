@@ -20,7 +20,7 @@ import {
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { GripVertical } from "lucide-react"
-import { useState, type CSSProperties, type ReactNode } from "react"
+import type { CSSProperties, ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
 function setDraggingUserSelect(dragging: boolean) {
@@ -37,11 +37,9 @@ export function SortableList({
 }: {
   ids: UniqueIdentifier[]
   onReorder: (orderedIds: string[]) => void
-  /** Receives whether a drag is in progress so rows can collapse. */
-  children: (isSorting: boolean) => ReactNode
+  children: ReactNode
   className?: string
 }) {
-  const [isSorting, setIsSorting] = useState(false)
   const sensors = useSensors(
     useSensor(MouseSensor, {
       // Allow taps/clicks on links and inputs; only start after a short drag.
@@ -56,12 +54,10 @@ export function SortableList({
   )
 
   function handleDragStart(_event: DragStartEvent) {
-    setIsSorting(true)
     setDraggingUserSelect(true)
   }
 
   function handleDragEnd(event: DragEndEvent) {
-    setIsSorting(false)
     setDraggingUserSelect(false)
     const { active, over } = event
     if (!over || active.id === over.id) return
@@ -72,7 +68,6 @@ export function SortableList({
   }
 
   function handleDragCancel() {
-    setIsSorting(false)
     setDraggingUserSelect(false)
   }
 
@@ -85,7 +80,7 @@ export function SortableList({
       onDragCancel={handleDragCancel}
     >
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-        <div className={className}>{children(isSorting)}</div>
+        <div className={className}>{children}</div>
       </SortableContext>
     </DndContext>
   )
@@ -121,7 +116,7 @@ export function SortableItem({
       type="button"
       aria-label={handleLabel}
       className={cn(
-        "-ml-1.5 inline-flex h-10 w-8 shrink-0 cursor-grab touch-none select-none items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground active:cursor-grabbing",
+        "-ml-1.5 inline-flex h-9 w-8 shrink-0 cursor-grab touch-none select-none items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground active:cursor-grabbing",
         handleClassName,
       )}
       {...attributes}
