@@ -16,6 +16,7 @@ import { SortableItem, SortableList } from "@/components/SortableList"
 import { AppHeader } from "@/components/AppHeader"
 import { AppShell } from "@/components/AppShell"
 import { PageBody, PageTitle } from "@/components/PageTitle"
+import { TitleActions, titleAction, toOverflowMenuItems } from "@/components/TitleActions"
 import { downloadCollectionExcel } from "@/lib/export-collection"
 import { countItemsInFolder, descendantFolderIds, folderTrailUp } from "@/lib/folders"
 import { pairLabel } from "@/lib/languages"
@@ -24,15 +25,10 @@ import { loadLibrarySortMode, saveLibrarySortMode } from "@/lib/prefs"
 import { recordRecentOpen } from "@/lib/recent"
 import { formatLastRepetition, loadStudyProgressMap } from "@/lib/study-progress"
 import {
-  ArrowUpDown,
   Folder as FolderIcon,
-  FolderInput,
   FolderPlus,
-  Pencil,
   Plus,
   Search,
-  Trash2,
-  Download,
   UserRound,
 } from "lucide-react"
 import type { Collection, Folder } from "@/types"
@@ -132,14 +128,9 @@ export default function Home() {
           <p className="min-w-0 flex-1 truncate text-sm font-medium">{folder.name}</p>
           <OverflowMenu
             label={`Actions for ${folder.name}`}
-            items={[
-              {
-                label: "Delete",
-                icon: <Trash2 />,
-                destructive: true,
-                onSelect: () => onDeleteFolder(folder),
-              },
-            ]}
+            items={toOverflowMenuItems([
+              titleAction.delete(() => onDeleteFolder(folder)),
+            ])}
           />
         </div>
       </div>
@@ -154,14 +145,9 @@ export default function Home() {
           <p className="min-w-0 flex-1 truncate text-sm font-medium">{c.name}</p>
           <OverflowMenu
             label={`Actions for ${c.name}`}
-            items={[
-              {
-                label: "Delete",
-                icon: <Trash2 />,
-                destructive: true,
-                onSelect: () => onDeleteSet(c.id, c.name),
-              },
-            ]}
+            items={toOverflowMenuItems([
+              titleAction.delete(() => onDeleteSet(c.id, c.name)),
+            ])}
           />
         </div>
       </div>
@@ -247,18 +233,6 @@ export default function Home() {
     </Button>
   )
 
-  const createButton = (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      aria-label="Create"
-      onClick={() => setCreateOpen(true)}
-    >
-      <Plus className="h-4 w-4" />
-    </Button>
-  )
-
   const profileButton = (
     <button
       type="button"
@@ -279,35 +253,35 @@ export default function Home() {
     </button>
   )
 
-  const folderOverflow = currentFolder ? (
-    <OverflowMenu
-      label={`Actions for ${currentFolder.name}`}
-      items={[
-        {
-          label: "Rename",
-          icon: <Pencil />,
-          onSelect: () => setRenameTarget(currentFolder),
-        },
-        {
-          label: "Move to…",
-          icon: <FolderInput />,
-          onSelect: () =>
-            setMoveTarget({
-              kind: "folder",
-              id: currentFolder.id,
-              name: currentFolder.name,
-              parentId: currentFolder.parentId,
-            }),
-        },
-        {
-          label: "Delete",
-          icon: <Trash2 />,
-          destructive: true,
-          onSelect: () => onDeleteFolder(currentFolder),
-        },
-      ]}
-    />
-  ) : null
+  const titleActions = reorderMode
+    ? null
+    : (
+        <TitleActions
+          menuLabel={
+            currentFolder ? `Actions for ${currentFolder.name}` : "Library actions"
+          }
+          actions={[
+            titleAction.sort(
+              <SortMenu value={sortMode} onChange={onSortChange} />,
+            ),
+            titleAction.create(() => setCreateOpen(true)),
+            ...(currentFolder
+              ? [
+                  titleAction.rename(() => setRenameTarget(currentFolder)),
+                  titleAction.move(() =>
+                    setMoveTarget({
+                      kind: "folder" as const,
+                      id: currentFolder.id,
+                      name: currentFolder.name,
+                      parentId: currentFolder.parentId,
+                    }),
+                  ),
+                  titleAction.delete(() => onDeleteFolder(currentFolder)),
+                ]
+              : []),
+          ]}
+        />
+      )
 
   const header = currentFolder ? (
     <AppHeader
@@ -337,18 +311,7 @@ export default function Home() {
     <>
       <AppShell header={header}>
       <PageBody className="pb-8">
-        <PageTitle
-          className="mb-6"
-          actions={
-            reorderMode ? null : (
-              <>
-                <SortMenu value={sortMode} onChange={onSortChange} />
-                {createButton}
-                {folderOverflow}
-              </>
-            )
-          }
-        >
+        <PageTitle className="mb-6" actions={titleActions}>
           {currentFolder ? currentFolder.name : "My sets"}
         </PageTitle>
 
@@ -438,35 +401,19 @@ export default function Home() {
                         </Link>
                         <OverflowMenu
                           label={`Actions for ${folder.name}`}
-                          items={[
-                            {
-                              label: "Reorder",
-                              icon: <ArrowUpDown />,
-                              onSelect: startReorderMode,
-                            },
-                            {
-                              label: "Rename",
-                              icon: <Pencil />,
-                              onSelect: () => setRenameTarget(folder),
-                            },
-                            {
-                              label: "Move to…",
-                              icon: <FolderInput />,
-                              onSelect: () =>
-                                setMoveTarget({
-                                  kind: "folder",
-                                  id: folder.id,
-                                  name: folder.name,
-                                  parentId: folder.parentId,
-                                }),
-                            },
-                            {
-                              label: "Delete",
-                              icon: <Trash2 />,
-                              destructive: true,
-                              onSelect: () => onDeleteFolder(folder),
-                            },
-                          ]}
+                          items={toOverflowMenuItems([
+                            titleAction.reorder(startReorderMode),
+                            titleAction.rename(() => setRenameTarget(folder)),
+                            titleAction.move(() =>
+                              setMoveTarget({
+                                kind: "folder",
+                                id: folder.id,
+                                name: folder.name,
+                                parentId: folder.parentId,
+                              }),
+                            ),
+                            titleAction.delete(() => onDeleteFolder(folder)),
+                          ])}
                         />
                       </div>
                     </CardHeader>
@@ -512,40 +459,20 @@ export default function Home() {
                       </Link>
                       <OverflowMenu
                         label={`Actions for ${c.name}`}
-                        items={[
-                          {
-                            label: "Reorder",
-                            icon: <ArrowUpDown />,
-                            onSelect: startReorderMode,
-                          },
-                          {
-                            label: "Edit",
-                            icon: <Pencil />,
-                            onSelect: () => navigate(`/edit/${c.id}`),
-                          },
-                          {
-                            label: "Move to…",
-                            icon: <FolderInput />,
-                            onSelect: () =>
-                              setMoveTarget({
-                                kind: "collection",
-                                id: c.id,
-                                name: c.name,
-                                folderId: c.folderId ?? null,
-                              }),
-                          },
-                          {
-                            label: "Export",
-                            icon: <Download />,
-                            onSelect: () => onExport(c),
-                          },
-                          {
-                            label: "Delete",
-                            icon: <Trash2 />,
-                            destructive: true,
-                            onSelect: () => onDeleteSet(c.id, c.name),
-                          },
-                        ]}
+                        items={toOverflowMenuItems([
+                          titleAction.reorder(startReorderMode),
+                          titleAction.edit(() => navigate(`/edit/${c.id}`)),
+                          titleAction.move(() =>
+                            setMoveTarget({
+                              kind: "collection",
+                              id: c.id,
+                              name: c.name,
+                              folderId: c.folderId ?? null,
+                            }),
+                          ),
+                          titleAction.export(() => onExport(c)),
+                          titleAction.delete(() => onDeleteSet(c.id, c.name)),
+                        ])}
                       />
                     </div>
                   </Card>

@@ -6,9 +6,9 @@ import { Progress } from "@/components/ui/progress"
 import { AppHeader } from "@/components/AppHeader"
 import { AppShell } from "@/components/AppShell"
 import { FlipCard } from "@/components/FlipCard"
-import { OverflowMenu } from "@/components/OverflowMenu"
 import { MoveToFolderSheet } from "@/components/MoveToFolderSheet"
 import { PageTitle } from "@/components/PageTitle"
+import { TitleActions, titleAction } from "@/components/TitleActions"
 import { StudyStats, type StudyRating } from "@/components/StudyStats"
 import { playClingSound } from "@/lib/cling"
 import { downloadCollectionExcel } from "@/lib/export-collection"
@@ -28,15 +28,11 @@ import {
 } from "@/lib/speech-audio"
 import { useWakeLock } from "@/lib/use-wake-lock"
 import {
-  Download,
-  FolderInput,
   Pause,
-  Pencil,
   Play,
   RotateCcw,
   SkipBack,
   SkipForward,
-  Trash2,
   Volume2,
   VolumeX,
 } from "lucide-react"
@@ -615,45 +611,22 @@ export default function Study() {
             <PageTitle
               className="mb-3"
               actions={
-                <>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Edit set"
-                    onClick={() => {
+                <TitleActions
+                  menuLabel={`Actions for ${collection.name}`}
+                  actions={[
+                    titleAction.edit(() => {
                       stopSpeech()
                       navigate(`/edit/${collection.id}`)
-                    }}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <OverflowMenu
-                    label={`Actions for ${collection.name}`}
-                    items={[
-                      {
-                        label: "Move to…",
-                        icon: <FolderInput />,
-                        onSelect: () => {
-                          stopSpeech()
-                          setPlaying(false)
-                          setMoveOpen(true)
-                        },
-                      },
-                      {
-                        label: "Export",
-                        icon: <Download />,
-                        onSelect: onExport,
-                      },
-                      {
-                        label: "Delete",
-                        icon: <Trash2 />,
-                        destructive: true,
-                        onSelect: onDelete,
-                      },
-                    ]}
-                  />
-                </>
+                    }),
+                    titleAction.move(() => {
+                      stopSpeech()
+                      setPlaying(false)
+                      setMoveOpen(true)
+                    }),
+                    titleAction.export(onExport),
+                    titleAction.delete(onDelete),
+                  ]}
+                />
               }
             >
               {collection.name}

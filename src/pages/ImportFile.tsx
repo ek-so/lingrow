@@ -6,6 +6,7 @@ import { ConfirmLeaveImportSheet } from "@/components/ConfirmLeaveImportSheet"
 import { AppHeader } from "@/components/AppHeader"
 import { AppShell } from "@/components/AppShell"
 import { PageBody, PageTitle } from "@/components/PageTitle"
+import { TitleActions, titleAction } from "@/components/TitleActions"
 import { ImportPreview } from "@/components/ImportPreview"
 import {
   clearImportStaging,
@@ -18,7 +19,7 @@ import { detectPairLanguages, isSpreadsheetFile, parseSpreadsheetFile } from "@/
 import { importBackLabel, useImportReview } from "@/lib/use-import-review"
 import type { WordPair } from "@/lib/collection-form"
 import type { LangCode } from "@/types"
-import { Trash2, Upload } from "lucide-react"
+import { Upload } from "lucide-react"
 
 export default function ImportFile() {
   const navigate = useNavigate()
@@ -152,17 +153,14 @@ function ImportFileLoaded({ draft }: { draft: ImportDraft }) {
           <PageTitle
             description="Spreadsheet columns: word, translation, optional examples. Header optional."
             actions={
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label="Clear import"
-                disabled={pairs.length === 0 && !fileLabel}
-                onClick={clearAll}
-                className="text-destructive hover:bg-transparent hover:text-destructive disabled:text-destructive/40"
-              >
-                <Trash2 className="h-5 w-5" />
-              </Button>
+              <TitleActions
+                actions={[
+                  titleAction.clear(clearAll, {
+                    disabled: pairs.length === 0 && !fileLabel,
+                    label: "Clear import",
+                  }),
+                ]}
+              />
             }
           >
             Import file

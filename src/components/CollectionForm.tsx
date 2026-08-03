@@ -42,15 +42,14 @@ import { useWordSuggest } from "@/lib/use-word-suggest"
 import type { LangCode } from "@/types"
 import { OverflowMenu } from "@/components/OverflowMenu"
 import { SortableItem, SortableList } from "@/components/SortableList"
+import { titleAction, toOverflowMenuItems } from "@/components/TitleActions"
 import {
-  ArrowUpDown,
   ClipboardPaste,
   FileSpreadsheet,
   Info,
   Loader2,
   Plus,
   Sparkles,
-  Trash2,
 } from "lucide-react"
 
 const selectClassName =
@@ -256,17 +255,16 @@ function WordRow({
     draft.word.trim() || draft.translation.trim() || `Empty ${langLabel(wordLang)} row`
 
   const menuItems = [
-    ...(mode === "edit"
-      ? [{ label: "Reorder", icon: <ArrowUpDown />, onSelect: onStartReorder }]
-      : []),
-    ...(canRemove
-      ? [{ label: "Delete", icon: <Trash2 />, destructive: true as const, onSelect: onRemove }]
-      : []),
+    ...(mode === "edit" ? [titleAction.reorder(onStartReorder)] : []),
+    ...(canRemove ? [titleAction.delete(onRemove)] : []),
   ]
 
   const overflow =
     menuItems.length > 0 ? (
-      <OverflowMenu label={`Actions for ${label}`} items={menuItems} />
+      <OverflowMenu
+        label={`Actions for ${label}`}
+        items={toOverflowMenuItems(menuItems)}
+      />
     ) : null
 
   if (mode === "reorder") {

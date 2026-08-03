@@ -6,13 +6,13 @@ import { ConfirmLeaveImportSheet } from "@/components/ConfirmLeaveImportSheet"
 import { AppHeader } from "@/components/AppHeader"
 import { AppShell } from "@/components/AppShell"
 import { PageBody, PageTitle } from "@/components/PageTitle"
+import { TitleActions, titleAction } from "@/components/TitleActions"
 import { ImportPreview } from "@/components/ImportPreview"
 import { loadImportDraft, type ImportDraft } from "@/lib/import-bridge"
 import { parseImportText } from "@/lib/parse-import"
 import { importBackLabel, useImportReview } from "@/lib/use-import-review"
 import type { WordPair } from "@/lib/collection-form"
 import type { LangCode } from "@/types"
-import { ClipboardPaste, Trash2 } from "lucide-react"
 
 const PLACEHOLDER =
   "the apple — der Apfel (Ich esse einen Apfel.)\nto run — laufen (Ich laufe jeden Morgen.)"
@@ -138,28 +138,15 @@ function ImportTextLoaded({ draft }: { draft: ImportDraft }) {
         <PageBody>
           <PageTitle
             actions={
-              <>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Paste from clipboard"
-                  onClick={() => void onPasteClipboard()}
-                >
-                  <ClipboardPaste className="h-5 w-5" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Clear text and preview"
-                  disabled={!canClear}
-                  onClick={clearAll}
-                  className="text-destructive hover:bg-transparent hover:text-destructive disabled:text-destructive/40"
-                >
-                  <Trash2 className="h-5 w-5" />
-                </Button>
-              </>
+              <TitleActions
+                actions={[
+                  titleAction.paste(() => void onPasteClipboard()),
+                  titleAction.clear(clearAll, {
+                    disabled: !canClear,
+                    label: "Clear text and preview",
+                  }),
+                ]}
+              />
             }
           >
             Paste text
