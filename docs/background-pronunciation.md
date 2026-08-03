@@ -27,10 +27,13 @@ This is **not** a Samsung battery-settings issue. Battery “sleeping apps” ca
 
 ## What Play does now
 
-1. **Preload** upcoming TTS clips when you tap Play  
-2. **Play each word/translation as `<audio>`** (media session → can continue when locked)  
-3. **Near-silent gap clips + Media Session** between cards  
-4. **Fallback** — if TTS still fails while visible, use `speechSynthesis`; if already locked, advance after a short estimated gap  
+1. **On-screen:** speak immediately with `speechSynthesis` so a flaky TTS URL can never mute the session  
+2. **In parallel:** load Google TTS MP3s with **no Referer** (required — github.io Referer → HTTP 404)  
+3. **If `<audio>` actually starts progressing,** switch to it (better for lock-screen)  
+4. **Near-silent gaps + Media Session** between cards  
+5. **When locked:** rely on `<audio>` only; if a clip fails, advance after a short estimated gap  
+
+Do not treat `loadedmetadata` alone as success — that previously left some phones silent.
 
 Relevant code: `src/lib/speech-audio.ts`, `app.html`, `src/pages/Study.tsx`.
 

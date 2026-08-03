@@ -242,6 +242,7 @@ export class PronouncePlayer {
       this.main.onerror = null
       this.main.onplaying = null
       this.main.onloadedmetadata = null
+      this.main.ontimeupdate = null
       this.main.pause()
       this.main.removeAttribute("src")
       this.main.load()
@@ -397,8 +398,11 @@ export class PronouncePlayer {
   }
 
   /**
-   * Prefer TTS <audio> (survives screen lock). Fall back to speechSynthesis only
-   * while visible. If locked and audio fails, advance after an estimated gap.
+   * Speak so the user always hears something on-screen, and prefer <audio> when
+   * it actually starts (needed for lock-screen continuity).
+   *
+   * Important: do NOT commit to audio on `loadedmetadata` alone — some browsers
+   * report a duration before playback is real; that left sessions silent.
    */
   private speakText(text: string, lang: string, gen: number, onDone: () => void) {
     this.clearItemTimer()
@@ -419,7 +423,7 @@ export class PronouncePlayer {
       this.main.onended = null
       this.main.onerror = null
       this.main.onplaying = null
-      this.main.onloadedmetadata = null
+      this.main.ontimeupdate = null
       try {
         window.speechSynthesis.cancel()
       } catch {
@@ -430,18 +434,9 @@ export class PronouncePlayer {
 
     this.itemTimer = window.setTimeout(finish, ITEM_SAFETY_MS)
 
-    const startSynthOrGap = () => {
-      if (settled || this.gen !== gen || source === "audio") return
-
-      // Locked / background: speechSynthesis won’t be heard — don’t pretend.
-      if (document.visibilityState !== "visible") {
-        source = "gap"
-        this.playSilence(estimateSpeechMs(text), gen, finish)
-        return
-      }
-
+    const startSynth = () => {
+      if (settled || this.gen !== gen || source === "audio" || source === "synth") return
       source = "synth"
-      this.pauseMain()
       try {
         const utter = new SpeechSynthesisUtterance(text)
         utter.lang = lang
@@ -454,24 +449,48 @@ export class PronouncePlayer {
             v.lang.toLowerCase().startsWith(lang.toLowerCase()),
           )
         if (voice) utter.voice = voice
-        utter.onend = finish
-        utter.onerror = finish
+        utter.onend = () => {
+          if (source === "synth") finish()
+        }
+        utter.onerror = () => {
+          if (source === "synth") finish()
+        }
         window.speechSynthesis.speak(utter)
       } catch {
-        finish()
+        if (source === "synth") finish()
       }
     }
 
+    const startGap = () => {
+      if (settled || this.gen !== gen || source === "audio") return
+      source = "gap"
+      this.playSilence(estimateSpeechMs(text), gen, finish)
+    }
+
+    // On-screen: speak immediately via Web Speech so a flaky TTS URL can’t mute us.
+    if (document.visibilityState === "visible") {
+      startSynth()
+    }
+
     const url = ttsAudioUrl(text, lang)
+    // If audio never becomes real, keep synth (visible) or use a gap (locked).
     let audioTimer: number | null = window.setTimeout(() => {
       audioTimer = null
-      startSynthOrGap()
+      if (source === "audio") return
+      if (document.visibilityState === "visible") {
+        // Synth should already be speaking (or have finished).
+        return
+      }
+      startGap()
     }, AUDIO_START_MS)
 
     const commitAudio = () => {
-      if (settled || this.gen !== gen) return
+      if (settled || this.gen !== gen) return false
       const dur = this.main.duration
+      const t = this.main.currentTime
+      // Require real playback progress — metadata alone is not enough.
       if (!Number.isFinite(dur) || dur < 0.08) return false
+      if (!(t > 0.02 || this.main.paused === false)) return false
       if (audioTimer != null) {
         window.clearTimeout(audioTimer)
         audioTimer = null
@@ -486,19 +505,25 @@ export class PronouncePlayer {
       return true
     }
 
-    this.main.onloadedmetadata = () => {
-      // Some browsers know duration before playing.
-      if (source === "none") commitAudio()
+    this.main.ontimeupdate = () => {
+      if (source === "audio") return
+      if (this.main.currentTime > 0.05) commitAudio()
     }
     this.main.onplaying = () => {
-      if (!commitAudio()) {
-        // Empty/bogus stream — don’t get stuck; fall back.
-        if (audioTimer != null) {
-          window.clearTimeout(audioTimer)
-          audioTimer = null
+      // Wait for timeupdate to prove audio is moving; if duration is known and
+      // playing, allow a short delayed commit for browsers that skip timeupdate.
+      window.setTimeout(() => {
+        if (settled || this.gen !== gen || source === "audio") return
+        if (this.main.paused) return
+        if (!commitAudio() && document.visibilityState !== "visible") {
+          // Locked and audio isn’t real — advance via gap.
+          if (audioTimer != null) {
+            window.clearTimeout(audioTimer)
+            audioTimer = null
+          }
+          startGap()
         }
-        startSynthOrGap()
-      }
+      }, 120)
     }
     this.main.onended = () => {
       if (source === "audio") finish()
@@ -508,7 +533,14 @@ export class PronouncePlayer {
         window.clearTimeout(audioTimer)
         audioTimer = null
       }
-      startSynthOrGap()
+      if (source === "audio") {
+        // Rare: died after commit — finish so the queue continues.
+        finish()
+        return
+      }
+      if (document.visibilityState !== "visible") startGap()
+      // Visible: synth already running (or start it).
+      else startSynth()
     }
 
     try {
@@ -521,7 +553,8 @@ export class PronouncePlayer {
             window.clearTimeout(audioTimer)
             audioTimer = null
           }
-          startSynthOrGap()
+          if (document.visibilityState !== "visible") startGap()
+          else startSynth()
         })
       }
     } catch {
@@ -529,7 +562,8 @@ export class PronouncePlayer {
         window.clearTimeout(audioTimer)
         audioTimer = null
       }
-      startSynthOrGap()
+      if (document.visibilityState !== "visible") startGap()
+      else startSynth()
     }
   }
 }
