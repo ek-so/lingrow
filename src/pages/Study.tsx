@@ -115,13 +115,16 @@ export default function Study() {
   }
 
   function resetToFirstWord() {
+    const keepPlaying = playing
     stopSpeech()
     setIndex(0)
-    setPlaying(false)
     setPhase("first")
     setFlipped(false)
     setRatings({})
     if (id) clearStudyProgress(id)
+    // Keep autoplay running from the start; only Pause should stop it.
+    if (keepPlaying) startAutoplayQueue(0)
+    else setPlaying(false)
   }
 
   function resetSession() {
