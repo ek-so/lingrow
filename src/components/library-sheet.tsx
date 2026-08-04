@@ -18,7 +18,7 @@ interface LibrarySearchHeaderProps {
   inputRef: RefObject<HTMLInputElement | null>
 }
 
-/** Shared full-screen search chrome used by library search and move-here. */
+/** Shared full-screen search chrome used by library search and move pickers. */
 export function LibrarySearchHeader({
   titleId,
   title,

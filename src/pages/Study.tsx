@@ -613,6 +613,7 @@ export default function Study() {
               actions={
                 <TitleActions
                   menuLabel={`Actions for ${collection.name}`}
+                  maxVisible={1}
                   actions={[
                     titleAction.edit(() => {
                       stopSpeech()

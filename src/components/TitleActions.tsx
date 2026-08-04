@@ -49,14 +49,23 @@ export interface TitleAction {
   control?: ReactNode
 }
 
-/** ≤3 → all visible. ≥4 → first 2 visible, rest in ⋮ overflow. */
-function splitTitleActions(actions: TitleAction[]) {
-  if (actions.length <= 3) {
+/**
+ * Default: ≤3 → all visible; ≥4 → first 2 visible, rest in ⋮.
+ * Pass `maxVisible` to force a tighter chrome (e.g. set details: only Edit).
+ */
+function splitTitleActions(actions: TitleAction[], maxVisible?: number) {
+  const limit =
+    maxVisible != null
+      ? Math.max(0, maxVisible)
+      : actions.length <= 3
+        ? actions.length
+        : 2
+  if (actions.length <= limit) {
     return { visible: actions, overflow: [] as TitleAction[] }
   }
   return {
-    visible: actions.slice(0, 2),
-    overflow: actions.slice(2),
+    visible: actions.slice(0, limit),
+    overflow: actions.slice(limit),
   }
 }
 
@@ -90,21 +99,24 @@ function TitleActionButton({ action }: { action: TitleAction }) {
 
 /**
  * Unified action cluster for the right side of PageTitle.
- * Preserves caller order. Visibility: up to 3 icon buttons; with 4+, shows 2
- * and puts the rest in a ⋮ menu.
+ * Preserves caller order. Default visibility: up to 3 icon buttons; with 4+,
+ * shows 2 and puts the rest in a ⋮ menu. Override with `maxVisible`.
  */
 export function TitleActions({
   actions,
   menuLabel = "More actions",
+  maxVisible,
   className,
 }: {
   actions: TitleAction[]
   menuLabel?: string
+  /** Cap how many actions sit outside the ⋮ menu. */
+  maxVisible?: number
   className?: string
 }) {
   if (actions.length === 0) return null
 
-  const { visible, overflow } = splitTitleActions(actions)
+  const { visible, overflow } = splitTitleActions(actions, maxVisible)
 
   return (
     <div className={cn("flex shrink-0 items-center gap-1", className)}>

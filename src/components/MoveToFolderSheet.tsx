@@ -1,16 +1,30 @@
-import { useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { flattenFolderTree } from "@/lib/folders"
+import {
+  useDeferredValue,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
+import {
+  FolderIcon,
+  LibrarySearchHeader,
+  ResultGroup,
+  ResultRow,
+} from "@/components/library-sheet"
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock"
 import type { Folder } from "@/types"
-import { Folder as FolderIcon, Home } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Home } from "lucide-react"
+
+type Destination =
+  | { id: null; name: "My sets" }
+  | { id: string; name: string }
 
 interface MoveToFolderSheetProps {
   open: boolean
   title: string
   folders: Folder[]
-  /** Currently selected folder id, or null for Home. */
+  /** Currently selected folder id, or null for My sets (root). */
   currentFolderId: string | null
   /** Folder ids that cannot be chosen (e.g. self + descendants when moving a folder). */
   disabledFolderIds?: Set<string>
@@ -27,10 +41,16 @@ export function MoveToFolderSheet({
   onSelect,
   onCancel,
 }: MoveToFolderSheetProps) {
+  const inputId = useId()
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [query, setQuery] = useState("")
+  const deferredQuery = useDeferredValue(query)
+
   useBodyScrollLock(open)
 
   useEffect(() => {
     if (!open) return
+    setQuery("")
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onCancel()
     }
@@ -38,81 +58,103 @@ export function MoveToFolderSheet({
     return () => document.removeEventListener("keydown", onKeyDown)
   }, [open, onCancel])
 
+  useEffect(() => {
+    if (!open) return
+    const focus = () => inputRef.current?.focus({ preventScroll: true })
+    const raf = requestAnimationFrame(focus)
+    return () => cancelAnimationFrame(raf)
+  }, [open])
+
+  const destinations = useMemo(() => {
+    const items: Destination[] = []
+    // Root is only offered when the item isn’t already there.
+    if (currentFolderId != null) {
+      items.push({ id: null, name: "My sets" })
+    }
+    const folderItems = [...folders]
+      .filter((folder) => {
+        if (folder.id === currentFolderId) return false
+        if (disabledFolderIds?.has(folder.id)) return false
+        return true
+      })
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((folder) => ({ id: folder.id, name: folder.name }))
+    items.push(...folderItems)
+    return items
+  }, [folders, currentFolderId, disabledFolderIds])
+
+  const trimmed = query.trim()
+  const searching = trimmed.length > 0
+  const normalizedQuery = deferredQuery.trim().toLowerCase()
+
+  const filtered = useMemo(() => {
+    if (!normalizedQuery) return destinations
+    return destinations.filter((item) => item.name.toLowerCase().includes(normalizedQuery))
+  }, [destinations, normalizedQuery])
+
   if (!open) return null
 
-  const tree = flattenFolderTree(folders)
+  function renderRow(item: Destination) {
+    if (item.id == null) {
+      return (
+        <ResultRow
+          key="root"
+          icon={<Home className="h-4 w-4 shrink-0 text-primary" />}
+          title={item.name}
+          subtitle="Library root"
+          onClick={() => onSelect(null)}
+        />
+      )
+    }
+    return (
+      <ResultRow
+        key={item.id}
+        icon={<FolderIcon className="h-4 w-4 shrink-0 text-primary" />}
+        title={item.name}
+        subtitle="Folder"
+        onClick={() => onSelect(item.id)}
+      />
+    )
+  }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center overflow-hidden sm:items-center">
-      <button
-        type="button"
-        aria-label="Dismiss"
-        className="absolute inset-0 bg-black/40"
-        onClick={onCancel}
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="move-folder-title"
+      className="fixed inset-0 z-[100] flex flex-col bg-background"
+    >
+      <LibrarySearchHeader
+        titleId="move-folder-title"
+        title={title}
+        inputId={inputId}
+        inputLabel="Choose a destination folder"
+        placeholder="Move to folder…"
+        query={query}
+        onQueryChange={setQuery}
+        onCancel={onCancel}
+        inputRef={inputRef}
       />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="move-folder-title"
-        className="relative z-10 flex w-full max-w-lg flex-col rounded-t-2xl border border-border bg-card p-5 shadow-xl sm:rounded-2xl"
-        style={{ animation: "lingrow-sheet-up 280ms cubic-bezier(0.22, 1, 0.36, 1)" }}
-      >
-        <div className="mx-auto mb-4 h-1 w-10 shrink-0 rounded-full bg-border sm:hidden" />
-        <h2 id="move-folder-title" className="text-lg font-semibold tracking-tight">
-          {title}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">Choose a destination folder.</p>
 
-        <div className="mt-4 max-h-[min(50dvh,24rem)] overflow-y-auto overscroll-contain rounded-lg border border-border">
-          <button
-            type="button"
-            disabled={currentFolderId == null}
-            onClick={() => onSelect(null)}
-            className={cn(
-              "flex w-full items-center gap-2.5 px-3 py-3 text-left text-sm transition-colors hover:bg-secondary disabled:opacity-50",
-              currentFolderId == null && "bg-accent text-accent-foreground",
-            )}
-          >
-            <Home className="h-4 w-4 shrink-0" />
-            <span className="font-medium">Home</span>
-            {currentFolderId == null ? (
-              <span className="ml-auto text-xs text-muted-foreground">Current</span>
-            ) : null}
-          </button>
-          {tree.map(({ folder, depth }) => {
-            const disabled = disabledFolderIds?.has(folder.id) ?? false
-            const current = currentFolderId === folder.id
-            return (
-              <button
-                key={folder.id}
-                type="button"
-                disabled={disabled || current}
-                onClick={() => onSelect(folder.id)}
-                className={cn(
-                  "flex w-full items-center gap-2.5 border-t border-border px-3 py-3 text-left text-sm transition-colors hover:bg-secondary disabled:opacity-40",
-                  current && "bg-accent text-accent-foreground",
-                )}
-                style={{ paddingLeft: `${12 + depth * 16}px` }}
-              >
-                <FolderIcon className="h-4 w-4 shrink-0" />
-                <span className="min-w-0 truncate font-medium">{folder.name}</span>
-                {current ? (
-                  <span className="ml-auto shrink-0 text-xs text-muted-foreground">Current</span>
-                ) : null}
-              </button>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="mx-auto max-w-2xl px-2 py-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          {!searching ? (
+            destinations.length > 0 ? (
+              <ResultGroup title="Destination folders">
+                {destinations.map(renderRow)}
+              </ResultGroup>
+            ) : (
+              <p className="px-3 py-8 text-center text-sm text-muted-foreground">
+                No other folders to move into. Create one from the + menu.
+              </p>
             )
-          })}
-          {folders.length === 0 ? (
-            <p className="border-t border-border px-3 py-3 text-sm text-muted-foreground">
-              No folders yet — create one from the + menu.
+          ) : filtered.length === 0 ? (
+            <p className="px-3 py-8 text-center text-sm text-muted-foreground">
+              No matches for “{trimmed}”.
             </p>
-          ) : null}
-        </div>
-
-        <div className="mt-5 shrink-0">
-          <Button type="button" variant="ghost" className="w-full" onClick={onCancel}>
-            Cancel
-          </Button>
+          ) : (
+            <ResultGroup title="Folders">{filtered.map(renderRow)}</ResultGroup>
+          )}
         </div>
       </div>
     </div>
