@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { MoreVertical } from "lucide-react"
+import { IconButton } from "@/components/ui/icon-button"
 import { cn } from "@/lib/utils"
 
 export interface OverflowMenuItem {
@@ -45,8 +46,7 @@ export function OverflowMenu({
 
   return (
     <div ref={rootRef} className={cn("relative", className)}>
-      <button
-        type="button"
+      <IconButton
         aria-label={label}
         aria-expanded={open}
         aria-haspopup="menu"
@@ -55,10 +55,9 @@ export function OverflowMenu({
           e.stopPropagation()
           setOpen((v) => !v)
         }}
-        className="inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
       >
-        <MoreVertical className="h-5 w-5" />
-      </button>
+        <MoreVertical />
+      </IconButton>
 
       {open ? (
         <div

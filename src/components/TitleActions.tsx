@@ -11,6 +11,7 @@ import {
   Trash2,
 } from "lucide-react"
 import { OverflowMenu } from "@/components/OverflowMenu"
+import { IconButton } from "@/components/ui/icon-button"
 import { cn } from "@/lib/utils"
 
 /**
@@ -74,23 +75,16 @@ export function sortTitleActions(actions: TitleAction[]): TitleAction[] {
 function TitleActionButton({ action }: { action: TitleAction }) {
   if (action.control) return <>{action.control}</>
 
+  // Outside the overflow menu every icon stays muted gray — even clear/delete.
+  // Destructive red is reserved for overflow (and other) menu rows.
   return (
-    <button
-      type="button"
+    <IconButton
       aria-label={action.label}
       disabled={action.disabled}
       onClick={action.onSelect}
-      className={cn(
-        "inline-flex h-10 w-10 items-center justify-center rounded-md transition-colors disabled:pointer-events-none",
-        action.destructive
-          ? "text-destructive hover:bg-transparent hover:text-destructive disabled:text-destructive/40"
-          : "text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50",
-      )}
     >
-      <span className="inline-flex h-5 w-5 items-center justify-center [&_svg]:h-4 [&_svg]:w-4">
-        {action.icon}
-      </span>
-    </button>
+      {action.icon}
+    </IconButton>
   )
 }
 

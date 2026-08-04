@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { ArrowDownWideNarrow, Check } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { IconButton } from "@/components/ui/icon-button"
 import {
   LIBRARY_SORT_OPTIONS,
   type LibrarySortMode,
@@ -39,17 +39,14 @@ export function SortMenu({ value, onChange, className }: SortMenuProps) {
 
   return (
     <div ref={rootRef} className={cn("relative", className)}>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
+      <IconButton
         aria-label={`Sort: ${activeLabel}`}
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((v) => !v)}
       >
-        <ArrowDownWideNarrow className="h-4 w-4" />
-      </Button>
+        <ArrowDownWideNarrow />
+      </IconButton>
 
       {open ? (
         <div

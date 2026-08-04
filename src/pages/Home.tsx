@@ -4,6 +4,7 @@ import { useCollections } from "@/lib/collections-context"
 import { useAuth } from "@/lib/auth-context"
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { IconButton } from "@/components/ui/icon-button"
 import { Progress } from "@/components/ui/progress"
 import { OverflowMenu } from "@/components/OverflowMenu"
 import { CreateItemSheet } from "@/components/CreateItemSheet"
@@ -222,23 +223,16 @@ export default function Home() {
   }
 
   const searchButton = (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      aria-label="Search"
-      onClick={() => setSearchOpen(true)}
-    >
-      <Search className="h-4 w-4" />
-    </Button>
+    <IconButton aria-label="Search" onClick={() => setSearchOpen(true)}>
+      <Search />
+    </IconButton>
   )
 
   const profileButton = (
-    <button
-      type="button"
+    <IconButton
       aria-label="Profile"
       onClick={() => navigate("/profile")}
-      className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+      className="overflow-hidden"
     >
       {user?.picture && status === "signed_in" ? (
         <img
@@ -248,9 +242,9 @@ export default function Home() {
           referrerPolicy="no-referrer"
         />
       ) : (
-        <UserRound className="h-5 w-5" />
+        <UserRound />
       )}
-    </button>
+    </IconButton>
   )
 
   const canReorder = childFolders.length > 1 || childCollections.length > 1
