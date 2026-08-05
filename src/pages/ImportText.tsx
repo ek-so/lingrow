@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { DuplicateImportSheet } from "@/components/DuplicateImportSheet"
 import { ConfirmLeaveImportSheet } from "@/components/ConfirmLeaveImportSheet"
+import { addWordsToListLabel, FixedBottomBar } from "@/components/FixedBottomBar"
 import { AppHeader } from "@/components/AppHeader"
 import { AppShell } from "@/components/AppShell"
 import { PageBody, PageTitle } from "@/components/PageTitle"
@@ -11,6 +12,7 @@ import { ImportPreview } from "@/components/ImportPreview"
 import { loadImportDraft, type ImportDraft } from "@/lib/import-bridge"
 import { parseImportText } from "@/lib/parse-import"
 import { importBackLabel, useImportReview } from "@/lib/use-import-review"
+import { useKeyboardBottomOffset } from "@/lib/use-keyboard-bottom-offset"
 import type { WordPair } from "@/lib/collection-form"
 import type { LangCode } from "@/types"
 
@@ -75,6 +77,7 @@ function ImportTextLoaded({ draft }: { draft: ImportDraft }) {
   }, [])
 
   const hasUnsaved = pairs.length > 0 || text.trim().length > 0
+  const keyboardOffset = useKeyboardBottomOffset()
 
   function applyParsedText(raw: string) {
     const parsed = parseImportText(raw)
@@ -121,6 +124,14 @@ function ImportTextLoaded({ draft }: { draft: ImportDraft }) {
   }
 
   const canClear = text.trim().length > 0 || pairs.length > 0
+
+  function handleAddToList() {
+    if (pairs.length === 0) {
+      setError("Paste or parse at least one word pair first.")
+      return
+    }
+    tryCommit(pairs)
+  }
 
   return (
     <>
@@ -184,23 +195,21 @@ function ImportTextLoaded({ draft }: { draft: ImportDraft }) {
 
           {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
 
-          <Button
-            type="button"
-            size="lg"
-            className="mt-6 w-full"
-            disabled={pairs.length === 0}
-            onClick={() => {
-              if (pairs.length === 0) {
-                setError("Paste or parse at least one word pair first.")
-                return
-              }
-              tryCommit(pairs)
-            }}
-          >
-            Add {pairs.length > 0 ? `${pairs.length} ` : ""}to list
-          </Button>
+          <div className="pb-24" aria-hidden />
         </PageBody>
       </AppShell>
+
+      <FixedBottomBar bottomOffset={keyboardOffset}>
+        <Button
+          type="button"
+          size="lg"
+          className="w-full"
+          disabled={pairs.length === 0}
+          onClick={handleAddToList}
+        >
+          {addWordsToListLabel(pairs.length)}
+        </Button>
+      </FixedBottomBar>
 
       <DuplicateImportSheet
         open={pendingDuplicates != null}

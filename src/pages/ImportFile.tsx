@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { DuplicateImportSheet } from "@/components/DuplicateImportSheet"
 import { ConfirmLeaveImportSheet } from "@/components/ConfirmLeaveImportSheet"
+import { addWordsToListLabel, FixedBottomBar } from "@/components/FixedBottomBar"
 import { AppHeader } from "@/components/AppHeader"
 import { AppShell } from "@/components/AppShell"
 import { PageBody, PageTitle } from "@/components/PageTitle"
@@ -136,6 +137,14 @@ function ImportFileLoaded({ draft }: { draft: ImportDraft }) {
     clearImportStaging()
   }
 
+  function handleAddToList() {
+    if (pairs.length === 0) {
+      setError("Choose a file with at least one word pair first.")
+      return
+    }
+    tryCommit(pairs)
+  }
+
   return (
     <>
       <AppShell
@@ -201,23 +210,21 @@ function ImportFileLoaded({ draft }: { draft: ImportDraft }) {
 
           {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
 
-          <Button
-            type="button"
-            size="lg"
-            className="mt-6 w-full"
-            disabled={pairs.length === 0}
-            onClick={() => {
-              if (pairs.length === 0) {
-                setError("Choose a file with at least one word pair first.")
-                return
-              }
-              tryCommit(pairs)
-            }}
-          >
-            Add {pairs.length > 0 ? `${pairs.length} ` : ""}to list
-          </Button>
+          <div className="pb-24" aria-hidden />
         </PageBody>
       </AppShell>
+
+      <FixedBottomBar>
+        <Button
+          type="button"
+          size="lg"
+          className="w-full"
+          disabled={pairs.length === 0}
+          onClick={handleAddToList}
+        >
+          {addWordsToListLabel(pairs.length)}
+        </Button>
+      </FixedBottomBar>
 
       <DuplicateImportSheet
         open={pendingDuplicates != null}
