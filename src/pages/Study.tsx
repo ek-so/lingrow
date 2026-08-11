@@ -508,6 +508,21 @@ export default function Study() {
     else stopSpeech()
   }
 
+  /** Jump to the word that corresponds to where the progress bar was clicked. */
+  function seekFromProgressClick(e: MouseEvent<HTMLDivElement>) {
+    if (!collection) return
+    const total = collection.words.length
+    if (total <= 1) return
+    // Prefer the visible track so vertical hit-area padding doesn't skew the ratio.
+    const track = (e.currentTarget.querySelector("[data-progress-track]") ??
+      e.currentTarget) as HTMLElement
+    const rect = track.getBoundingClientRect()
+    if (rect.width <= 0) return
+    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+    const target = Math.round(ratio * (total - 1))
+    goTo(target)
+  }
+
   function goNext() {
     if (!collection) return
     const current = collection.words[index]
@@ -632,7 +647,34 @@ export default function Study() {
             >
               {collection.name}
             </PageTitle>
-            <Progress value={progressPct} className="mb-2" />
+            <div
+              className="-my-1 mb-2 cursor-pointer py-3"
+              onClick={seekFromProgressClick}
+              role="slider"
+              tabIndex={0}
+              aria-label="Jump to word"
+              aria-valuemin={1}
+              aria-valuemax={collection.words.length}
+              aria-valuenow={index + 1}
+              aria-valuetext={`Word ${index + 1} of ${collection.words.length}`}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+                  e.preventDefault()
+                  goTo(index - 1)
+                } else if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+                  e.preventDefault()
+                  goTo(index + 1)
+                } else if (e.key === "Home") {
+                  e.preventDefault()
+                  goTo(0)
+                } else if (e.key === "End") {
+                  e.preventDefault()
+                  goTo(collection.words.length - 1)
+                }
+              }}
+            >
+              <Progress value={progressPct} data-progress-track />
+            </div>
             <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
               <span>{pairLabel(collection.wordLang, collection.translationLang)}</span>
               <span>
