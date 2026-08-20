@@ -4,8 +4,8 @@ import { normalizeExamples, splitExamplesCell } from "@/lib/examples"
 import type { LangCode } from "@/types"
 
 const BULLET_RE = /^\s*(?:[-*•–—]|\d+[.)])\s+/
-/** `1. der Apfel, apple` style vocabulary lines. */
-const NUMBERED_COMMA_LINE_RE = /^\s*\d+[.)]\s+.+,\s*.+/
+/** `1. der Apfel, apple` or `1. abdecken — покрывать` style vocabulary lines. */
+const NUMBERED_PAIR_LINE_RE = /^\s*\d+[.)]\s+.+?[,—–\-]\s*.+/
 /** Separators that clearly mean “word ↔ translation” on one line. */
 const PAIR_SEPARATORS = [" — ", " – ", " - ", "\t", " = ", ": "] as const
 
@@ -94,18 +94,18 @@ function hasInlinePairSeparator(line: string): boolean {
   })
 }
 
-function isNumberedCommaLine(raw: string): boolean {
-  return NUMBERED_COMMA_LINE_RE.test(raw.trim())
+function isNumberedPairLine(raw: string): boolean {
+  return NUMBERED_PAIR_LINE_RE.test(raw.trim())
 }
 
-/** True when most non-empty lines look like `1. word, translation`. */
-function looksLikeNumberedCommaList(text: string): boolean {
+/** True when most non-empty lines look like `1. word, translation` or `1. word — translation`. */
+function looksLikeNumberedPairList(text: string): boolean {
   const lines = text
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
   if (lines.length < 2) return false
-  const numbered = lines.filter(isNumberedCommaLine).length
+  const numbered = lines.filter(isNumberedPairLine).length
   return numbered / lines.length >= 0.6
 }
 
@@ -118,24 +118,39 @@ function commaLooksLikePair(word: string, rest: string): boolean {
   return false
 }
 
-function commaSplitPair(line: string, opts?: PairFromRestOptions): WordPair | null {
-  const idx = line.indexOf(",")
-  if (idx <= 0) return null
-  const word = line.slice(0, idx).trim()
-  const rest = line.slice(idx + 1).trim()
-  return pairFromRest(word, rest, { peelBracketExamples: false, ...opts })
+function numberedLineSplitPair(line: string, opts?: PairFromRestOptions): WordPair | null {
+  // Try dash separators first (for "1. word — translation" format)
+  // We check dashes before commas because commas can appear WITHIN translations
+  // (e.g., "1. word — translation1, translation2")
+  for (const sep of [" — ", " – ", " - "] as const) {
+    const idx = line.indexOf(sep)
+    if (idx <= 0) continue
+    const word = line.slice(0, idx).trim()
+    const rest = line.slice(idx + sep.length).trim()
+    return pairFromRest(word, rest, { peelBracketExamples: false, ...opts })
+  }
+
+  // Try comma as a fallback (for "1. word, translation" format)
+  const commaIdx = line.indexOf(",")
+  if (commaIdx > 0) {
+    const word = line.slice(0, commaIdx).trim()
+    const rest = line.slice(commaIdx + 1).trim()
+    return pairFromRest(word, rest, { peelBracketExamples: false, ...opts })
+  }
+
+  return null
 }
 
 /**
  * Split “word — translation || example1 || example2” (or without examples).
  * Examples after ` || ` stay attached to the translation segment until peeled off.
  */
-function splitPairLine(raw: string, opts?: { numberedCommaList?: boolean }): WordPair | null {
+function splitPairLine(raw: string, opts?: { numberedPairList?: boolean }): WordPair | null {
   let line = stripBullet(raw)
   if (!line) return null
 
-  if (opts?.numberedCommaList || isNumberedCommaLine(raw)) {
-    const numbered = commaSplitPair(line)
+  if (opts?.numberedPairList || isNumberedPairLine(raw)) {
+    const numbered = numberedLineSplitPair(line)
     if (numbered) return numbered
   }
 
@@ -207,7 +222,7 @@ function dedupePairs(pairs: WordPair[]): WordPair[] {
 }
 
 /** Classic “word — translation” (optionally with bullets), one pair per line. */
-function parseInlinePairs(text: string, opts?: { numberedCommaList?: boolean }): WordPair[] {
+function parseInlinePairs(text: string, opts?: { numberedPairList?: boolean }): WordPair[] {
   const pairs: WordPair[] = []
   for (const raw of text.split(/\r?\n/)) {
     const pair = splitPairLine(raw, opts)
@@ -263,9 +278,9 @@ function alternatingLooksRight(pairs: WordPair[]): boolean {
  * - alternating lines: English on one line, Russian (etc.) on the next
  */
 export function parseImportText(text: string): ParsedImportText {
-  const numberedCommaList = looksLikeNumberedCommaList(text)
-  const inline = parseInlinePairs(text, { numberedCommaList })
-  const alternating = numberedCommaList ? [] : parseAlternatingPairs(text)
+  const numberedPairList = looksLikeNumberedPairList(text)
+  const inline = parseInlinePairs(text, { numberedPairList })
+  const alternating = numberedPairList ? [] : parseAlternatingPairs(text)
 
   const nonEmpty = text
     .split(/\r?\n/)
@@ -281,7 +296,7 @@ export function parseImportText(text: string): ParsedImportText {
 
   const altGood = alternating.length > 0 && alternatingLooksRight(alternating)
   const preferAlternating =
-    !numberedCommaList &&
+    !numberedPairList &&
     altGood &&
     (alternating.length > inline.length ||
       (inlineSepShare < 0.3 && alternating.length >= Math.max(1, inline.length)))
