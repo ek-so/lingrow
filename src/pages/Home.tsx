@@ -644,7 +644,9 @@ export default function Home() {
 
       <NameMergedCollectionSheet
         open={mergeSource != null && mergeTarget != null}
-        initialName={mergeSource?.name ?? ""}
+        initialName={
+          mergeTarget ? (collections.find((c) => c.id === mergeTarget)?.name ?? "") : ""
+        }
         onConfirm={onConfirmMerge}
         onCancel={cancelMerge}
       />

@@ -389,21 +389,21 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
       const target = prev.find((c) => c.id === targetId)
       if (!source || !target) return prev
 
-      // Combine words from both collections (source first, then target)
-      const combinedWords = [...source.words, ...target.words]
+      // Combine words from both collections (target first, then source)
+      const combinedWords = [...target.words, ...source.words]
 
-      // Create the merged collection with source's metadata but new name and combined words
+      // Create the merged collection with target's metadata but new name and combined words
       merged = {
-        ...source,
+        ...target,
         name: newName.trim(),
         words: combinedWords,
         updatedAt: nowIso(),
       }
 
-      // Remove target and update source
+      // Remove source and update target
       const next = prev
-        .filter((c) => c.id !== targetId)
-        .map((c) => (c.id === sourceId ? merged! : c))
+        .filter((c) => c.id !== sourceId)
+        .map((c) => (c.id === targetId ? merged! : c))
       
       commitLibrary(next, foldersRef.current)
       return next
