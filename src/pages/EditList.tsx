@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react"
-import { Link, useNavigate, useParams } from "react-router-dom"
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { useCollections } from "@/lib/collections-context"
 import { AppHeader } from "@/components/AppHeader"
 import { AppShell } from "@/components/AppShell"
@@ -13,8 +13,11 @@ import { useUnsavedChangesGuard } from "@/lib/use-unsaved-changes"
 export default function EditList() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { getCollection, folders, updateCollection } = useCollections()
   const collection = id ? getCollection(id) : undefined
+  const scrollToParam = searchParams.get("scrollTo")
+  const scrollToWordIndex = scrollToParam != null ? parseInt(scrollToParam, 10) : undefined
   // Edit is a subpage of the set (study), not of the containing folder.
   const backTo = collection ? `/study/${collection.id}` : "/"
   const backLabel = collection?.name ?? "Back"
@@ -91,6 +94,7 @@ export default function EditList() {
               submitLabel="Save changes"
               onDirtyChange={onDirtyChange}
               submitRef={submitRef}
+              scrollToWordIndex={scrollToWordIndex}
               onSubmit={(values) => {
                 allowNextNavigation()
                 updateCollection(collection.id, values)

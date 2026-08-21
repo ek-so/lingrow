@@ -450,6 +450,8 @@ interface CollectionFormProps {
     translationLang: LangCode
     words: Array<{ word: string; translation: string; examples?: string[] }>
   }) => void
+  /** Index of word to scroll to on mount (0-based). */
+  scrollToWordIndex?: number
   /** Fires when typed content appears or clears (language-only changes ignored). */
   onDirtyChange?: (dirty: boolean) => void
   /** Parent can call this to run the same validation + submit as the Save button. */
@@ -514,6 +516,7 @@ export function CollectionForm({
   onDirtyChange,
   submitRef,
   persistDraftKey,
+  scrollToWordIndex,
 }: CollectionFormProps) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -538,6 +541,7 @@ export function CollectionForm({
   const [reorderMode, setReorderMode] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
   const keyboardOffset = useKeyboardBottomOffset()
+  const wordRowRefs = useRef<Map<number, HTMLDivElement>>(new Map())
 
   const sameLanguage = wordLang === translationLang
 
@@ -567,6 +571,16 @@ export function CollectionForm({
       clearNewSetDraft(persistDraftKey)
     }
   }, [persistDraftKey, name, description, wordLang, translationLang, words])
+
+  useEffect(() => {
+    if (scrollToWordIndex == null || scrollToWordIndex < 0 || scrollToWordIndex >= words.length) return
+    const targetElement = wordRowRefs.current.get(scrollToWordIndex)
+    if (targetElement) {
+      setTimeout(() => {
+        targetElement.scrollIntoView({ behavior: "smooth", block: "center" })
+      }, 100)
+    }
+  }, [scrollToWordIndex, words.length])
 
   function updateWord(key: string, field: "word" | "translation" | "examplesText", value: string) {
     setWords((prev) => prev.map((w) => (w.key === key ? { ...w, [field]: value } : w)))
@@ -792,40 +806,60 @@ export function CollectionForm({
             onReorder={reorderWords}
             className="mt-4 flex flex-col gap-2"
           >
-            {words.map((w) => (
+            {words.map((w, index) => (
               <SortableItem
                 key={w.key}
                 id={w.key}
                 handleLabel={`Reorder word ${w.word || "row"}`}
               >
                 {(dragHandle) => (
-                  <WordRow
-                    draft={w}
-                    wordLang={wordLang}
-                    translationLang={translationLang}
-                    canRemove={words.length > 1}
-                    onChange={(field, value) => updateWord(w.key, field, value)}
-                    onRemove={() => removeWord(w.key)}
-                    dragHandle={dragHandle}
-                    mode="reorder"
-                  />
+                  <div
+                    ref={(el) => {
+                      if (el) {
+                        wordRowRefs.current.set(index, el)
+                      } else {
+                        wordRowRefs.current.delete(index)
+                      }
+                    }}
+                  >
+                    <WordRow
+                      draft={w}
+                      wordLang={wordLang}
+                      translationLang={translationLang}
+                      canRemove={words.length > 1}
+                      onChange={(field, value) => updateWord(w.key, field, value)}
+                      onRemove={() => removeWord(w.key)}
+                      dragHandle={dragHandle}
+                      mode="reorder"
+                    />
+                  </div>
                 )}
               </SortableItem>
             ))}
           </SortableList>
         ) : (
           <div className="mt-4 flex flex-col gap-4">
-            {words.map((w) => (
-              <WordRow
+            {words.map((w, index) => (
+              <div
                 key={w.key}
-                draft={w}
-                wordLang={wordLang}
-                translationLang={translationLang}
-                canRemove={words.length > 1}
-                onChange={(field, value) => updateWord(w.key, field, value)}
-                onRemove={() => removeWord(w.key)}
-                mode="edit"
-              />
+                ref={(el) => {
+                  if (el) {
+                    wordRowRefs.current.set(index, el)
+                  } else {
+                    wordRowRefs.current.delete(index)
+                  }
+                }}
+              >
+                <WordRow
+                  draft={w}
+                  wordLang={wordLang}
+                  translationLang={translationLang}
+                  canRemove={words.length > 1}
+                  onChange={(field, value) => updateWord(w.key, field, value)}
+                  onRemove={() => removeWord(w.key)}
+                  mode="edit"
+                />
+              </div>
             ))}
           </div>
         )}

@@ -632,7 +632,7 @@ export default function Study() {
                   actions={[
                     titleAction.edit(() => {
                       stopSpeech()
-                      navigate(`/edit/${collection.id}`)
+                      navigate(`/edit/${collection.id}?scrollTo=${index}`)
                     }),
                     titleAction.move(() => {
                       stopSpeech()
