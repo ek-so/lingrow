@@ -159,6 +159,7 @@ function WordRow({
   onRemove,
   dragHandle,
   mode = "edit",
+  onWordInputMount,
 }: {
   draft: DraftWord
   wordLang: LangCode
@@ -169,6 +170,7 @@ function WordRow({
   dragHandle?: ReactNode
   /** Full editor vs compact reorder row. */
   mode?: "edit" | "reorder"
+  onWordInputMount?: (el: HTMLInputElement | null) => void
 }) {
   const { status, suggestion } = useWordSuggest(draft.word, wordLang, translationLang)
   const sameLanguage = wordLang === translationLang
@@ -299,6 +301,7 @@ function WordRow({
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-col gap-1">
             <input
+              ref={onWordInputMount}
               value={draft.word}
               onChange={(e) => onChange("word", e.target.value)}
               onFocus={() => setFocusedField("word")}
@@ -542,6 +545,7 @@ export function CollectionForm({
   const nameInputRef = useRef<HTMLInputElement>(null)
   const keyboardOffset = useKeyboardBottomOffset()
   const wordRowRefs = useRef<Map<number, HTMLDivElement>>(new Map())
+  const wordInputRefs = useRef<Map<number, HTMLInputElement>>(new Map())
 
   const sameLanguage = wordLang === translationLang
 
@@ -575,9 +579,13 @@ export function CollectionForm({
   useEffect(() => {
     if (scrollToWordIndex == null || scrollToWordIndex < 0 || scrollToWordIndex >= words.length) return
     const targetElement = wordRowRefs.current.get(scrollToWordIndex)
-    if (targetElement) {
+    const targetInput = wordInputRefs.current.get(scrollToWordIndex)
+    if (targetElement && targetInput) {
       setTimeout(() => {
         targetElement.scrollIntoView({ behavior: "smooth", block: "center" })
+        setTimeout(() => {
+          targetInput.focus()
+        }, 300)
       }, 100)
     }
   }, [scrollToWordIndex, words.length])
@@ -831,6 +839,13 @@ export function CollectionForm({
                       onRemove={() => removeWord(w.key)}
                       dragHandle={dragHandle}
                       mode="reorder"
+                      onWordInputMount={(el) => {
+                        if (el) {
+                          wordInputRefs.current.set(index, el)
+                        } else {
+                          wordInputRefs.current.delete(index)
+                        }
+                      }}
                     />
                   </div>
                 )}
@@ -858,6 +873,13 @@ export function CollectionForm({
                   onChange={(field, value) => updateWord(w.key, field, value)}
                   onRemove={() => removeWord(w.key)}
                   mode="edit"
+                  onWordInputMount={(el) => {
+                    if (el) {
+                      wordInputRefs.current.set(index, el)
+                    } else {
+                      wordInputRefs.current.delete(index)
+                    }
+                  }}
                 />
               </div>
             ))}
