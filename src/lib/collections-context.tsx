@@ -47,6 +47,7 @@ interface CollectionsContextValue {
   deleteCollection: (id: string) => void
   moveCollection: (id: string, folderId: string | null) => void
   reorderCollections: (folderId: string | null, orderedIds: string[]) => void
+  mergeCollections: (sourceId: string, targetId: string, newName: string) => Collection | undefined
   addFolder: (name: string, parentId?: string | null) => Folder
   renameFolder: (id: string, name: string) => void
   moveFolder: (id: string, parentId: string | null) => void
@@ -381,6 +382,35 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
     })
   }
 
+  function mergeCollections(sourceId: string, targetId: string, newName: string) {
+    let merged: Collection | undefined
+    setCollections((prev) => {
+      const source = prev.find((c) => c.id === sourceId)
+      const target = prev.find((c) => c.id === targetId)
+      if (!source || !target) return prev
+
+      // Combine words from both collections (source first, then target)
+      const combinedWords = [...source.words, ...target.words]
+
+      // Create the merged collection with source's metadata but new name and combined words
+      merged = {
+        ...source,
+        name: newName.trim(),
+        words: combinedWords,
+        updatedAt: nowIso(),
+      }
+
+      // Remove target and update source
+      const next = prev
+        .filter((c) => c.id !== targetId)
+        .map((c) => (c.id === sourceId ? merged! : c))
+      
+      commitLibrary(next, foldersRef.current)
+      return next
+    })
+    return merged
+  }
+
   function addFolder(name: string, parentId: string | null = null) {
     const trimmed = name.trim() || "Untitled folder"
     const parent =
@@ -492,6 +522,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
         deleteCollection,
         moveCollection,
         reorderCollections,
+        mergeCollections,
         addFolder,
         renameFolder,
         moveFolder,

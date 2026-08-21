@@ -12,6 +12,8 @@ import { MoveHereSheet } from "@/components/MoveHereSheet"
 import { MoveToFolderSheet } from "@/components/MoveToFolderSheet"
 import { NameFolderSheet } from "@/components/NameFolderSheet"
 import { SearchSheet } from "@/components/SearchSheet"
+import { SelectCollectionToMergeSheet } from "@/components/SelectCollectionToMergeSheet"
+import { NameMergedCollectionSheet } from "@/components/NameMergedCollectionSheet"
 import { SortMenu } from "@/components/SortMenu"
 import { SortableItem, SortableList } from "@/components/SortableList"
 import { AppHeader } from "@/components/AppHeader"
@@ -48,6 +50,7 @@ export default function Home() {
     deleteCollection,
     moveCollection,
     reorderCollections,
+    mergeCollections,
     addFolder,
     renameFolder,
     moveFolder,
@@ -68,6 +71,8 @@ export default function Home() {
   const [moveTarget, setMoveTarget] = useState<MoveTarget | null>(null)
   const [sortMode, setSortMode] = useState<LibrarySortMode>(() => loadLibrarySortMode())
   const [reorderMode, setReorderMode] = useState(false)
+  const [mergeSource, setMergeSource] = useState<{ id: string; name: string } | null>(null)
+  const [mergeTarget, setMergeTarget] = useState<string | null>(null)
 
   useEffect(() => {
     if (currentFolderId && currentFolder) {
@@ -179,6 +184,26 @@ export default function Home() {
 
   function onExport(collection: Collection) {
     void downloadCollectionExcel(collection)
+  }
+
+  function startMerge(collection: Collection) {
+    setMergeSource({ id: collection.id, name: collection.name })
+  }
+
+  function onSelectMergeTarget(targetId: string) {
+    setMergeTarget(targetId)
+  }
+
+  function onConfirmMerge(newName: string) {
+    if (!mergeSource || !mergeTarget) return
+    mergeCollections(mergeSource.id, mergeTarget, newName)
+    setMergeTarget(null)
+    setMergeSource(null)
+  }
+
+  function cancelMerge() {
+    setMergeSource(null)
+    setMergeTarget(null)
   }
 
   function goNewSet() {
@@ -465,6 +490,7 @@ export default function Home() {
                               folderId: c.folderId ?? null,
                             }),
                           ),
+                          titleAction.merge(() => startMerge(c)),
                           titleAction.export(() => onExport(c)),
                           titleAction.delete(() => onDeleteSet(c.id, c.name)),
                         ])}
@@ -606,6 +632,21 @@ export default function Home() {
           }
           setMoveTarget(null)
         }}
+      />
+
+      <SelectCollectionToMergeSheet
+        open={mergeSource != null && mergeTarget == null}
+        sourceCollectionId={mergeSource?.id ?? ""}
+        collections={collections}
+        onSelect={onSelectMergeTarget}
+        onCancel={cancelMerge}
+      />
+
+      <NameMergedCollectionSheet
+        open={mergeSource != null && mergeTarget != null}
+        initialName={mergeSource?.name ?? ""}
+        onConfirm={onConfirmMerge}
+        onCancel={cancelMerge}
       />
     </>
   )

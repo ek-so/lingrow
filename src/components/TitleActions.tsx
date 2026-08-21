@@ -5,6 +5,7 @@ import {
   Download,
   FolderInput,
   FolderPlus,
+  Merge,
   Pencil,
   Plus,
   Search,
@@ -29,6 +30,7 @@ export const TITLE_ACTION_ORDER: Record<string, number> = {
   edit: 50,
   rename: 60,
   move: 70,
+  merge: 75,
   export: 80,
   clear: 100,
   delete: 110,
@@ -197,6 +199,12 @@ export const titleAction = {
     id: "move",
     label: "Move to…",
     icon: <FolderInput />,
+    onSelect,
+  }),
+  merge: (onSelect: () => void): TitleAction => ({
+    id: "merge",
+    label: "Merge with…",
+    icon: <Merge />,
     onSelect,
   }),
   export: (onSelect: () => void): TitleAction => ({
