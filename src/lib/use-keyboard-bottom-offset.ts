@@ -1,68 +1,40 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 
 /**
- * Distance from the layout viewport bottom to the visual viewport bottom —
- * typically the soft-keyboard height on mobile. Use to lift fixed footers.
+ * Returns the keyboard height when using overlay keyboard mode
+ * (interactive-widget=resizes-visual). This allows fixed bottom elements
+ * to stay visible above the keyboard. The keyboard overlays the content,
+ * and the browser scrolls focused inputs into view automatically.
  */
 export function useKeyboardBottomOffset() {
   const [offset, setOffset] = useState(0)
-  const timeoutRef = useRef<number | null>(null)
 
   useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
 
-    function sync() {
-      const inset = Math.max(0, window.innerHeight - vv!.height - vv!.offsetTop)
+    function updateOffset() {
+      // Calculate keyboard height: difference between layout and visual viewport
+      // When keyboard is open, visual viewport is smaller
+      const keyboardHeight = Math.max(
+        0,
+        window.innerHeight - (vv!.height + vv!.offsetTop)
+      )
       
-      // Clear any pending timeout
-      if (timeoutRef.current) {
-        window.clearTimeout(timeoutRef.current)
-        timeoutRef.current = null
-      }
-
-      // If keyboard is closing (inset is very small), add a small delay to ensure smooth transition
-      if (inset < 10) {
-        timeoutRef.current = window.setTimeout(() => {
-          setOffset(0)
-        }, 100)
-      } else {
-        setOffset(inset)
-      }
+      // Only apply offset if it's significant (avoid tiny fluctuations)
+      setOffset(keyboardHeight > 10 ? keyboardHeight : 0)
     }
 
-    function handleFocusOut() {
-      // When input loses focus, wait a moment and check if another input gained focus
-      // If not, the keyboard is likely closing
-      timeoutRef.current = window.setTimeout(() => {
-        const activeEl = document.activeElement
-        const isInput = activeEl?.tagName === "INPUT" || 
-                       activeEl?.tagName === "TEXTAREA" ||
-                       activeEl?.hasAttribute("contenteditable")
-        if (!isInput) {
-          setOffset(0)
-        }
-      }, 150)
-    }
+    // Update immediately
+    updateOffset()
 
-    sync()
-    vv.addEventListener("resize", sync)
-    vv.addEventListener("scroll", sync)
-    
-    // Also listen to window resize as a fallback
-    window.addEventListener("resize", sync)
-    
-    // Listen for focus changes to detect keyboard closing
-    document.addEventListener("focusout", handleFocusOut)
-    
+    // Listen to visual viewport changes (keyboard open/close, orientation)
+    vv.addEventListener("resize", updateOffset)
+    vv.addEventListener("scroll", updateOffset)
+
     return () => {
-      vv.removeEventListener("resize", sync)
-      vv.removeEventListener("scroll", sync)
-      window.removeEventListener("resize", sync)
-      document.removeEventListener("focusout", handleFocusOut)
-      if (timeoutRef.current) {
-        window.clearTimeout(timeoutRef.current)
-      }
+      vv.removeEventListener("resize", updateOffset)
+      vv.removeEventListener("scroll", updateOffset)
     }
   }, [])
 
