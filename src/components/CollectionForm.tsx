@@ -32,9 +32,11 @@ import { detectPairLanguages, isSpreadsheetFile, parseSpreadsheetFile } from "@/
 import {
   appendCommaItem,
   applyGermanPlural,
+  applyGermanVerbForms,
   applyPrefix,
   commaListIncludes,
   hasGermanPlural,
+  hasGermanVerbForms,
   hasPrefix,
   type PrefixHint,
 } from "@/lib/suggest-format"
@@ -123,20 +125,25 @@ function Chip({
 function PrefixHints({
   prefix,
   plural,
+  verbForms,
   value,
   onApplyPrefix,
   onApplyPlural,
+  onApplyVerbForms,
 }: {
   prefix?: PrefixHint
   plural?: string
+  verbForms?: string
   value: string
   onApplyPrefix: (prefix: PrefixHint) => void
   onApplyPlural: (plural: string) => void
+  onApplyVerbForms: (forms: string) => void
 }) {
   // Don't offer “to” / articles once they’re already on the field.
   const showPrefix = !!prefix && !hasPrefix(value, prefix)
   const showPlural = !!plural && !hasGermanPlural(value, plural)
-  if (!showPrefix && !showPlural) return null
+  const showVerbForms = !!verbForms && !hasGermanVerbForms(value, verbForms)
+  if (!showPrefix && !showPlural && !showVerbForms) return null
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <span className="text-[11px] text-muted-foreground">Add</span>
@@ -145,6 +152,9 @@ function PrefixHints({
       ) : null}
       {showPlural && plural ? (
         <Chip muted label={`, ${plural}`} onClick={() => onApplyPlural(plural)} />
+      ) : null}
+      {showVerbForms && verbForms ? (
+        <Chip muted label={`, ${verbForms}`} onClick={() => onApplyVerbForms(verbForms)} />
       ) : null}
     </div>
   )
@@ -250,13 +260,13 @@ function WordRow({
   const showWordHints =
     focusedField === "word" &&
     !!suggestion &&
-    !!(suggestion.wordPrefix || suggestion.wordPlural)
+    !!(suggestion.wordPrefix || suggestion.wordPlural || suggestion.wordVerbForms)
 
   const showTranslationHints =
     focusedField === "translation" &&
     !!suggestion &&
     !sameLanguage &&
-    !!(suggestion.translationPrefix || suggestion.translationPlural)
+    !!(suggestion.translationPrefix || suggestion.translationPlural || suggestion.translationVerbForms)
 
   const showTranslationChips =
     focusedField === "translation" &&
@@ -329,9 +339,11 @@ function WordRow({
               <PrefixHints
                 prefix={suggestion.wordPrefix}
                 plural={suggestion.wordPlural}
+                verbForms={suggestion.wordVerbForms}
                 value={draft.word}
                 onApplyPrefix={(p) => onChange("word", applyPrefix(draft.word, p))}
                 onApplyPlural={(pl) => onChange("word", applyGermanPlural(draft.word, pl))}
+                onApplyVerbForms={(vf) => onChange("word", applyGermanVerbForms(draft.word, vf))}
               />
             ) : null}
           </div>
@@ -355,6 +367,7 @@ function WordRow({
               <PrefixHints
                 prefix={suggestion.translationPrefix}
                 plural={suggestion.translationPlural}
+                verbForms={suggestion.translationVerbForms}
                 value={draft.translation}
                 onApplyPrefix={(p) => {
                   const parts = draft.translation.split(/\s*,\s*/)
@@ -369,6 +382,11 @@ function WordRow({
                   const base = draft.translation.trim() || suggestion.translation || ""
                   autoTranslation.current = null
                   onChange("translation", applyGermanPlural(base, pl))
+                }}
+                onApplyVerbForms={(vf) => {
+                  const base = draft.translation.trim() || suggestion.translation || ""
+                  autoTranslation.current = null
+                  onChange("translation", applyGermanVerbForms(base, vf))
                 }}
               />
             ) : null}

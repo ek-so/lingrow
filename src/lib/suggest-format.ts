@@ -75,3 +75,24 @@ export function hasGermanPlural(text: string, plural: string): boolean {
   const tail = text.split(",").slice(1).join(",").toLowerCase()
   return tail.includes(pl)
 }
+
+/**
+ * Append German verb conjugations after a comma: "denken" → "denken, denkt, dachte, hat gedacht".
+ */
+export function applyGermanVerbForms(text: string, verbForms: string): string {
+  const forms = verbForms.trim()
+  if (!forms) return text.trim()
+  const current = text.trim()
+  if (!current) return forms
+
+  // Already has a comma tail — replace it with verb forms.
+  const head = current.includes(",") ? current.split(",")[0]!.trim() : current
+  return `${head}, ${forms}`
+}
+
+export function hasGermanVerbForms(text: string, verbForms: string): boolean {
+  const forms = verbForms.trim().toLowerCase()
+  if (!forms || !text.includes(",")) return false
+  const tail = text.split(",").slice(1).join(",").toLowerCase()
+  return tail.includes(forms)
+}
