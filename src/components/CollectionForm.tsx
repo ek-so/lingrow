@@ -477,6 +477,8 @@ interface CollectionFormProps {
   onDirtyChange?: (dirty: boolean) => void
   /** Parent can call this to run the same validation + submit as the Save button. */
   submitRef?: MutableRefObject<(() => boolean) | null>
+  /** Parent can call this to clear all words. */
+  clearWordsRef?: MutableRefObject<(() => void) | null>
   /** When set, typed progress is restored after reload and kept in localStorage. */
   persistDraftKey?: string
 }
@@ -536,6 +538,7 @@ export function CollectionForm({
   onSubmit,
   onDirtyChange,
   submitRef,
+  clearWordsRef,
   persistDraftKey,
   scrollToWordIndex,
 }: CollectionFormProps) {
@@ -721,6 +724,16 @@ export function CollectionForm({
     submitRef.current = trySubmit
     return () => {
       submitRef.current = null
+    }
+  })
+
+  useEffect(() => {
+    if (!clearWordsRef) return
+    clearWordsRef.current = () => {
+      setWords([emptyDraftWord()])
+    }
+    return () => {
+      clearWordsRef.current = null
     }
   })
 

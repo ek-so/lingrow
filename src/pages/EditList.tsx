@@ -6,15 +6,17 @@ import { AppShell } from "@/components/AppShell"
 import { CollectionForm } from "@/components/CollectionForm"
 import { ConfirmSaveProgressSheet } from "@/components/ConfirmSaveProgressSheet"
 import { PageBody, PageTitle } from "@/components/PageTitle"
+import { TitleActions, titleAction } from "@/components/TitleActions"
 import { draftFromWords } from "@/lib/collection-form"
 import { folderTrailUp } from "@/lib/folders"
+import { clearStudyProgress } from "@/lib/study-progress"
 import { useUnsavedChangesGuard } from "@/lib/use-unsaved-changes"
 
 export default function EditList() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { getCollection, folders, updateCollection } = useCollections()
+  const { getCollection, folders, updateCollection, deleteCollection } = useCollections()
   const collection = id ? getCollection(id) : undefined
   const scrollToParam = searchParams.get("scrollTo")
   const scrollToWordIndex = scrollToParam != null ? parseInt(scrollToParam, 10) : undefined
@@ -35,6 +37,7 @@ export default function EditList() {
 
   const [dirty, setDirty] = useState(false)
   const submitRef = useRef<(() => boolean) | null>(null)
+  const clearWordsRef = useRef<(() => void) | null>(null)
   const onDirtyChange = useCallback((next: boolean) => setDirty(next), [])
 
   const {
@@ -49,6 +52,21 @@ export default function EditList() {
     allowPathPrefixes: ["/import/"],
     onSave: () => submitRef.current?.() ?? false,
   })
+
+  function onDeleteSet() {
+    if (!collection) return
+    if (!window.confirm(`Delete "${collection.name}"? This can't be undone.`)) return
+    allowNextNavigation()
+    clearStudyProgress(collection.id)
+    deleteCollection(collection.id)
+    navigate(backTo)
+  }
+
+  function onClearWords() {
+    if (!collection) return
+    if (!window.confirm(`Clear all words from "${collection.name}"? This can't be undone.`)) return
+    clearWordsRef.current?.()
+  }
 
   if (!collection) {
     return (
@@ -75,6 +93,15 @@ export default function EditList() {
               trail: backTrail,
               onTrailSelect: (to) => requestLeave(to),
             }}
+            actions={
+              <TitleActions
+                menuLabel={`Actions for ${collection.name}`}
+                actions={[
+                  titleAction.clear(onClearWords, { label: "Clear words" }),
+                  titleAction.delete(onDeleteSet),
+                ]}
+              />
+            }
           />
         }
       >
@@ -94,6 +121,7 @@ export default function EditList() {
               submitLabel="Save changes"
               onDirtyChange={onDirtyChange}
               submitRef={submitRef}
+              clearWordsRef={clearWordsRef}
               scrollToWordIndex={scrollToWordIndex}
               onSubmit={(values) => {
                 allowNextNavigation()
