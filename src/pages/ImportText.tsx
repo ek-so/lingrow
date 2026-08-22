@@ -12,7 +12,6 @@ import { ImportPreview } from "@/components/ImportPreview"
 import { loadImportDraft, type ImportDraft } from "@/lib/import-bridge"
 import { parseImportText } from "@/lib/parse-import"
 import { importBackLabel, useImportReview } from "@/lib/use-import-review"
-import { useKeyboardBottomOffset } from "@/lib/use-keyboard-bottom-offset"
 import type { WordPair } from "@/lib/collection-form"
 import type { LangCode } from "@/types"
 
@@ -77,7 +76,6 @@ function ImportTextLoaded({ draft }: { draft: ImportDraft }) {
   }, [])
 
   const hasUnsaved = pairs.length > 0 || text.trim().length > 0
-  const keyboardOffset = useKeyboardBottomOffset()
 
   function applyParsedText(raw: string) {
     const parsed = parseImportText(raw)
@@ -199,7 +197,7 @@ function ImportTextLoaded({ draft }: { draft: ImportDraft }) {
         </PageBody>
       </AppShell>
 
-      <FixedBottomBar bottomOffset={keyboardOffset}>
+      <FixedBottomBar>
         <Button
           type="button"
           size="lg"

@@ -46,7 +46,6 @@ import { OverflowMenu } from "@/components/OverflowMenu"
 import { PageSubtitle } from "@/components/PageTitle"
 import { SortableItem, SortableList } from "@/components/SortableList"
 import { TitleActions, titleAction, toOverflowMenuItems } from "@/components/TitleActions"
-import { useKeyboardBottomOffset } from "@/lib/use-keyboard-bottom-offset"
 import {
   ClipboardPaste,
   FileSpreadsheet,
@@ -564,7 +563,6 @@ export function CollectionForm({
   const [nameError, setNameError] = useState(false)
   const [reorderMode, setReorderMode] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
-  const keyboardOffset = useKeyboardBottomOffset()
   const wordRowRefs = useRef<Map<number, HTMLDivElement>>(new Map())
   const wordInputRefs = useRef<Map<number, HTMLInputElement>>(new Map())
 
@@ -931,10 +929,7 @@ export function CollectionForm({
         </div>
       )}
 
-      <div
-        className="fixed inset-x-0 bottom-0 z-20 border-t border-border/80 bg-background/90 backdrop-blur-md"
-        style={{ bottom: keyboardOffset }}
-      >
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border/80 bg-background/90 backdrop-blur-md">
         <div className="mx-auto max-w-2xl px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {reorderMode ? (
             <Button
