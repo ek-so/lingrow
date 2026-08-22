@@ -320,9 +320,6 @@ export default function Study() {
       return next
     })
     setPlaying(false)
-    // Play cling sound immediately when autoplay finishes
-    if (!quietRef.current) playClingSound()
-    clingPlayed.current = true
     setView("stats")
   }
 
