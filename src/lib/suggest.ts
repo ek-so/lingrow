@@ -9,6 +9,11 @@ import {
   guessPluralFromTexts,
   type GermanGender,
 } from "@/lib/german-noun"
+import {
+  bareGermanVerb,
+  fetchGermanVerbInfo,
+  formatVerbForms,
+} from "@/lib/german-verb"
 import type { PrefixHint } from "@/lib/suggest-format"
 
 export interface WordSuggestion {
@@ -26,6 +31,10 @@ export interface WordSuggestion {
   translationPrefix?: PrefixHint
   /** German plural lemma to append after a comma on the translation field. */
   translationPlural?: string
+  /** German verb conjugations to append after a comma on the word field. */
+  wordVerbForms?: string
+  /** German verb conjugations to append after a comma on the translation field. */
+  translationVerbForms?: string
 }
 
 const MAX_ALTERNATIVES = 6
@@ -322,6 +331,28 @@ async function resolveGermanNounHints(
   }
 }
 
+interface VerbHints {
+  prefix?: PrefixHint
+  verbForms?: string
+  resolved: boolean
+}
+
+async function resolveGermanVerbHints(
+  lemma: string,
+  signal?: AbortSignal,
+): Promise<VerbHints> {
+  const info = await fetchGermanVerbInfo(lemma, signal)
+  if (!info) return { resolved: false }
+
+  const verbForms = formatVerbForms(info)
+  if (!verbForms) return { resolved: false }
+
+  return {
+    verbForms,
+    resolved: true,
+  }
+}
+
 /**
  * Look up a translation + usage examples for a typed word.
  * Uses Google Translate’s public gtx endpoint (no API key),
@@ -359,7 +390,10 @@ export async function suggestForWord(
   let wordPlural: string | undefined
   let translationPrefix: PrefixHint | undefined
   let translationPlural: string | undefined
+  let wordVerbForms: string | undefined
+  let translationVerbForms: string | undefined
   let nounResolved = true
+  let verbResolved = true
 
   const { isVerb, isNoun } = analyzePos(core.raw ?? [], translation)
   const hintTexts = core.examples
@@ -374,6 +408,11 @@ export async function suggestForWord(
       translationPrefix = hints.prefix
       translationPlural = hints.plural
       nounResolved = hints.resolved
+    } else if (to === "de" && isVerb) {
+      const lemma = bareGermanVerb(translation) || translation
+      const hints = await resolveGermanVerbHints(lemma, signal)
+      translationVerbForms = hints.verbForms
+      verbResolved = hints.resolved
     }
   }
 
@@ -384,6 +423,10 @@ export async function suggestForWord(
     wordPrefix = hints.prefix
     wordPlural = hints.plural
     nounResolved = nounResolved && hints.resolved
+  } else if (from === "de" && isVerb) {
+    const hints = await resolveGermanVerbHints(query, signal)
+    wordVerbForms = hints.verbForms
+    verbResolved = verbResolved && hints.resolved
   }
 
   const parsed: WordSuggestion = {
@@ -394,9 +437,11 @@ export async function suggestForWord(
     wordPlural,
     translationPrefix,
     translationPlural,
+    wordVerbForms,
+    translationVerbForms,
   }
 
-  const hasHints = !!(wordPrefix || wordPlural || translationPrefix || translationPlural)
+  const hasHints = !!(wordPrefix || wordPlural || translationPrefix || translationPlural || wordVerbForms || translationVerbForms)
   if (!parsed.translation && parsed.alternatives.length === 0 && parsed.examples.length === 0 && !hasHints) {
     return null
   }
@@ -410,8 +455,8 @@ export async function suggestForWord(
     return null
   }
 
-  // Avoid caching incomplete noun enrichments (e.g. Wiktionary rate limit).
-  if (nounResolved) {
+  // Avoid caching incomplete noun/verb enrichments (e.g. Wiktionary rate limit).
+  if (nounResolved && verbResolved) {
     cache.set(key, parsed)
     if (cache.size > CACHE_LIMIT) {
       const oldest = cache.keys().next().value
