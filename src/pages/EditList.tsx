@@ -93,6 +93,11 @@ export default function EditList() {
               trail: backTrail,
               onTrailSelect: (to) => requestLeave(to),
             }}
+          />
+        }
+      >
+        <PageBody>
+          <PageTitle
             actions={
               <TitleActions
                 menuLabel={`Actions for ${collection.name}`}
@@ -102,11 +107,9 @@ export default function EditList() {
                 ]}
               />
             }
-          />
-        }
-      >
-        <PageBody>
-          <PageTitle>Edit set</PageTitle>
+          >
+            Edit set
+          </PageTitle>
 
           <div className="mt-8">
             <CollectionForm
