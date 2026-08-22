@@ -5,12 +5,13 @@ import { AppHeader } from "@/components/AppHeader"
 import { AppShell } from "@/components/AppShell"
 import { CollectionForm } from "@/components/CollectionForm"
 import { ConfirmSaveProgressSheet } from "@/components/ConfirmSaveProgressSheet"
+import { OverflowMenu } from "@/components/OverflowMenu"
 import { PageBody, PageTitle } from "@/components/PageTitle"
-import { TitleActions, titleAction } from "@/components/TitleActions"
 import { draftFromWords } from "@/lib/collection-form"
 import { folderTrailUp } from "@/lib/folders"
 import { clearStudyProgress } from "@/lib/study-progress"
 import { useUnsavedChangesGuard } from "@/lib/use-unsaved-changes"
+import { Trash2 } from "lucide-react"
 
 export default function EditList() {
   const { id } = useParams()
@@ -99,11 +100,20 @@ export default function EditList() {
         <PageBody>
           <PageTitle
             actions={
-              <TitleActions
-                menuLabel={`Actions for ${collection.name}`}
-                actions={[
-                  titleAction.clear(onClearWords, { label: "Clear words" }),
-                  titleAction.delete(onDeleteSet),
+              <OverflowMenu
+                label={`Actions for ${collection.name}`}
+                items={[
+                  {
+                    label: "Clear words",
+                    icon: <Trash2 />,
+                    onSelect: onClearWords,
+                  },
+                  {
+                    label: "Delete",
+                    icon: <Trash2 />,
+                    destructive: true,
+                    onSelect: onDeleteSet,
+                  },
                 ]}
               />
             }
