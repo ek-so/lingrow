@@ -52,7 +52,8 @@ export function formatVerbForms(info: GermanVerbInfo): string {
   if (info.thirdPersonSingular) parts.push(info.thirdPersonSingular)
   if (info.preterite) parts.push(info.preterite)
   if (info.partizipII && info.auxiliary) {
-    parts.push(`${info.auxiliary} ${info.partizipII}`)
+    const aux3sg = info.auxiliary === "sein" ? "ist" : "hat"
+    parts.push(`${aux3sg} ${info.partizipII}`)
   } else if (info.partizipII) {
     parts.push(info.partizipII)
   }
